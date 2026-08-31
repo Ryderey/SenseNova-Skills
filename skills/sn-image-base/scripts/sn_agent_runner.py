@@ -1,9 +1,10 @@
-"""OpenClaw unified runner for sn-image-base skills.
+"""Agent-agnostic unified runner for sn-image-base skills.
 
 All tools are invoked as async coroutines and executed via asyncio.run().
 
 Usage:
     python sn_agent_runner.py sn-image-generate --prompt "..."
+    python sn_agent_runner.py sn-image-edit --prompt "..." --images reference.png
     python sn_agent_runner.py sn-image-recognize --user-prompt "..." --images "..." --api-key "..." --base-url "..." --model "..."
     python sn_agent_runner.py sn-text-optimize --user-prompt "..." --api-key "..." --base-url "..." --model "..."
 """
@@ -13,6 +14,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -36,13 +38,7 @@ from sn_image_base.generation import (
 )
 from sn_image_base.llm import AnthropicMessagesAdapter, OpenAIChatAdapter
 
-# Allowed --image-size values, canonical lowercase form. Comparison is
-# case-insensitive (see run_image_generate). The runner forwards both 2k and 4k
-# to the configured backend; each backend then either renders the size, forwards
-# it upstream, or rejects it (e.g. the sensenova backend rejects 4k since it only
-# has 1K / 2K buckets). Any rejection surfaces as a status=failed JSON. 1k remains
-# backend-only until a caller adds it here.
-ALLOWED_IMAGE_SIZES = frozenset({"2k", "4k"})
+ALLOWED_IMAGE_SIZES = frozenset({"1k", "2k", "4k"})
 
 
 def _resolve_prompt(
@@ -75,8 +71,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     Returns:
         argparse.ArgumentParser:
-            Configured parser with subcommands for sn-image-generate,
-            sn-image-recognize, and sn-text-optimize.
+            Configured parser with subcommands for generation, editing,
+            optional external vision recognition, and optional text optimization.
     """
     parser = argparse.ArgumentParser(
         description="sn-image-base unified runner - async tool execution."
@@ -90,7 +86,7 @@ def build_parser() -> argparse.ArgumentParser:
     gen_parser.add_argument(
         "--image-size",
         default="2k",
-        help="Image size preset (case-insensitive), e.g. '2k' or '4k'; forwarded to the upstream model, which may reject an unsupported size",
+        help="1K/2K/4K preset or explicit WIDTHxHEIGHT (multiples of 32, 512-4096)",
     )
     gen_parser.add_argument(
         "--aspect-ratio",
@@ -112,6 +108,37 @@ def build_parser() -> argparse.ArgumentParser:
     )
     gen_parser.add_argument("--seed", type=int, default=None, help="Random seed")
     gen_parser.add_argument("--unet-name", dest="unet_name", default=None, help="UNet model name")
+    gen_parser.add_argument("--model", default=None, help="Image model override")
+    gen_parser.add_argument(
+        "--fallback-model",
+        default=None,
+        help="Generation-only fallback model (default: SN_IMAGE_GEN_FALLBACK_MODEL)",
+    )
+    gen_parser.add_argument("--no-fallback", action="store_true", help="Disable automatic fallback")
+    gen_parser.add_argument(
+        "--watermark",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include a model watermark (default: false)",
+    )
+    gen_parser.add_argument(
+        "--prompt-extend",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Let U1.5 extend the prompt (default: true)",
+    )
+    gen_parser.add_argument(
+        "--response-format",
+        choices=["b64_json", "url"],
+        default="b64_json",
+        help="U1.5 response transport; Fast always returns a temporary URL",
+    )
+    gen_parser.add_argument(
+        "--image-format",
+        choices=["png", "jpeg", "webp"],
+        default="png",
+        help="Saved U1.5 image format",
+    )
     gen_parser.add_argument(
         "--api-key",
         default="",
@@ -127,6 +154,37 @@ def build_parser() -> argparse.ArgumentParser:
     gen_parser.add_argument("--insecure", action="store_true", help="Disable TLS verification")
     gen_parser.add_argument("-o", "--output-format", choices=["text", "json"], default="text")
     gen_parser.add_argument("--save-path", type=Path, default=None)
+
+    # sn-image-edit (U1.5 native image-to-image)
+    edit_parser = subparsers.add_parser("sn-image-edit", help="Edit image(s) with SenseNova U1.5")
+    edit_parser.add_argument("--prompt", required=True, help="Editing instruction")
+    edit_parser.add_argument(
+        "--images", required=True, nargs="+", help="Local paths, public URLs, or image Data URLs"
+    )
+    edit_parser.add_argument("--image-size", default="auto", help="auto, 1K/2K/4K, or WIDTHxHEIGHT")
+    edit_parser.add_argument("--aspect-ratio", default=None, help="Optional ratio such as 16:9")
+    edit_parser.add_argument("--model", default=None, help="Image editing model override")
+    edit_parser.add_argument(
+        "--api-key", default="", help="API key (CLI > SN_IMAGE_GEN_API_KEY > SN_API_KEY)"
+    )
+    edit_parser.add_argument("--base-url", default="", help="API base URL")
+    edit_parser.add_argument("--timeout", type=float, default=300.0)
+    edit_parser.add_argument("--insecure", action="store_true", help="Disable TLS verification")
+    edit_parser.add_argument(
+        "--watermark",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Include a model watermark (default: false)",
+    )
+    edit_parser.add_argument(
+        "--prompt-extend",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Let U1.5 extend the prompt (default: true)",
+    )
+    edit_parser.add_argument("--response-format", choices=["b64_json", "url"], default="b64_json")
+    edit_parser.add_argument("-o", "--output-format", choices=["text", "json"], default="text")
+    edit_parser.add_argument("--save-path", type=Path, default=None)
 
     # sn-image-recognize (VLM)
     recog_parser = subparsers.add_parser(
@@ -208,6 +266,31 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _normalize_image_size(value: str, *, allow_auto: bool = False) -> str:
+    normalized = value.strip()
+    if normalized.lower() in ALLOWED_IMAGE_SIZES:
+        return normalized.lower()
+    if allow_auto and normalized.lower() == "auto":
+        return "auto"
+    if re.fullmatch(r"\d{3,4}[xX]\d{3,4}", normalized):
+        return normalized.lower()
+    accepted = "1K, 2K, 4K, or WIDTHxHEIGHT"
+    if allow_auto:
+        accepted = f"auto, {accepted}"
+    raise ValueError(f"image-size {value!r} is invalid. Accepted values: {accepted}.")
+
+
+def should_fallback_generation(result: dict, *, disabled: bool, fallback_model: str) -> bool:
+    """Return true only for the documented recoverable generation failure matrix."""
+    return bool(
+        not disabled
+        and fallback_model
+        and result.get("status") == "failed"
+        and result.get("operation") == "generate"
+        and result.get("fallback_eligible") is True
+    )
+
+
 async def run_image_generate(args: argparse.Namespace) -> tuple[dict, int]:
     """Run image-generate command using the configured image backend.
 
@@ -221,14 +304,7 @@ async def run_image_generate(args: argparse.Namespace) -> tuple[dict, int]:
             status, error_type, and error. exit_code is 0 on success and 1 on
             failure.
     """
-    normalized_size = args.image_size.strip().lower()
-    if normalized_size not in ALLOWED_IMAGE_SIZES:
-        accepted = ", ".join(sorted(ALLOWED_IMAGE_SIZES))
-        raise ValueError(
-            f"image-size {args.image_size!r} is not supported. "
-            f"Accepted values (case-insensitive): {accepted}."
-        )
-    args.image_size = normalized_size
+    args.image_size = _normalize_image_size(args.image_size)
 
     api_key = args.api_key or global_configs.SN_IMAGE_GEN_API_KEY
     if not api_key:
@@ -242,47 +318,48 @@ async def run_image_generate(args: argparse.Namespace) -> tuple[dict, int]:
             "Or pass --base-url."
         )
 
+    selected_model = args.model or global_configs.SN_IMAGE_GEN_MODEL
     if global_configs.SN_IMAGE_GEN_MODEL_TYPE == "sensenova":
-        if not global_configs.SN_IMAGE_GEN_MODEL:
+        if not selected_model:
             env_var_help = global_configs.get_env_var_help("SN_IMAGE_GEN_MODEL")
             raise BadConfigurationError(f"No model provided. {env_var_help}")
         client = SensenovaText2ImageClient(
             api_key=api_key,
             base_url=base_url,
-            model=global_configs.SN_IMAGE_GEN_MODEL,
+            model=selected_model,
             timeout=args.timeout,
             ssl_verify=not args.insecure,
         )
         print(
-            f"Using SenseNova model {global_configs.SN_IMAGE_GEN_MODEL!r} for image generation",
+            f"Using SenseNova model {selected_model!r} for image generation",
             file=sys.stderr,
         )
     elif global_configs.SN_IMAGE_GEN_MODEL_TYPE == "nano-banana":
-        if not global_configs.SN_IMAGE_GEN_MODEL:
+        if not selected_model:
             env_var_help = global_configs.get_env_var_help("SN_IMAGE_GEN_MODEL")
             raise BadConfigurationError(f"No model provided. {env_var_help}")
         client = NanoBananaText2ImageClient(
             api_key=api_key,
             base_url=base_url,
-            model=global_configs.SN_IMAGE_GEN_MODEL,
+            model=selected_model,
             timeout=args.timeout,
             ssl_verify=not args.insecure,
         )
         print(
-            f"Using Nano Banana model {global_configs.SN_IMAGE_GEN_MODEL!r} for image generation",
+            f"Using Nano Banana model {selected_model!r} for image generation",
             file=sys.stderr,
         )
     elif global_configs.SN_IMAGE_GEN_MODEL_TYPE == "openai-image":
-        if not global_configs.SN_IMAGE_GEN_MODEL:
+        if not selected_model:
             env_var_help = global_configs.get_env_var_help("SN_IMAGE_GEN_MODEL")
             raise BadConfigurationError(f"No model provided. {env_var_help}")
         client = OpenAIImageGenerationClient(
             api_key=api_key,
             base_url=base_url,
-            model=global_configs.SN_IMAGE_GEN_MODEL,
+            model=selected_model,
         )
         print(
-            f"Using OpenAI-compatible model {global_configs.SN_IMAGE_GEN_MODEL!r} for image generation",
+            f"Using OpenAI-compatible model {selected_model!r} for image generation",
             file=sys.stderr,
         )
     else:
@@ -292,15 +369,88 @@ async def run_image_generate(args: argparse.Namespace) -> tuple[dict, int]:
             f"Supported values: {supported_types}."
         )
     try:
-        result = await client.generate(
+        generation_options = {
+            "prompt": args.prompt,
+            "negative_prompt": args.negative_prompt,
+            "image_size": args.image_size,
+            "aspect_ratio": args.aspect_ratio,
+            "seed": args.seed,
+            "unet_name": args.unet_name,
+            "output_path": args.save_path,
+        }
+        if global_configs.SN_IMAGE_GEN_MODEL_TYPE == "sensenova":
+            generation_options.update(
+                model=selected_model,
+                output_format=args.image_format,
+                response_format=args.response_format,
+                watermark=args.watermark,
+                prompt_extend=args.prompt_extend,
+            )
+        result = await client.generate(**generation_options)
+        fallback_model = args.fallback_model or global_configs.SN_IMAGE_GEN_FALLBACK_MODEL
+        if (
+            global_configs.SN_IMAGE_GEN_MODEL_TYPE == "sensenova"
+            and fallback_model != selected_model
+            and should_fallback_generation(
+                result, disabled=args.no_fallback, fallback_model=fallback_model
+            )
+        ):
+            reason = (
+                f"HTTP {result.get('http_status')}: {result.get('error_type', 'request failed')}"
+            )
+            print(
+                f"Primary generation failed recoverably; retrying with {fallback_model!r}",
+                file=sys.stderr,
+            )
+            result = await client.generate(
+                prompt=args.prompt,
+                negative_prompt=args.negative_prompt,
+                model=fallback_model,
+                image_size=args.image_size,
+                aspect_ratio=args.aspect_ratio,
+                output_path=args.save_path,
+                watermark=args.watermark,
+            )
+            result["fallback_used"] = True
+            result["fallback_reason"] = reason
+        else:
+            result.setdefault("fallback_used", False)
+            result.setdefault("fallback_reason", None)
+        return result, 0 if result["status"] == "ok" else 1
+    finally:
+        await client.aclose()
+
+
+async def run_image_edit(args: argparse.Namespace) -> tuple[dict, int]:
+    """Run U1.5 native editing; edits never fall back to a text-only model."""
+    api_key = args.api_key or global_configs.SN_IMAGE_GEN_API_KEY
+    if not api_key:
+        raise MissingApiKeyError(global_configs.get_env_var_help("SN_IMAGE_GEN_API_KEY"))
+    base_url = args.base_url or global_configs.SN_IMAGE_GEN_BASE_URL
+    if not base_url:
+        raise InvalidBaseUrlError(global_configs.get_env_var_help("SN_IMAGE_GEN_BASE_URL"))
+    model = args.model or global_configs.SN_IMAGE_GEN_MODEL
+    client = SensenovaText2ImageClient(
+        api_key=api_key,
+        base_url=base_url,
+        model=model,
+        timeout=args.timeout,
+        ssl_verify=not args.insecure,
+    )
+    try:
+        result = await client.edit(
             prompt=args.prompt,
-            negative_prompt=args.negative_prompt,
-            image_size=args.image_size,
+            images=args.images,
+            model=model,
+            image_size=_normalize_image_size(args.image_size, allow_auto=True),
             aspect_ratio=args.aspect_ratio,
-            seed=args.seed,
-            unet_name=args.unet_name,
             output_path=args.save_path,
+            response_format=args.response_format,
+            watermark=args.watermark,
+            prompt_extend=args.prompt_extend,
         )
+        result["fallback_used"] = False
+        result["fallback_reason"] = None
         return result, 0 if result["status"] == "ok" else 1
     finally:
         await client.aclose()
@@ -559,6 +709,8 @@ async def main_async(args: argparse.Namespace) -> int:
     try:
         if args.command == "sn-image-generate":
             result, _code = await run_image_generate(args)
+        elif args.command == "sn-image-edit":
+            result, _code = await run_image_edit(args)
         elif args.command == "sn-image-recognize":
             result, _code = await run_image_recognize(args)
         elif args.command == "sn-text-optimize":
@@ -575,7 +727,12 @@ async def main_async(args: argparse.Namespace) -> int:
         if args.output_format == "json":
             print(
                 json.dumps(
-                    {"status": "failed", "error_type": type(exc).__name__, "error": str(exc), "elapsed_seconds": elapsed},
+                    {
+                        "status": "failed",
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                        "elapsed_seconds": elapsed,
+                    },
                     ensure_ascii=False,
                 )
             )
@@ -583,12 +740,17 @@ async def main_async(args: argparse.Namespace) -> int:
             print(f"Error: {exc}", file=sys.stderr)
         return 1
 
-    except ValueError as exc:
+    except (OSError, ValueError) as exc:
         elapsed = round(time.time() - start_time, 2)
         if args.output_format == "json":
             print(
                 json.dumps(
-                    {"status": "failed", "error_type": type(exc).__name__, "error": str(exc), "elapsed_seconds": elapsed},
+                    {
+                        "status": "failed",
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                        "elapsed_seconds": elapsed,
+                    },
                     ensure_ascii=False,
                 )
             )

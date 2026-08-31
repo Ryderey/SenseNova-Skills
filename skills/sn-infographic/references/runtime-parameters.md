@@ -25,7 +25,7 @@ Rules:
 - Supported explicit values: `2k`, `4k`. Take the user's value only when stated explicitly (`image_size=4k`, or a bare `2k` / `4k` token, optionally after an `image_size` / `分辨率` / `清晰度` lead-in).
 - Vague quality words (`高清`, `超清`, `print-quality`, "faster draft", …) do **not** count as an explicit size — ignore them.
 - With no explicit size, the inference resolves to `2k`.
-- `4k` is passed straight to the image model; a model that can't render it (e.g. sensenova) returns an error, which the skill surfaces as-is.
+- `4k` maps to a valid U1.5 canvas up to 4096 pixels on the long edge. If generation falls back to U1 Fast, the runtime maps it to the nearest supported Fast 2K bucket and records the actual model.
 
 ## Aspect Ratio
 

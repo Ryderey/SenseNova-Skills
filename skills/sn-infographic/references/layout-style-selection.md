@@ -1,8 +1,10 @@
 # Layout & Style Selection Rules
 
-Resolved by the Worker Agent's own reasoning — no additional LLM call required.
+Resolved by the host Agent's own reasoning — no external LLM call is required.
 
-**Operate on names only.** This whole procedure manipulates layout/style **names** (e.g. `hub-spoke`, `corporate-memphis`). **Never open the definition files under `references/layouts/*.md` or `references/styles/*.md` to make the choice** — the pick is a weighted *random* draw, not a quality comparison, so their contents are irrelevant here. Only the two finally-selected files are read, once, in SKILL.md Step 2.3.
+**Operate on names only until selection is complete.** This procedure ranks layout/style names (for example `hub-spoke`, `corporate-memphis`) from content, audience and canvas relevance. Read only the two selected definition files when assembling the final prompt. All 87 layouts and 66 styles remain available for explicit user selection.
+
+An explicit `layout` or `style` requested by the user wins when its matching definition file exists. If it does not exist, report the invalid name and continue with automatic selection.
 
 ## Step 1 — Layout Candidates (by data_type)
 
@@ -62,31 +64,25 @@ Each context has a primary (match_score=1.0) and alternatives (match_score=0.7).
 | Futuristic / Luxury Tech | `liquid-metal` | `neon-futurism`, `holographic`, `parametric-design` |
 | Internet / Youth Culture | `vaporwave` | `glitch-art`, `cyberpunk`, `pixel-art` |
 
-## Step 3 — Random Sampling
+## Step 3 — Deterministic relevance ranking
 
-Layout and style are sampled independently using the same process, **on names only**. The "all available options" universe is just the **filenames** under `references/layouts/` and `references/styles/` — enumerate them with `ls` (names, not contents):
+Rank layout and style independently. Do not use randomness.
 
-```bash
-mapfile -t ALL_LAYOUTS < <(ls "$SKILL_DIR/references/layouts/" | sed 's/\.md$//')
-mapfile -t ALL_STYLES  < <(ls "$SKILL_DIR/references/styles/"  | sed 's/\.md$//')
-```
+1. Start the matched primary at 100 points and each listed alternative at 70 points.
+2. Add 20 points for a strong audience match:
+   - executives/decision makers: `dashboard`, `comparison-matrix`, `swiss-grid`; `corporate-memphis`, `swiss-style`, `data-visualization`
+   - general/public: `bento-grid`, `storyboard`, `visual-first`; `flat-design`, `instructional-visual`, `paper-collage`
+   - technical experts: `structural-breakdown`, `swimlane`, `isometric-tech-stack`; `technical-schematic`, `technical-diagram`, `sci-fi-ui`
+   - children/education: `comic-strip`, `character-guide`, `step-staircase`; `cartoon-flat`, `kawaii`, `crayon-hand-drawn`
+3. Add 15 points for canvas fit:
+   - portrait/tall: vertical timelines, `winding-roadmap`, `chapter-layout`, `top-image-bottom-text`
+   - landscape/wide: `swimlane`, `binary-comparison`, `dashboard`, `data-landscape`, `panorama`
+   - square: `hub-spoke`, `circular-flow`, `bento-grid`, `nine-grid`, `center-focus`
+4. Add 10 points when the option directly supports the amount of content: sparse → focal/minimal layouts; dense → grid/dashboard/container layouts.
+5. Reject any candidate whose definition file does not exist. Choose the highest score; break ties by primary before alternative, then table order, then lexical name.
 
-For each of layout and style, build the weighted pool from the matched row of the table above — the **primary** name ×10, each **alternative** name ×9, plus **3 random names** drawn from the full `ls` list (outside the current data_type / context) ×1 — then shuffle and take the first. Example for layout (style is identical with `ALL_STYLES`):
-
-```bash
-PRIMARY_LAYOUT="hub-spoke"                       # match_score=1.0 row for this data_type
-ALT_LAYOUTS=(jigsaw multi-focal venn-diagram)    # match_score=0.7 alternatives
-
-LAYOUT_POOL=()
-for _ in $(seq 10); do LAYOUT_POOL+=("$PRIMARY_LAYOUT"); done
-for a in "${ALT_LAYOUTS[@]}"; do for _ in $(seq 9); do LAYOUT_POOL+=("$a"); done; done
-for r in $(printf '%s\n' "${ALL_LAYOUTS[@]}" | shuf | head -3); do LAYOUT_POOL+=("$r"); done
-
-LAYOUT=$(printf '%s\n' "${LAYOUT_POOL[@]}" | shuf | head -1)
-```
-
-The weighting gives primary and alternatives roughly equal win probability (~10:9), with the random non-matching items a combined ~10%.
+Record `layout`, `style`, and a one-sentence `selection_reason` in the result. This makes repeated runs explainable while still allowing visual variation through prompts and edits.
 
 ## Fallback
 
-If `data_type` or `context` cannot be determined, use `hub-spoke` + `corporate-memphis`.
+If `data_type` or context cannot be determined, use `hub-spoke` + `corporate-memphis`; adjust only when audience or canvas clearly makes another candidate more relevant.

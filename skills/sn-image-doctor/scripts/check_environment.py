@@ -1,206 +1,201 @@
 #!/usr/bin/env python3
-"""SenseNova-Skills environment diagnostic tool.
+"""Offline environment diagnostics for the five SenseNova image skills."""
 
-Checks performed:
-
-1. sn-image-base installation
-   - Directory exists at skills/sn-image-base/
-   - Required files: SKILL.md, requirements.txt,
-     scripts/sn_image_base/__init__.py, scripts/sn_agent_runner.py
-
-2. Python dependencies
-   - Python version >= 3.9
-   - All packages in sn-image-base/requirements.txt are installed
-
-3. Environment variables
-   Driven by sn_image_base.configs.Configs. The minimal shared-gateway setup is
-   SN_BASE_URL + SN_API_KEY. Capability-specific variables override shared and
-   global values when present.
-"""
+from __future__ import annotations
 
 import argparse
+import importlib.util
 import sys
 from pathlib import Path
-from textwrap import indent
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILLS_DIR = SCRIPT_DIR.parents[1]
-
 BASE_SKILL_DIR = SKILLS_DIR / "sn-image-base"
+EXPECTED_SKILLS = {
+    "sn-image-base",
+    "sn-image-doctor",
+    "sn-infographic",
+    "sn-image-imitate",
+    "sn-image-resume",
+}
 
 
 def check_installation(verbose: bool) -> bool:
-    print("[1/3] Checking sn-image-base installation...")
-    root = SKILLS_DIR
-    base_skill = BASE_SKILL_DIR
+    print("[1/4] Checking image-skill installation...")
+    discovered = {
+        path.name for path in SKILLS_DIR.iterdir() if (path / "SKILL.md").is_file()
+    }
+    missing = sorted(EXPECTED_SKILLS - discovered)
+    unrelated = sorted(
+        name
+        for name in discovered
+        if name.startswith("sn-") and name not in EXPECTED_SKILLS
+    )
     required = [
-        base_skill / "SKILL.md",
-        base_skill / "requirements.txt",
-        base_skill / "scripts/sn_agent_runner.py",
+        BASE_SKILL_DIR / "SKILL.md",
+        BASE_SKILL_DIR / "requirements.txt",
+        BASE_SKILL_DIR / "scripts/sn_agent_runner.py",
+        BASE_SKILL_DIR / "scripts/sn_image_base/generation/sensenova.py",
     ]
-    ok = True
-    if not base_skill.exists():
-        print("  ❌ sn-image-base directory not found")
-        print(f"  Expected location: {base_skill}")
-        return False
-    if verbose:
-        print(f"  ✅ sn-image-base directory found: {base_skill}")
-    for f in required:
-        if f.exists():
-            if verbose:
-                print(f"  ✅ {f.relative_to(root)}")
-        else:
-            print(f"  ❌ Missing: {f.relative_to(root)}")
-            ok = False
+    missing_files = [path for path in required if not path.is_file()]
+    for name in sorted(discovered & EXPECTED_SKILLS):
+        if verbose:
+            print(f"  [OK] {name}")
+    for name in missing:
+        print(f"  [FAIL] Missing skill: {name}")
+    for name in unrelated:
+        print(f"  [FAIL] Out-of-scope skill remains: {name}")
+    for path in missing_files:
+        print(f"  [FAIL] Missing file: {path.relative_to(SKILLS_DIR)}")
+    ok = not (missing or unrelated or missing_files)
     if ok and not verbose:
-        print("  ✅ Installation looks good")
-    # Check skills
-    for d in root.iterdir():
-        if not d.is_dir():
-            continue
-        if (d / "SKILL.md").exists() and d.name.startswith("sn-"):
-            print(f"  ✅ {d.name} skill found")
+        print("  [OK] Exactly five image and visualization skills are installed")
     return ok
 
 
 def check_dependencies(verbose: bool) -> bool:
-    root = SKILLS_DIR
-    print("[2/3] Checking Python dependencies...")
-    ok = True
-
-    # Python version
-    major, minor = sys.version_info[:2]
-    if (major, minor) >= (3, 9):
-        print(f"  ✅ Python {major}.{minor}.{sys.version_info[2]}")
-    else:
-        print(f"  ❌ Python {major}.{minor} is too old (need >= 3.9)")
-        ok = False
-
-    # Packages from requirements.txt
-    req_file = BASE_SKILL_DIR / "requirements.txt"
-    if not req_file.exists():
-        # This should never happen, check_installation should have failed
-        print(f"  ❌ requirements.txt not found: {req_file.relative_to(root)}")
-        ok = False
-        return ok
-
-    import importlib.util
-
-    # Some packages' import names are different from their names in requirements.txt
-    pkg_map = {
-        "pillow": "PIL",
-        "python-dotenv": "dotenv",
-    }
-
-    missing = []
-    for line in req_file.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        # strip version specifier
-        pkg_name = line.split(">=")[0].split("==")[0].split("<=")[0].strip().lower()
-        import_name = pkg_map.get(pkg_name, pkg_name)
-        found = importlib.util.find_spec(import_name) is not None
-        if found:
-            if verbose:
-                print(f"  ✅ {pkg_name}")
-        else:
-            missing.append(pkg_name)
-
+    print("[2/4] Checking Python runtime and dependencies...")
+    ok = sys.version_info >= (3, 9)
+    print(
+        f"  {'[OK]' if ok else '[FAIL]'} Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    )
+    package_imports = {"httpx": "httpx", "pillow": "PIL", "python-dotenv": "dotenv"}
+    missing = [
+        name
+        for name, module in package_imports.items()
+        if importlib.util.find_spec(module) is None
+    ]
     if missing:
-        print(f"  ❌ Missing packages: {', '.join(missing)}")
+        print(f"  [FAIL] Missing packages: {', '.join(missing)}")
         print("  Run: python -m pip install -r skills/sn-image-base/requirements.txt")
-        ok = False
-    elif not verbose:
-        print("  ✅ All required packages installed")
-
+        return False
+    if verbose:
+        for name in package_imports:
+            print(f"  [OK] {name}")
+    else:
+        print("  [OK] Required packages are installed")
     return ok
 
 
-def _load_configs(root: Path):
-    """Import and return Configs from sn-image-base, or None on failure."""
-    base_path = root / "sn-image-base" / "scripts"
-    sys.path.insert(0, str(base_path))
+def _load_runtime():
+    scripts = BASE_SKILL_DIR / "scripts"
+    sys.path.insert(0, str(scripts))
     try:
-        from sn_image_base.configs import (  # pyright: ignore[reportMissingImports]
+        from sn_image_base.configs import global_configs
+        from sn_image_base.generation.sensenova import (
+            DEFAULT_MODEL,
+            FAST_MODEL,
+            IMAGE_EDIT_ENDPOINT,
+            IMAGE_GEN_ENDPOINT,
+            SensenovaText2ImageClient,
+        )
+
+        return (
             global_configs,
+            DEFAULT_MODEL,
+            FAST_MODEL,
+            IMAGE_GEN_ENDPOINT,
+            IMAGE_EDIT_ENDPOINT,
+            SensenovaText2ImageClient,
         )
-
-        return global_configs
-    except ImportError:
-        return None
     finally:
-        if sys.path and sys.path[0] == str(base_path):
-            sys.path.pop(0)
+        sys.path.pop(0)
 
 
-def check_env_vars(root: Path, _verbose: bool) -> bool:
-    print("[3/3] Checking environment variables...")
-
-    configs = _load_configs(root)
-    if configs is None:
-        print("  ⚠️ Cannot import Configs from sn-image-base, skipping env check")
-        return True
-
-    is_ok = True
-    errors, warnings = configs.validate_configs()
-    if errors:
-        is_ok = False
-        print("  ❌ Environment check failed! Configuration errors:")
-        for field, msg in errors:
-            print(f"    ❌ {field}: {msg}")
-    elif warnings:
-        print("  ✅ Environment check passed! Although with some warnings:")
-        for field, msg in warnings:
-            print(f"    ⚠️ {field}: {msg}")
-    else:
-        print("  ✅ Environment check passed!")
-    inspect_configs(_verbose)
-    return is_ok
-
-
-def inspect_configs(_verbose: bool):
-    global_configs = _load_configs(SKILLS_DIR)
-    if global_configs is None:
-        print(
-            "❌ Cannot import Configs from sn-image-base, skipping config inspection",
-            file=sys.stderr,
+def check_image_runtime(verbose: bool) -> bool:
+    print("[3/4] Checking image models, endpoint and safe defaults...")
+    try:
+        configs, primary, fallback, generation_path, edit_path, client_type = (
+            _load_runtime()
         )
-        return
+    except (ImportError, OSError, ValueError) as exc:
+        print(f"  [FAIL] Could not load image runtime: {exc}")
+        return False
 
-    print("Resolved configs:")
-    if hasattr(global_configs, "to_string"):
-        print(indent(global_configs.to_string(), "  * "))
-    else:
-        print(indent(str(global_configs), "  * "))
+    checks = {
+        "API key is configured": bool(configs.SN_IMAGE_GEN_API_KEY),
+        f"primary model is {primary}": configs.SN_IMAGE_GEN_MODEL == primary,
+        f"fallback model is {fallback}": configs.SN_IMAGE_GEN_FALLBACK_MODEL
+        == fallback,
+        "generation endpoint is /images/generations": generation_path
+        == "/images/generations",
+        "editing endpoint is /images/edits": edit_path == "/images/edits",
+    }
+    try:
+        client = client_type(
+            api_key=configs.SN_IMAGE_GEN_API_KEY or "diagnostic-placeholder",
+            base_url=configs.SN_IMAGE_GEN_BASE_URL,
+            model=primary,
+        )
+        payload = client.build_payload("diagnostic", primary, size="2048x2048")
+        checks.update(
+            {
+                "watermark defaults to false": payload.get("watermark") is False,
+                "prompt extension defaults to true": payload.get("prompt_extend")
+                is True,
+                "response format defaults to b64_json": payload.get("response_format")
+                == "b64_json",
+                "2K mapping is valid": client._resolve_size("2K", "16:9")
+                == "2752x1536",
+                "4K mapping stays within API limits": client._resolve_size("4K", "1:1")
+                == "4096x4096",
+            }
+        )
+    except (OSError, TypeError, ValueError) as exc:
+        print(f"  [FAIL] Image runtime validation failed: {exc}")
+        return False
+
+    for label, passed in checks.items():
+        if verbose or not passed:
+            print(f"  {'[OK]' if passed else '[FAIL]'} {label}")
+    if all(checks.values()) and not verbose:
+        print("  [OK] U1.5 generation/editing and U1 Fast fallback defaults are valid")
+    return all(checks.values())
 
 
-def main():
-    parser = argparse.ArgumentParser(description="SenseNova-Skills environment diagnostic")
-    parser.add_argument("--verbose", action="store_true", help="Show detailed output")
+def check_optional_chat_runtime(verbose: bool) -> bool:
+    print("[4/4] Checking optional external text/vision adapters...")
+    configs, *_rest = _load_runtime()
+    configured = {
+        "text": bool(configs.SN_TEXT_MODEL),
+        "vision": bool(configs.SN_VISION_MODEL),
+    }
+    if not any(configured.values()):
+        print(
+            "  [OK] No external chat model selected; the host Agent will plan and review"
+        )
+        return True
+    for label, enabled in configured.items():
+        if verbose or enabled:
+            print(
+                f"  {'[OK]' if enabled else '[WARN]'} {label} adapter {'configured' if enabled else 'not configured'}"
+            )
+    # These adapters are optional. Their low-level commands validate model/key/url at call time.
+    return True
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="SenseNova image-skill environment diagnostic"
+    )
+    parser.add_argument(
+        "--verbose", action="store_true", help="Show each passing check"
+    )
     args = parser.parse_args()
-
-    print("=== SenseNova-Skills Environment Check ===\n")
-
-    root = SKILLS_DIR
-    if args.verbose:
-        print(f"Skills root directory: {root}\n")
-
+    print("=== SenseNova Image Skills Environment Check ===\n")
     results = [
         check_installation(args.verbose),
         check_dependencies(args.verbose),
+        check_image_runtime(args.verbose),
+        check_optional_chat_runtime(args.verbose),
     ]
-    results.append(check_env_vars(root, args.verbose))
-
     print("\n=== Summary ===")
     if all(results):
-        print("  ✅ Environment is properly configured")
-        sys.exit(0)
-    else:
-        print("  ❌ Environment check failed")
-        print("Please fix the errors above before using SenseNova-Skills.")
-        sys.exit(1)
+        print("[OK] Image and visualization environment is ready")
+        return 0
+    print("[FAIL] Environment check failed; fix the items above and rerun")
+    return 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -1,5 +1,9 @@
 # Fixed Portfolio-Resume Layout Template Rule
 
+# Factual Integrity Rule (Highest Priority)
+
+Use only facts explicitly supplied by the user. Never invent or infer names, dates, employers, schools, degrees, titles, metrics, contact details, awards, publications, certifications, projects, or skills. You may condense and reorganize prose, but preserve every proper noun, date, number, title, organization, and contact string exactly. Omit missing sections instead of filling them with examples or placeholders. If content is too dense, shorten descriptive prose rather than shrinking text into illegibility.
+
 The layout structure must be fixed to a specific vertically stacked portfolio-resume composition inspired by a playful editorial portfolio page.
 
 Do not freely invent a completely different page architecture.
@@ -35,7 +39,7 @@ The detected language must control:
 - the LONG_CAPTION language
 - all section labels described in the output
 - all explanatory text
-- all rewritten or expanded resume content
+- all faithfully condensed or reorganized resume content
 - all style/application descriptions
 
 Do not mix languages unless the user explicitly asks for bilingual or multilingual output.

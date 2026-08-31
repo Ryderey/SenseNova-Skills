@@ -1,211 +1,43 @@
 ---
 name: sn-image-doctor
-description: |
-  Environment diagnostic skill for SenseNova-Skills project.
-  Checks that sn-image-base is properly installed and configured, validates dependencies
-  and environment variables. Prompts user to configure missing required variables and saves
-  them to .env file. After configuration, reloads environment and suggests agent restart if needed.
-triggers:
-  - "SenseNova-Skills环境检查"
-  - "SenseNova-Skills doctor"
-  - "sn环境检查"
-  - "sn-image-doctor"
-  - "environment check"
-  - "health check"
-  - "诊断环境"
+description: Diagnose the five-skill SenseNova image installation, Python dependencies, API key, U1.5/U1 Fast models, image endpoints, dimension rules, no-watermark default, and optional external text/vision adapters.
 metadata:
   project: SenseNova-Skills
   tier: 0
-  category: infrastructure
+  category: diagnostics
   user_visible: true
 ---
 
 # sn-image-doctor
 
-## Overview
-
-`sn-image-doctor` is an infrastructure skill (tier 0) that validates the SenseNova-Skills environment before running other skills. It ensures SenseNova-Skills project is properly installed and configured.
-
-This skill performs comprehensive checks including:
-
-- Installation verification of SenseNova-Skills project
-- Python dependency validation
-- Environment variable configuration checks, with interactive prompts to configure missing required variables and save them to `.env`
-- Automatic environment reload after configuration changes, with agent restart suggestion if reload fails
-
-## Usage
-
-Run the doctor check to validate your environment:
+Run this before generation when installation or configuration is uncertain:
 
 ```bash
-# Basic check
-python scripts/check_environment.py
-
-# Verbose output with detailed diagnostics
 python scripts/check_environment.py --verbose
 ```
 
-## Output Format
+The check is offline and does not spend model quota. It validates:
 
-### Text Output
+1. Exactly these skills exist: `sn-image-base`, `sn-image-doctor`, `sn-infographic`, `sn-image-imitate`, `sn-image-resume`.
+2. Python 3.9+ and the dependencies in `sn-image-base/requirements.txt`.
+3. An image API key; the configured base URL; primary `sensenova-u1.5-lite`; fallback `sensenova-u1-fast`; `/images/generations` and `/images/edits`.
+4. U1.5 defaults: `watermark=false`, `prompt_extend=true`, `response_format=b64_json`; valid 2K/4K sizing.
+5. External text/vision models as optional. If none is set, report that the host Agent will plan and review; do not fail.
 
-```
-=== SenseNova-Skills Environment Check ===
+Exit code is 0 only when required image checks pass. Missing text/vision adapters never fail the doctor. Output masks secrets and must never print a complete API key.
 
-[1/3] Checking sn-image-base installation...
-  ✅ Installation looks good
-
-[2/3] Checking Python dependencies...
-  ✅ Python 3.11.0
-  ✅ All required packages installed
-
-[3/3] Checking environment variables...
-  ❌ SN_IMAGE_GEN_API_KEY: Image generation API key is not set; configure SN_API_KEY, or configure SN_IMAGE_GEN_API_KEY only for an image-generation-specific override
-
-  Some required environment variables are missing.
-  Enter values below to save them to /path/to/.env.
-  Press Enter to skip a variable.
-
-  SN_API_KEY: <user input>
-
-  ✅ Saved to /path/to/.env: SN_API_KEY
-  🔄 Reloading environment...
-  ✅ Environment reloaded successfully
-
-=== Summary ===
-✅ Environment is properly configured
-```
-
-If reload fails, the output will suggest restarting the agent:
-
-```
-  ✅ Saved to /path/to/.env: SN_API_KEY
-  🔄 Reloading environment...
-  ⚠️  Failed to reload environment: <error message>
-  💡 Suggestion: Restart the agent to apply new configuration
-```
-
-### Error Output
-
-When checks fail:
-
-```
-=== SenseNova-Skills Environment Check ===
-
-[1/3] Checking sn-image-base installation...
-  ❌ sn-image-base directory not found
-  Expected location: /path/to/skills/sn-image-base
-
-[2/3] Checking Python dependencies...
-  ❌ Missing packages: httpx, pillow
-  Run: pip install -r skills/sn-image-base/requirements.txt
-
-=== Summary ===
-❌ Environment check failed
-Please fix the errors above before using SenseNova-Skills.
-```
-
-## Troubleshooting
-
-### sn-image-base Not Found
-
-**Problem:** `sn-image-base` directory not found
-
-**Solution:**
+To install dependencies:
 
 ```bash
-# Ensure you're in the project root
-cd /path/to/SenseNova-Skills
-
-# Verify the directory exists
-ls -la skills/sn-image-base
+python -m pip install -r ../sn-image-base/requirements.txt
 ```
 
-### Missing Dependencies
+Minimal image configuration:
 
-**Problem:** Required Python packages not installed
-
-**Solution:**
-
-```bash
-# Install dependencies
-pip install -r skills/sn-image-base/requirements.txt
-
-# Or use a virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -r skills/sn-image-base/requirements.txt
+```dotenv
+SN_API_KEY=your-key
+SN_IMAGE_GEN_MODEL=sensenova-u1.5-lite
+SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1-fast
 ```
 
-### Missing Environment Variables
-
-**Problem:** Required environment variables not set
-
-**Solution:**
-
-```bash
-# If all capabilities use the same gateway, set only the global values.
-export SN_API_KEY="your-api-key"
-export SN_BASE_URL="https://your-api-endpoint.com"
-
-# Or create a .env file
-cat > .env << EOF
-SN_API_KEY=your-api-key
-SN_BASE_URL=https://token.sensenova.cn/v1
-SN_CHAT_TYPE=openai-completions
-SN_CHAT_MODEL=sensenova-6.7-flash-lite
-EOF
-
-# Load .env file
-source .env  # Or use a tool like python-dotenv
-```
-
-Fallback priority is capability-specific variable > domain shared variable > global variable. For example, text calls use `SN_TEXT_API_KEY` -> `SN_CHAT_API_KEY` -> `SN_API_KEY`; vision calls use `SN_VISION_API_KEY` -> `SN_CHAT_API_KEY` -> `SN_API_KEY`; image generation uses `SN_IMAGE_GEN_API_KEY` -> `SN_API_KEY`.
-
-### API Connectivity Issues
-
-**Problem:** Cannot reach API endpoints
-
-**Solution:**
-
-1. Verify network connectivity
-2. Check firewall settings
-3. Verify API endpoint URLs are correct
-4. Test with curl:
-
-   ```bash
-   curl -I https://your-api-endpoint.com
-   ```
-
-## Integration with Other Skills
-
-This skill is designed to be run before using other skills in the SenseNova-Skills project:
-
-```bash
-# 1. Run doctor check
-python skills/sn-image-doctor/scripts/check_environment.py
-
-# 2. If checks pass, use other skills
-python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-generate \
-    --prompt "A beautiful landscape"
-```
-
-## Command-Line Options
-
-| Option | Description |
-|--------|-------------|
-| `--verbose` | Show detailed diagnostic information |
-| `--help` | Show help message |
-
-## Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| `0` | All checks passed |
-| `1` | One or more checks failed |
-
-## See Also
-
-- `sn-image-base/SKILL.md` - Base-layer skill documentation
-- `sn-image-base/references/api_spec.md` - API specification
-- `sn-infographic/SKILL.md` - Example of a skill that depends on sn-image-base
+Do not add `SN_CHAT_MODEL` unless the user explicitly wants an external text/vision adapter.

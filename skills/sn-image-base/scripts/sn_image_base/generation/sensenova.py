@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import asyncio
+import base64
+import binascii
+import mimetypes
 import os
+import re
 import tempfile
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 import httpx
 from PIL import Image
@@ -20,20 +25,20 @@ from sn_image_base.generation.core.client_base import (
 )
 from sn_image_base.utils.error_utils import U1HttpErrorBase
 
-if TYPE_CHECKING:
-    from collections.abc import Sequence
-
-DEFAULT_RESOLUTION: Literal["1K", "2K", "4K"] = "2K"
+DEFAULT_RESOLUTION = "2K"
 DEFAULT_ASPECT_RATIO = "16:9"
-DEFAULT_POLL_INTERVAL = 5.0
-OUTPUT_DIR = Path("/tmp/openclaw-sn-image")
-
+DEFAULT_MODEL = "sensenova-u1.5-lite"
+FAST_MODEL = "sensenova-u1-fast"
+OUTPUT_DIR = Path(tempfile.gettempdir()) / "sensenova-image"
 
 IMAGE_GEN_ENDPOINT = "/images/generations"
+IMAGE_EDIT_ENDPOINT = "/images/edits"
+_EXPLICIT_SIZE = re.compile(r"^(\d{3,4})[xX](\d{3,4})$")
+_FORMAT_SUFFIX = {"png": ".png", "jpeg": ".jpg", "webp": ".webp"}
 
 
 class SensenovaText2ImageClient(T2IBaseClient):
-    """Async client for Sensenova text-to-image API."""
+    """Small async client for SenseNova U1.5 generation and native editing."""
 
     def __init__(
         self,
@@ -46,42 +51,14 @@ class SensenovaText2ImageClient(T2IBaseClient):
         ssl_verify: bool = True,
         **kwargs: Any,
     ) -> None:
-        """Initialize the SensenovaText2ImageClient.
-
-        Args:
-            api_key (str):
-                API key for authentication.
-            base_url (str | None, optional):
-                API base URL. If None, reads from SN_IMAGE_GEN_BASE_URL env var.
-            model (str | None, optional):
-                Model name. If None, reads from SN_IMAGE_GEN_MODEL env var.
-            max_connections (int, optional):
-                Maximum number of connections. Defaults to 100.
-            timeout (float, optional):
-                Total timeout in seconds for HTTP requests.
-                Defaults to DEFAULT_HTTP_REQUEST_TIMEOUT.
-            ssl_verify (bool, optional):
-                If True, enable TLS verification. Defaults to True.
-        """
         api_key = api_key or global_configs.SN_IMAGE_GEN_API_KEY
         if not api_key:
-            raise MissingApiKeyError(
-                "API key is missing: {}".format(
-                    global_configs.get_env_var_help("SN_IMAGE_GEN_API_KEY")
-                )
-            )
+            raise MissingApiKeyError(global_configs.get_env_var_help("SN_IMAGE_GEN_API_KEY"))
         base_url = base_url or global_configs.SN_IMAGE_GEN_BASE_URL
         if not base_url:
-            raise InvalidBaseUrlError(
-                "Base URL is missing: {}".format(
-                    global_configs.get_env_var_help("SN_IMAGE_GEN_BASE_URL")
-                )
-            )
+            raise InvalidBaseUrlError(global_configs.get_env_var_help("SN_IMAGE_GEN_BASE_URL"))
         if not is_valid_base_url(base_url):
-            raise InvalidBaseUrlError(
-                f"Base URL is not a valid base URL: {base_url}. "
-                f"Try setting environment variable(s): {global_configs.get_env_var_help('SN_IMAGE_GEN_BASE_URL')}"
-            )
+            raise InvalidBaseUrlError(f"Invalid image API base URL: {base_url}")
         super().__init__(
             api_key=api_key,
             base_url=base_url,
@@ -99,154 +76,199 @@ class SensenovaText2ImageClient(T2IBaseClient):
         negative_prompt: str = "",
         *,
         model: str | None = None,
-        image_size: Literal["1K", "2K", "4K"] = DEFAULT_RESOLUTION,
+        image_size: str = DEFAULT_RESOLUTION,
         aspect_ratio: str = DEFAULT_ASPECT_RATIO,
         output_path: Path | None = None,
-        **kwargs: Any,
+        output_format: Literal["png", "jpeg", "webp"] = "png",
+        response_format: Literal["b64_json", "url"] = "b64_json",
+        watermark: bool = False,
+        prompt_extend: bool = True,
+        max_retries: int = 2,
+        **_kwargs: Any,
     ) -> dict:
-        """Generate an image from text prompt.
-
-        Args:
-            prompt (str):
-                Text prompt for image generation.
-            negative_prompt (str, optional):
-                Negative prompt. Defaults to "".
-            model (str | None, optional):
-                Model name override. Defaults to None.
-            image_size (str, optional):
-                Image size preset ("1K", "2K", "4K"). Defaults to DEFAULT_RESOLUTION.
-            aspect_ratio (str, optional):
-                Aspect ratio (e.g. "16:9", "1:1"). Defaults to DEFAULT_ASPECT_RATIO.
-            output_path (Path | None, optional):
-                Output path for the generated image. Defaults to None.
-            **kwargs:
-                Additional arguments reserved for backend compatibility.
-
-        Returns:
-            dict:
-                On success, keys: status, output (path), message. On failure,
-                keys: status, error_type, error.
-        """
-        model = model or self.model or global_configs.SN_IMAGE_GEN_MODEL
-        # Normalize image_size to uppercase for NanoBanana API
-        image_size = image_size.upper()  # type: ignore[assignment]
-        output_format = "png"
-        size = self._resolve_size(image_size, aspect_ratio)
+        """Generate once with U1.5 (or explicitly selected model) and save immediately."""
+        selected_model = model or self.model or global_configs.SN_IMAGE_GEN_MODEL or DEFAULT_MODEL
+        size = self._resolve_size(image_size, aspect_ratio, fast=selected_model == FAST_MODEL)
         payload = self.build_payload(
             prompt=prompt,
-            model=model,
+            model=selected_model,
             size=size,
-            aspect_ratio=aspect_ratio,
             output_format=output_format,
+            response_format=response_format,
+            watermark=watermark,
+            prompt_extend=prompt_extend,
         )
-        headers = self.headers
-        api_url = self.get_api_url(model)
-        if output_path is None:
-            OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-            timestamp = time.strftime("%Y%m%d_%H%M%S")
-            output_path = OUTPUT_DIR / f"t2i_{timestamp}.png"
-        output_path = ensure_output_path(output_path)
+        output_path = self._default_output_path(output_path, "t2i", output_format)
+        return await self._request_and_save(
+            endpoint=IMAGE_GEN_ENDPOINT,
+            payload=payload,
+            output_path=output_path,
+            output_format=output_format,
+            model=selected_model,
+            operation="generate",
+            max_retries=max_retries,
+        )
 
-        client = await self._get_client()
-
-        try:
-            create_response = await client.post(
-                api_url,
-                json=payload,
-                headers=headers,
+    async def edit(
+        self,
+        prompt: str,
+        images: list[str | Path],
+        *,
+        model: str | None = None,
+        image_size: str = "auto",
+        aspect_ratio: str | None = None,
+        output_path: Path | None = None,
+        response_format: Literal["b64_json", "url"] = "b64_json",
+        watermark: bool = False,
+        prompt_extend: bool = True,
+        max_retries: int = 2,
+    ) -> dict:
+        """Edit one or more local/remote reference images with U1.5."""
+        selected_model = model or self.model or global_configs.SN_IMAGE_GEN_MODEL or DEFAULT_MODEL
+        if selected_model == FAST_MODEL:
+            raise ValueError(
+                f"{FAST_MODEL} does not accept image input; use {DEFAULT_MODEL} for edits."
             )
-            data = self.parse_response(create_response)
-        except U1HttpErrorBase as exc:
-            details = exc.detail or ""
-            field_name = None
-            if exc.code == 404:
-                field_name = "SN_IMAGE_GEN_BASE_URL"
-            elif exc.code == 401:
-                field_name = "SN_IMAGE_GEN_API_KEY"
-            # elif exc.code == 400:
-            #     warnings.warn(f"Bad request: {exc.message}; body: {payload}", stacklevel=2)
-            if field_name is not None:
-                field_hint = global_configs.get_annotated_field(field_name)
-                if field_hint is not None:
-                    env_names = list(field_hint.env_names) if field_hint.env_names else []
-                    if env_names:
-                        if len(env_names) == 1:
-                            details += (
-                                f"\nIs the environment variable `{env_names[0]}` set correctly?"
-                            )
-                        else:
-                            env_names_str = ", ".join([f"`{n}`" for n in env_names])
-                            details += f"\nIs any of the following environment variable(s) set correctly: {env_names_str}?"
-            return {
-                "status": "failed",
-                "error_type": type(exc).__name__,
-                "error": f"HTTP {exc.code}: {exc.message}" + (f"\n{details}" if details else ""),
-            }
-        try:
-            images_urls: list[str] = data["images_urls"]
-            if not images_urls:
+        if not images:
+            raise ValueError("At least one reference image is required.")
+        size = self._resolve_size(image_size, aspect_ratio, allow_auto=True)
+        image_inputs = [{"image_url": self.image_to_data_url(image)} for image in images]
+        payload: dict[str, Any] = {
+            "model": selected_model,
+            "prompt": prompt,
+            "images": image_inputs,
+            "size": size,
+            "n": 1,
+            "watermark": watermark,
+            "prompt_extend": prompt_extend,
+            "response_format": response_format,
+        }
+        output_path = self._default_output_path(output_path, "edit", "png")
+        return await self._request_and_save(
+            endpoint=IMAGE_EDIT_ENDPOINT,
+            payload=payload,
+            output_path=output_path,
+            output_format="png",
+            model=selected_model,
+            operation="edit",
+            max_retries=max_retries,
+        )
+
+    async def _request_and_save(
+        self,
+        *,
+        endpoint: str,
+        payload: dict[str, Any],
+        output_path: Path,
+        output_format: str,
+        model: str,
+        operation: str,
+        max_retries: int,
+    ) -> dict:
+        client = await self._get_client()
+        attempt = 0
+        while True:
+            try:
+                response = await client.post(self.get_api_url(endpoint=endpoint), json=payload)
+                data = self.parse_response(response)
+                break
+            except U1HttpErrorBase as exc:
+                # Only 5xx receives same-model retries. 404/429 are surfaced so
+                # the generation runner can make its deliberately narrow fallback decision.
+                if exc.code is not None and 500 <= exc.code <= 599 and attempt < max_retries:
+                    await asyncio.sleep(min(2**attempt, 4))
+                    attempt += 1
+                    continue
+                return self._error_result(exc, model, operation, attempt)
+            except httpx.HTTPError as exc:
                 return {
                     "status": "failed",
-                    "error_type": "EmptyResponse",
-                    "error": "No image generated from the model",
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                    "model": model,
+                    "operation": operation,
+                    "retry_count": attempt,
+                    "fallback_eligible": False,
                 }
-            url = images_urls[-1]
-            suffix = f".{output_format}"
-            save_path = output_path.with_suffix(suffix)
-            saved_path = await download_image(url, save_path)
-            return {
-                "status": "ok",
-                "output": str(saved_path),
-                "message": "Image generated successfully",
-            }
-        except httpx.HTTPStatusError as exc:
-            return {
-                "status": "failed",
-                "error_type": type(exc).__name__,
-                "error": f"HTTP {exc.response.status_code}: {exc.response.text}",
-            }
-        except (httpx.HTTPError, OSError, ValueError) as exc:
+
+        try:
+            saved = await self._save_response(data, output_path, output_format)
+        except (OSError, ValueError, binascii.Error, httpx.HTTPError) as exc:
             return {
                 "status": "failed",
                 "error_type": type(exc).__name__,
                 "error": str(exc),
+                "model": model,
+                "operation": operation,
+                "retry_count": attempt,
+                "fallback_eligible": False,
             }
+        return {
+            "status": "ok",
+            "output": str(saved),
+            "message": "Image edited successfully"
+            if operation == "edit"
+            else "Image generated successfully",
+            "model": model,
+            "operation": operation,
+            "retry_count": attempt,
+            "fallback_used": False,
+        }
+
+    @staticmethod
+    def _error_result(exc: U1HttpErrorBase, model: str, operation: str, retries: int) -> dict:
+        code = exc.code
+        fallback_eligible = operation == "generate" and (
+            code in {404, 429} or (code is not None and 500 <= code <= 599)
+        )
+        detail = f"; {exc.detail}" if exc.detail else ""
+        return {
+            "status": "failed",
+            "error_type": type(exc).__name__,
+            "error": f"HTTP {code}: {exc.message}{detail}",
+            "http_status": code,
+            "model": model,
+            "operation": operation,
+            "retry_count": retries,
+            "fallback_eligible": fallback_eligible,
+        }
+
+    @staticmethod
+    def _default_output_path(path: Path | None, prefix: str, output_format: str) -> Path:
+        suffix = _FORMAT_SUFFIX.get(output_format, ".png")
+        if path is None:
+            OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+            path = OUTPUT_DIR / f"{prefix}_{time.strftime('%Y%m%d_%H%M%S')}{suffix}"
+        elif path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"}:
+            path = path.with_suffix(suffix)
+        return ensure_output_path(path)
+
+    async def _save_response(self, data: dict, output_path: Path, output_format: str) -> Path:
+        if data["images_b64"]:
+            return save_base64_image(data["images_b64"][-1], output_path)
+        if data["images_urls"]:
+            return await download_image(data["images_urls"][-1], output_path, self._timeout)
+        raise ValueError("No image data returned by the model.")
 
     @property
     @override
     def api_key(self) -> str:
-        api_key = self._api_key or global_configs.SN_IMAGE_GEN_API_KEY
-        if not api_key:
-            raise ValueError(
-                "API key is missing: {}".format(
-                    global_configs.get_env_var_help("SN_IMAGE_GEN_API_KEY")
-                )
-            )
-        return api_key
+        value = self._api_key or global_configs.SN_IMAGE_GEN_API_KEY
+        if not value:
+            raise MissingApiKeyError(global_configs.get_env_var_help("SN_IMAGE_GEN_API_KEY"))
+        return value
 
     @property
     @override
     def base_url(self) -> str:
-        base_url = self._base_url or global_configs.SN_IMAGE_GEN_BASE_URL
-        if not base_url:
-            raise ValueError(
-                "Base URL is missing: {}".format(
-                    global_configs.get_env_var_help("SN_IMAGE_GEN_BASE_URL")
-                )
-            )
-        if not is_valid_base_url(base_url):
-            raise ValueError(
-                f"Base URL is not a valid base URL: {base_url}. "
-                f"Try setting environment variable(s): {global_configs.get_env_var_help('SN_IMAGE_GEN_BASE_URL')}"
-            )
-        return base_url
+        value = self._base_url or global_configs.SN_IMAGE_GEN_BASE_URL
+        if not value or not is_valid_base_url(value):
+            raise InvalidBaseUrlError(f"Invalid image API base URL: {value}")
+        return value
 
     @override
-    def get_api_url(self, _model: str | None = None) -> str:
-        base_url = self.base_url.rstrip("/")
-        path = IMAGE_GEN_ENDPOINT.lstrip("/")
-        api_url = f"{base_url}/{path}"
-        return api_url
+    def get_api_url(self, _model: str | None = None, *, endpoint: str = IMAGE_GEN_ENDPOINT) -> str:
+        return f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
 
     @override
     def build_payload(
@@ -255,126 +277,153 @@ class SensenovaText2ImageClient(T2IBaseClient):
         model: str,
         *,
         size: str | None = None,
-        modalities: Sequence[str] = ("text", "image"),
-        output_format: Literal["png"] = "png",
-        response_format: Literal["url"] = "url",
-        **kwargs: Any,
+        output_format: Literal["png", "jpeg", "webp"] = "png",
+        response_format: Literal["b64_json", "url"] = "b64_json",
+        watermark: bool = False,
+        prompt_extend: bool = True,
+        **_kwargs: Any,
     ) -> dict[str, Any]:
-        """Build the payload for the SenseNova image-generation endpoint.
-
-        Args:
-            prompt (str): The prompt to generate an image for.
-            model (str): The model to use for generation.
-            size (str | None): Pixel size string (for example, "1920x1920").
-            modalities (Sequence[str]): Reserved for compatibility; currently not sent.
-            output_format (Literal["png"]): The output format of the image. Defaults to "png".
-            response_format (Literal["url"]): The response format of the image. Defaults to "url".
-            **kwargs (Any, optional): Additional parameters to pass to the API.
-
-        Example:
-        {
-            "model": "sensenova-u1-fast",
-            "prompt": "A cat wearing a hat",
-            "size": "1024x1024",
-            "response_format": "url",
-            "output_format": "png",
-        }
-        """
-        payload = {
+        # U1 Fast has a smaller schema and returns a temporary URL. Do not send
+        # U1.5-only fields that the Fast endpoint does not document.
+        payload: dict[str, Any] = {
             "model": model,
             "prompt": prompt,
-            # "modalities": modalities,
             "size": size,
-            # "n": 1,
-            "response_format": response_format,
-            "output_format": output_format,
-            "watermark": False,
-            **kwargs,
+            "n": 1,
+            "watermark": watermark,
         }
+        if model != FAST_MODEL:
+            payload.update(
+                output_format=output_format,
+                response_format=response_format,
+                prompt_extend=prompt_extend,
+            )
         return payload
 
     @property
     @override
     def headers(self) -> dict[str, str]:
-        if not self.api_key:
-            raise MissingApiKeyError(
-                "API key is missing: {}".format(
-                    global_configs.get_env_var_help("SN_IMAGE_GEN_API_KEY")
-                )
-            )
-        return {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
+        return {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
 
     @classmethod
     def _resolve_size(
         cls,
-        resolution: Literal["1K", "2K"] | str | None = None,
-        aspect_ratio: ASPECT_RATIO_LITERALS | str | None = None,
+        resolution: str | None = None,
+        aspect_ratio: str | None = None,
+        *,
+        allow_auto: bool = False,
+        fast: bool = False,
     ) -> str | None:
-        """Convert (resolution, aspect_ratio) to a pixel size string.
+        value = (resolution or DEFAULT_RESOLUTION).strip()
+        if value.lower() == "auto":
+            if allow_auto:
+                return "auto"
+            raise ValueError("size='auto' is only supported for image editing.")
+        explicit = _EXPLICIT_SIZE.fullmatch(value)
+        if explicit:
+            width, height = map(int, explicit.groups())
+            cls._validate_dimensions(width, height)
+            if fast:
+                return cls._nearest_bucket(width / height, BUCKETS_2K)
+            return f"{width}x{height}"
 
-        If aspect_ratio is None, returns the resolution as-is (e.g. "1K").
-        """
-        if not resolution and not aspect_ratio:
-            return None
-        resolution = resolution or "2K"
-        aspect_ratio = aspect_ratio or "1:1"
-        if resolution == "1K":
-            buckets = BUCKETS_1K
-        elif resolution == "2K":
-            buckets = BUCKETS_2K
-        else:
-            # The SenseNova backend only has 1K / 2K pixel buckets. Reject any
-            # other resolution (e.g. 4K) here; the ValueError propagates to the
-            # runner and is returned to the caller as a status=failed JSON.
-            raise ValueError(
-                f"image-size {resolution!r} is not supported by the SenseNova image backend "
-                f"(supported: 1K, 2K)."
-            )
+        ratio = cls._parse_ratio(aspect_ratio or "1:1")
+        preset = value.upper()
+        if fast:
+            return cls._nearest_bucket(ratio, BUCKETS_2K)
+        if preset == "1K":
+            return cls._nearest_bucket(ratio, BUCKETS_1K)
+        if preset == "2K":
+            return cls._nearest_bucket(ratio, BUCKETS_2K)
+        if preset == "4K":
+            if ratio >= 1:
+                width = 4096
+                height = max(512, round((4096 / ratio) / 32) * 32)
+            else:
+                height = 4096
+                width = max(512, round((4096 * ratio) / 32) * 32)
+            cls._validate_dimensions(width, height)
+            return f"{width}x{height}"
+        raise ValueError("image-size must be 1K, 2K, 4K, auto (edit only), or WIDTHxHEIGHT.")
+
+    @staticmethod
+    def _parse_ratio(value: str) -> float:
         try:
-            ws, _, hs = aspect_ratio.strip().partition(":")
-            width = int(ws)
-            height = int(hs)
-            ratio = width / height
-        except Exception as e:
-            raise ValueError(f"Invalid aspect ratio: {aspect_ratio!r}") from e
-        if ratio > 16 / 9:
-            raise ValueError(f"Aspect ratio {aspect_ratio!r} is too wide. Maximum is 16:9")
-        if ratio < 9 / 21:
-            raise ValueError(f"Aspect ratio {aspect_ratio!r} is too high. Maximum is 9:21")
-        w, h = _find_nearest_aspect_ratio(ratio, buckets)
-        return f"{w}x{h}"
+            left, separator, right = value.strip().partition(":")
+            if not separator:
+                raise ValueError
+            ratio = int(left) / int(right)
+        except (ValueError, ZeroDivisionError) as exc:
+            raise ValueError(f"Invalid aspect ratio: {value!r}") from exc
+        if not 1 / 3 <= ratio <= 3:
+            raise ValueError("Aspect ratio must not exceed 3:1 in either direction.")
+        return ratio
+
+    @staticmethod
+    def _validate_dimensions(width: int, height: int) -> None:
+        if not (512 <= width <= 4096 and 512 <= height <= 4096):
+            raise ValueError("Image dimensions must each be between 512 and 4096 pixels.")
+        if width % 32 or height % 32:
+            raise ValueError("Image dimensions must be multiples of 32 pixels.")
+        ratio = width / height
+        if not 1 / 3 <= ratio <= 3:
+            raise ValueError("Image dimensions must not exceed a 3:1 aspect ratio.")
+
+    @staticmethod
+    def _nearest_bucket(ratio: float, buckets: dict[str, tuple[int, int]]) -> str:
+        width, height = min(buckets.values(), key=lambda pair: abs(pair[0] / pair[1] - ratio))
+        return f"{width}x{height}"
+
+    @staticmethod
+    def image_to_data_url(image: str | Path) -> str:
+        value = str(image)
+        if value.startswith(("https://", "http://", "data:image/")):
+            return value
+        path = Path(value).expanduser()
+        if not path.is_file():
+            raise FileNotFoundError(f"Reference image not found: {path}")
+        mime_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        if not mime_type.startswith("image/"):
+            raise ValueError(f"Reference file is not a supported image: {path}")
+        encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+        return f"data:{mime_type};base64,{encoded}"
 
     @override
     def parse_response(self, response: httpx.Response) -> dict:
-        """Parse the response from the SenseNova image-generation endpoint.
+        raw = super().parse_response(response)
+        urls: list[str] = []
+        encoded: list[str] = []
+        for item in raw.get("data", []):
+            if isinstance(item, dict):
+                if isinstance(item.get("url"), str) and item["url"]:
+                    urls.append(item["url"])
+                if isinstance(item.get("b64_json"), str) and item["b64_json"]:
+                    encoded.append(item["b64_json"])
+        return {"images_urls": urls, "images_b64": encoded}
 
-        Example response data:
 
-        ```json
-        {
-            "data": [{
-                "url": "https://cdn.sensenova.dev/gen/..."
-            }]
-        }
-        ```
-
-        Args:
-            response: The HTTP response from the SenseNova image-generation endpoint.
-
-        Returns:
-            dict: Parsed data with key ``images_urls``.
-        """
-        raw_data = super().parse_response(response)
-
-        images_urls: list[str] = []
-        for item in raw_data.get("data", []):
-            url = item.get("url")
-            if isinstance(url, str) and url:
-                images_urls.append(url)
-        return {"images_urls": images_urls}
+def save_base64_image(value: str, save_path: Path) -> Path:
+    """Decode, validate and atomically store an API b64_json image."""
+    if ";base64," in value:
+        value = value.split(";base64,", 1)[1]
+    raw = base64.b64decode(value, validate=True)
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=save_path.parent, prefix=f".{save_path.name}.", suffix=".tmp", delete=False
+        ) as temporary:
+            temporary.write(raw)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+            temp_path = Path(temporary.name)
+        _validate_image_file(temp_path)
+        temp_path.replace(save_path)
+        return save_path
+    except Exception:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+        raise
 
 
 async def download_image(
@@ -382,46 +431,21 @@ async def download_image(
     save_path: Path,
     timeout: float = DEFAULT_HTTP_REQUEST_TIMEOUT,
 ) -> Path:
-    """Download an image from a URL.
-
-    Args:
-        url: The URL of the image to download.
-        timeout: The timeout for the request.
-
-    Returns:
-        Path: The path to the downloaded image file.
-    """
+    """Download a temporary model URL, validate it and atomically store it."""
     save_path.parent.mkdir(parents=True, exist_ok=True)
     temp_path: Path | None = None
-    bytes_written = 0
-    expected_length: int | None = None
     try:
         with tempfile.NamedTemporaryFile(
-            dir=save_path.parent,
-            prefix=f".{save_path.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as temp_file:
-            temp_path = Path(temp_file.name)
+            dir=save_path.parent, prefix=f".{save_path.name}.", suffix=".tmp", delete=False
+        ) as temporary:
+            temp_path = Path(temporary.name)
             async with httpx.AsyncClient(timeout=timeout) as client:
                 async with client.stream("GET", url) as response:
                     response.raise_for_status()
-                    content_length = response.headers.get("content-length")
-                    if content_length is not None:
-                        expected_length = int(content_length)
                     async for chunk in response.aiter_bytes():
-                        bytes_written += len(chunk)
-                        temp_file.write(chunk)
-            temp_file.flush()
-            os.fsync(temp_file.fileno())
-
-        if expected_length is not None and bytes_written != expected_length:
-            raise OSError(
-                f"Downloaded image is incomplete: got {bytes_written} bytes, "
-                f"expected {expected_length} bytes"
-            )
-
-        assert temp_path is not None
+                        temporary.write(chunk)
+            temporary.flush()
+            os.fsync(temporary.fileno())
         _validate_image_file(temp_path)
         temp_path.replace(save_path)
         return save_path
@@ -432,36 +456,13 @@ async def download_image(
 
 
 def _validate_image_file(image_path: Path) -> None:
-    """Verify that the downloaded image can be decoded completely."""
     with Image.open(image_path) as image:
         image.verify()
     with Image.open(image_path) as image:
         image.load()
 
 
-def mime_type_to_suffix(mime_type: str) -> str:
-    """Convert MIME type to file suffix.
-
-    Args:
-        mime_type: MIME type.
-
-    Returns:
-        str: File suffix.
-    """
-    if mime_type == "image/jpeg":
-        return ".jpg"
-    elif mime_type == "image/png":
-        return ".png"
-    elif mime_type == "image/webp":
-        return ".webp"
-    else:
-        return ".png"
-
-
-ASPECT_RATIO_LITERALS = Literal[
-    "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "1:1", "16:9", "9:16", "9:21"
-]
-BUCKETS_1K: dict[ASPECT_RATIO_LITERALS, tuple[int, int]] = {
+BUCKETS_1K: dict[str, tuple[int, int]] = {
     "2:3": (1088, 1632),
     "3:2": (1632, 1088),
     "3:4": (1152, 1536),
@@ -471,9 +472,10 @@ BUCKETS_1K: dict[ASPECT_RATIO_LITERALS, tuple[int, int]] = {
     "1:1": (1344, 1344),
     "16:9": (1792, 992),
     "9:16": (992, 1792),
+    "21:9": (2048, 864),
     "9:21": (864, 2048),
 }
-BUCKETS_2K: dict[ASPECT_RATIO_LITERALS, tuple[int, int]] = {
+BUCKETS_2K: dict[str, tuple[int, int]] = {
     "2:3": (1664, 2496),
     "3:2": (2496, 1664),
     "3:4": (1760, 2368),
@@ -483,35 +485,6 @@ BUCKETS_2K: dict[ASPECT_RATIO_LITERALS, tuple[int, int]] = {
     "1:1": (2048, 2048),
     "16:9": (2752, 1536),
     "9:16": (1536, 2752),
-    "9:21": (1344, 3136),
+    "21:9": (3072, 1376),
+    "9:21": (1376, 3072),
 }
-
-
-def _find_nearest_aspect_ratio(
-    ratio: float,
-    buckets: dict[ASPECT_RATIO_LITERALS, tuple[int, int]],
-) -> tuple[int, int]:
-    wh_pairs = sorted(
-        buckets.values(),
-        key=lambda wh: abs(wh[0] / wh[1] - ratio),
-    )
-    return wh_pairs[0]
-
-
-if __name__ == "__main__":
-    import asyncio
-
-    async def main_async():
-        client = SensenovaText2ImageClient(
-            api_key=global_configs.SN_IMAGE_GEN_API_KEY,
-            base_url=global_configs.SN_IMAGE_GEN_BASE_URL,
-        )
-
-        result = await client.generate(
-            prompt="A cat wearing a hat",
-            image_size="1K",
-            aspect_ratio="16:9",
-        )
-        print(result)
-
-    asyncio.run(main_async())

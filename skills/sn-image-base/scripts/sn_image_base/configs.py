@@ -18,24 +18,9 @@ def prepare_env() -> None:
     except ImportError:
         warnings.warn("python-dotenv is not installed, `.env` files will be ignored", stacklevel=2)
         return
-    # Priorities:
-    # 1. ".env" in the agent's config directory:
-    #    - openclaw: ~/.openclaw/.env
-    #    - hermes: ~/.openclaw/.env
-    # 2. ".env" in current working directory. (depends on how the agent runs the skill)
-    # 3. Environment variables
-    # ------------------------------------------------------------
-    # In reverse order of priority, the latter overrides the former:
-    # 3 -- do nothing; overridden by other env files
-    # 2 --
-    load_dotenv(override=True)
-    # 1 --
-    if "OPENCLAW_SHELL" in os.environ:
-        agent_config_dir = Path("~/.openclaw").expanduser()
-    else:
-        agent_config_dir = Path("~/.hermes").expanduser()
-    if (dotenv_path := agent_config_dir / ".env").exists():
-        load_dotenv(dotenv_path, override=True)
+    # Agent-agnostic precedence: an already-injected process environment wins;
+    # an optional .env in the caller's working directory only fills missing keys.
+    load_dotenv(override=False)
 
 
 prepare_env()
@@ -87,12 +72,19 @@ class Configs:
     """
 
     # global defaults shared by all SN capabilities.
-    SN_API_KEY: Annotated[str, Field("SN_API_KEY", secret=True)] = ""
+    SN_API_KEY: Annotated[str, Field("SN_API_KEY", "SENSENOVA_API_KEY", secret=True)] = ""
     SN_BASE_URL: Annotated[str, Field("SN_BASE_URL")] = ""
 
     # image-generate
     SN_IMAGE_GEN_API_KEY: Annotated[
-        str, Field("SN_IMAGE_GEN_API_KEY", "SN_API_KEY", required=True, secret=True)
+        str,
+        Field(
+            "SN_IMAGE_GEN_API_KEY",
+            "SN_API_KEY",
+            "SENSENOVA_API_KEY",
+            required=True,
+            secret=True,
+        ),
     ] = ""
     SN_IMAGE_GEN_BASE_URL: Annotated[
         str, Field("SN_IMAGE_GEN_BASE_URL", "SN_BASE_URL", required=True)
@@ -100,20 +92,34 @@ class Configs:
     SN_IMAGE_GEN_MODEL_TYPE: Annotated[
         Literal["sensenova", "nano-banana", "openai-image"], Field("SN_IMAGE_GEN_MODEL_TYPE")
     ] = "sensenova"
-    SN_IMAGE_GEN_MODEL: Annotated[str, Field("SN_IMAGE_GEN_MODEL")] = "sensenova-u1-fast"
+    SN_IMAGE_GEN_MODEL: Annotated[str, Field("SN_IMAGE_GEN_MODEL")] = "sensenova-u1.5-lite"
+    SN_IMAGE_GEN_FALLBACK_MODEL: Annotated[str, Field("SN_IMAGE_GEN_FALLBACK_MODEL")] = (
+        "sensenova-u1-fast"
+    )
 
     # chat runtime shared by text and vision commands; command-specific
     # SN_TEXT_* / SN_VISION_* values override these defaults.
-    SN_CHAT_API_KEY: Annotated[str, Field("SN_CHAT_API_KEY", "SN_API_KEY", secret=True)] = ""
+    SN_CHAT_API_KEY: Annotated[
+        str, Field("SN_CHAT_API_KEY", "SN_API_KEY", "SENSENOVA_API_KEY", secret=True)
+    ] = ""
     SN_CHAT_BASE_URL: Annotated[str, Field("SN_CHAT_BASE_URL", "SN_BASE_URL")] = (
         "https://token.sensenova.cn/v1"
     )
     SN_CHAT_TYPE: Annotated[
         Literal["anthropic-messages", "openai-completions"], Field("SN_CHAT_TYPE")
     ] = "openai-completions"
-    SN_CHAT_MODEL: Annotated[str, Field("SN_CHAT_MODEL")] = "sensenova-6.7-flash-lite"
+    # Deliberately no chat-model default: the host Agent should plan/review with
+    # its own capabilities unless an external text or vision runtime is explicit.
+    SN_CHAT_MODEL: Annotated[str, Field("SN_CHAT_MODEL")] = ""
     SN_TEXT_API_KEY: Annotated[
-        str, Field("SN_TEXT_API_KEY", "SN_CHAT_API_KEY", "SN_API_KEY", secret=True)
+        str,
+        Field(
+            "SN_TEXT_API_KEY",
+            "SN_CHAT_API_KEY",
+            "SN_API_KEY",
+            "SENSENOVA_API_KEY",
+            secret=True,
+        ),
     ] = ""
     SN_TEXT_BASE_URL: Annotated[
         str, Field("SN_TEXT_BASE_URL", "SN_CHAT_BASE_URL", "SN_BASE_URL")
@@ -122,11 +128,16 @@ class Configs:
         Literal["anthropic-messages", "openai-completions"],
         Field("SN_TEXT_TYPE", "SN_CHAT_TYPE"),
     ] = ""
-    SN_TEXT_MODEL: Annotated[str, Field("SN_TEXT_MODEL", "SN_CHAT_MODEL")] = (
-        "sensenova-6.7-flash-lite"
-    )
+    SN_TEXT_MODEL: Annotated[str, Field("SN_TEXT_MODEL", "SN_CHAT_MODEL")] = ""
     SN_VISION_API_KEY: Annotated[
-        str, Field("SN_VISION_API_KEY", "SN_CHAT_API_KEY", "SN_API_KEY", secret=True)
+        str,
+        Field(
+            "SN_VISION_API_KEY",
+            "SN_CHAT_API_KEY",
+            "SN_API_KEY",
+            "SENSENOVA_API_KEY",
+            secret=True,
+        ),
     ] = ""
     SN_VISION_BASE_URL: Annotated[
         str, Field("SN_VISION_BASE_URL", "SN_CHAT_BASE_URL", "SN_BASE_URL")
@@ -135,9 +146,7 @@ class Configs:
         Literal["anthropic-messages", "openai-completions"],
         Field("SN_VISION_TYPE", "SN_CHAT_TYPE"),
     ] = ""
-    SN_VISION_MODEL: Annotated[str, Field("SN_VISION_MODEL", "SN_CHAT_MODEL")] = (
-        "sensenova-6.7-flash-lite"
-    )
+    SN_VISION_MODEL: Annotated[str, Field("SN_VISION_MODEL", "SN_CHAT_MODEL")] = ""
 
     def __init__(self) -> None:
         for field, hint in get_type_hints(type(self), include_extras=True).items():
@@ -183,7 +192,7 @@ class Configs:
                 if field.required:
                     if field_name == "SN_IMAGE_GEN_API_KEY":
                         msg = (
-                            "Image generation API key is not set; configure SN_API_KEY, "
+                            "Image generation API key is not set; configure SN_API_KEY or SENSENOVA_API_KEY, "
                             "or configure SN_IMAGE_GEN_API_KEY only for an image-generation-specific override"
                         )
                     else:
@@ -193,10 +202,12 @@ class Configs:
 
         # Check fields combination rules:
         if not self.SN_IMAGE_GEN_MODEL:
-            errors.append((
-                "SN_IMAGE_GEN_MODEL",
-                f"SN_IMAGE_GEN_MODEL is required when SN_IMAGE_GEN_MODEL_TYPE is {self.SN_IMAGE_GEN_MODEL_TYPE!r}",
-            ))
+            errors.append(
+                (
+                    "SN_IMAGE_GEN_MODEL",
+                    f"SN_IMAGE_GEN_MODEL is required when SN_IMAGE_GEN_MODEL_TYPE is {self.SN_IMAGE_GEN_MODEL_TYPE!r}",
+                )
+            )
 
         warnings: list[tuple[str, str]] = []
         runtime_checks = {
@@ -223,10 +234,12 @@ class Configs:
                     else str(field_env_names.get(key, key))
                     for key in keys
                 )
-                warnings.append((
-                    keys[0],
-                    f"{keys[0]} is not set; {runtime} {field_kind} may be unavailable. Try setting: {env_help}",
-                ))
+                warnings.append(
+                    (
+                        keys[0],
+                        f"{keys[0]} is not set; {runtime} {field_kind} may be unavailable. Try setting: {env_help}",
+                    )
+                )
 
         # check urls
         errors.extend(
