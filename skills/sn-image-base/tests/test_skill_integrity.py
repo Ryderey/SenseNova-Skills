@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+import contextlib
+import importlib.util
+import io
+import os
 import re
+import subprocess
+import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from urllib.parse import unquote
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -14,6 +22,16 @@ EXPECTED_SKILLS = {
     "sn-image-resume",
     "sn-infographic",
 }
+DOCTOR_SCRIPT = SKILLS_ROOT / "sn-image-doctor/scripts/check_environment.py"
+
+
+def load_doctor_module():
+    spec = importlib.util.spec_from_file_location("sn_image_doctor", DOCTOR_SCRIPT)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Could not load sn-image-doctor")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class RepositoryScopeTests(unittest.TestCase):
@@ -58,6 +76,43 @@ class RepositoryScopeTests(unittest.TestCase):
         self.assertIn("Fact ledger", resume)
         self.assertIn("sn-image-edit", resume)
         self.assertIn("Factual Integrity Rule (Highest Priority)", resume_prompt)
+
+    def test_legacy_host_paths_are_absent(self) -> None:
+        legacy_host = "open" + "claw"
+        offenders = []
+        for path in REPO_ROOT.rglob("*"):
+            if path.suffix not in {".md", ".py"}:
+                continue
+            if any(part in {".git", ".venv"} for part in path.parts):
+                continue
+            if legacy_host in path.read_text(encoding="utf-8").lower():
+                offenders.append(str(path.relative_to(REPO_ROOT)))
+        self.assertEqual(offenders, [])
+
+    def test_generation_backends_share_a_portable_output_directory(self) -> None:
+        scripts = SKILLS_ROOT / "sn-image-base/scripts"
+        sys.path.insert(0, str(scripts))
+        try:
+            from sn_image_base.generation import nano_banana, openai_image, sensenova
+
+            output_dirs = {
+                nano_banana.OUTPUT_DIR,
+                openai_image.OUTPUT_DIR,
+                sensenova.OUTPUT_DIR,
+            }
+        finally:
+            sys.path.pop(0)
+        self.assertEqual(output_dirs, {Path(tempfile.gettempdir()) / "sensenova-image"})
+
+    def test_infographic_gallery_has_no_orphan_images(self) -> None:
+        image_names = {
+            path.name
+            for path in (REPO_ROOT / "docs/images/infographics").glob("*.webp")
+        }
+        for name in ("sn-infographic-examples.md", "sn-infographic-examples_CN.md"):
+            text = (REPO_ROOT / "docs" / name).read_text(encoding="utf-8")
+            referenced = set(re.findall(r"images/infographics/([^\"')]+\.webp)", text))
+            self.assertEqual(referenced, image_names, name)
 
 
 class DocumentationTests(unittest.TestCase):
@@ -112,6 +167,46 @@ class DocumentationTests(unittest.TestCase):
         self.assertEqual(
             missing, [], "Broken local Markdown links:\n" + "\n".join(missing)
         )
+
+
+class DoctorTests(unittest.TestCase):
+    def test_invalid_base_url_is_reported_without_a_traceback(self) -> None:
+        env = os.environ.copy()
+        env.update(
+            SENSENOVA_API_KEY="diagnostic-placeholder",
+            SN_IMAGE_GEN_BASE_URL="not-a-url",
+        )
+        result = subprocess.run(
+            [sys.executable, str(DOCTOR_SCRIPT), "--verbose"],
+            cwd=REPO_ROOT,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("[FAIL] Image runtime validation failed", output)
+        self.assertIn("=== Summary ===", output)
+        self.assertNotIn("Traceback", output)
+
+    def test_typing_extensions_is_checked_as_a_runtime_dependency(self) -> None:
+        doctor = load_doctor_module()
+
+        def fake_find_spec(name: str):
+            return None if name == "typing_extensions" else object()
+
+        output = io.StringIO()
+        with (
+            patch.object(
+                doctor.importlib.util, "find_spec", side_effect=fake_find_spec
+            ),
+            contextlib.redirect_stdout(output),
+        ):
+            result = doctor.check_dependencies(verbose=False)
+        self.assertFalse(result)
+        self.assertIn("typing-extensions", output.getvalue())
 
 
 if __name__ == "__main__":

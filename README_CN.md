@@ -4,7 +4,7 @@
 
 ![SenseNova 图像与可视化案例](docs/images/teasers/teaser_v2.webp)
 
-本分支只维护 5 个完整的“图像与可视化”技能，适用于任何兼容 Agent Skills 的智能体。默认使用免费的 `sensenova-u1.5-lite`。
+本分支只维护 5 个完整的“图像与可视化”技能，适用于任何兼容 Agent Skills 的智能体。默认使用 `sensenova-u1.5-lite`；当前价格与账号权益请以 SenseNova 控制台为准。
 
 ## 保留的技能
 

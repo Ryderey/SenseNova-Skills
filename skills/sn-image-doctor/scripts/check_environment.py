@@ -59,7 +59,12 @@ def check_dependencies(verbose: bool) -> bool:
     print(
         f"  {'[OK]' if ok else '[FAIL]'} Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )
-    package_imports = {"httpx": "httpx", "pillow": "PIL", "python-dotenv": "dotenv"}
+    package_imports = {
+        "httpx": "httpx",
+        "pillow": "PIL",
+        "python-dotenv": "dotenv",
+        "typing-extensions": "typing_extensions",
+    }
     missing = [
         name
         for name, module in package_imports.items()
@@ -82,6 +87,7 @@ def _load_runtime():
     sys.path.insert(0, str(scripts))
     try:
         from sn_image_base.configs import global_configs
+        from sn_image_base.exceptions import U1BaseError
         from sn_image_base.generation.sensenova import (
             DEFAULT_MODEL,
             FAST_MODEL,
@@ -97,6 +103,7 @@ def _load_runtime():
             IMAGE_GEN_ENDPOINT,
             IMAGE_EDIT_ENDPOINT,
             SensenovaText2ImageClient,
+            U1BaseError,
         )
     finally:
         sys.path.pop(0)
@@ -105,9 +112,15 @@ def _load_runtime():
 def check_image_runtime(verbose: bool) -> bool:
     print("[3/4] Checking image models, endpoint and safe defaults...")
     try:
-        configs, primary, fallback, generation_path, edit_path, client_type = (
-            _load_runtime()
-        )
+        (
+            configs,
+            primary,
+            fallback,
+            generation_path,
+            edit_path,
+            client_type,
+            runtime_error,
+        ) = _load_runtime()
     except (ImportError, OSError, ValueError) as exc:
         print(f"  [FAIL] Could not load image runtime: {exc}")
         return False
@@ -141,7 +154,7 @@ def check_image_runtime(verbose: bool) -> bool:
                 == "4096x4096",
             }
         )
-    except (OSError, TypeError, ValueError) as exc:
+    except (runtime_error, OSError, TypeError, ValueError) as exc:
         print(f"  [FAIL] Image runtime validation failed: {exc}")
         return False
 

@@ -74,4 +74,4 @@ Otherwise, use the first matching rule:
 - Prefer inference over interruption when there is one clearly reasonable choice.
 - Ask the user only when multiple aspect ratios are genuinely plausible and the choice would materially change composition or layout.
 - When asking the user, ask for `aspect_ratio` directly instead of a vague "horizontal or vertical" question whenever possible.
-- Use `--save-path` to write the output directly to the task's temp directory (`/tmp/openclaw/sn-infographic/<task_id>/round_<N>.png`), avoiding a separate move step.
+- Use `--save-path` to write the output directly to the host Agent's task temp directory (`$TEMP_DIR/round_<N>.png`), avoiding a separate move step. Resolve `$TEMP_DIR` to a platform-native absolute path before invoking the runner; it is a logical placeholder, not a required environment variable.

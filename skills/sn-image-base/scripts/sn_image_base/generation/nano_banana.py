@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import tempfile
 import time
 from pathlib import Path
 from typing import Any, Literal
@@ -21,7 +22,7 @@ from .core.client_base import (
 DEFAULT_MODEL_SIZE: Literal["1K", "2K", "4K"] = "2K"
 DEFAULT_ASPECT_RATIO = "16:9"
 DEFAULT_POLL_INTERVAL = 5.0
-OUTPUT_DIR = Path("/tmp/openclaw-sn-image")
+OUTPUT_DIR = Path(tempfile.gettempdir()) / "sensenova-image"
 
 # Gemini finishReason values that indicate content was blocked by safety/policy filters.
 # See: https://ai.google.dev/api/generate-content#FinishReason
