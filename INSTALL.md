@@ -12,7 +12,7 @@
 ## Clone and install
 
 ```bash
-git clone --branch refactor/image-viz --single-branch https://github.com/Ryderey/SenseNova-Skills.git
+git clone --branch image-viz --single-branch https://github.com/Ryderey/SenseNova-Skills.git
 cd SenseNova-Skills
 python -m venv .venv
 ```

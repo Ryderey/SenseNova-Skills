@@ -23,6 +23,7 @@ ALLOWED_ROOT_FILES = {
     "LICENSE",
     "README.md",
     "README_CN.md",
+    "SenseNova技能清单.xlsx",
 }
 ALLOWED_DOC_FILES = {
     "sn-image-generate.md",
@@ -32,7 +33,7 @@ ALLOWED_DOC_FILES = {
 }
 ALLOWED_DOC_IMAGE_DIRS = {"infographics", "teasers"}
 IMAGE_BRANCH_CLONE_COMMAND = (
-    "git clone --branch refactor/image-viz --single-branch "
+    "git clone --branch image-viz --single-branch "
     "https://github.com/Ryderey/SenseNova-Skills.git"
 )
 FORBIDDEN_MARKDOWN_TEXT = {
@@ -54,7 +55,7 @@ FORBIDDEN_SKILL_COMMANDS = {
 
 def tracked_files() -> list[Path]:
     result = subprocess.run(
-        ["git", "ls-files"],
+        ["git", "-c", "core.quotepath=false", "ls-files"],
         cwd=REPO_ROOT,
         check=True,
         capture_output=True,

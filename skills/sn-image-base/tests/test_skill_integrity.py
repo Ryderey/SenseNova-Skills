@@ -136,7 +136,7 @@ class RepositoryScopeTests(unittest.TestCase):
 class DocumentationTests(unittest.TestCase):
     LINK = re.compile(r"!?(?:\[[^\]]*\])\(([^)]+)\)")
     IMAGE_BRANCH_CLONE_COMMAND = (
-        "git clone --branch refactor/image-viz --single-branch "
+        "git clone --branch image-viz --single-branch "
         "https://github.com/Ryderey/SenseNova-Skills.git"
     )
 
