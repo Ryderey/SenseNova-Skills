@@ -29,7 +29,7 @@ The full bilingual infographic gallery remains available in [English](docs/sn-in
 
 U1 Fast is used automatically only for recoverable text-to-image failures (404, 429, or retry-exhausted 5xx). It is never used for image editing, authentication/authorization failures, bad parameters, safety blocks, or local file problems.
 
-See the official [U1.5 Lite documentation](https://platform.sensenova.cn/docs#model-u1-5) and [U1 Fast documentation](https://platform.sensenova.cn/docs#model-u1).
+See the official [SenseNova API documentation](https://platform.sensenova.cn/docs) and find the `SenseNova U1.5 Lite` or `SenseNova U1 Fast` section by its heading. The documentation site's deep links are not reliable on a cold load.
 
 ## Quick start
 

@@ -13,6 +13,10 @@ metadata:
 
 Preserve the original reference-analysis, content-rewrite, layout-consistency review, bounded retry, ranking, and detailed artifact output. Use U1.5 native editing as the primary render path so the reference pixels participate directly instead of relying only on “recognize → rewrite → regenerate”.
 
+## Runtime path
+
+Resolve `BASE_SKILL_DIR` as the absolute path to the sibling `sn-image-base` directory and `RUNNER` as `BASE_SKILL_DIR/scripts/sn_agent_runner.py`. Locate it relative to this `SKILL.md` and use the absolute runner path regardless of the current working directory. These are logical path names, not environment variables; never ask the user to configure them. Replace the descriptive runner path below before execution.
+
 ## Inputs
 
 | Parameter | Default | Meaning |
@@ -42,7 +46,7 @@ Use the current Agent's visual understanding and writing ability for analysis, r
 4. Attempt 1 uses native U1.5 editing with the original reference:
 
    ```bash
-   python "$SN_IMAGE_BASE/scripts/sn_agent_runner.py" sn-image-edit \
+   python "<absolute RUNNER path>" sn-image-edit \
      --prompt "$EDIT_PROMPT" \
      --images "$REFERENCE_IMAGE" \
      --image-size auto \
@@ -55,7 +59,7 @@ Use the current Agent's visual understanding and writing ability for analysis, r
 6. For attempts 2-8, edit the current best candidate with the original reference as a second input when useful:
 
    ```bash
-   python "$SN_IMAGE_BASE/scripts/sn_agent_runner.py" sn-image-edit \
+   python "<absolute RUNNER path>" sn-image-edit \
      --prompt "$CORRECTION_PROMPT" \
      --images "$BEST_CANDIDATE" "$REFERENCE_IMAGE" \
      --image-size auto \

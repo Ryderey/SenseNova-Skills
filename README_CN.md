@@ -29,7 +29,7 @@
 
 只有文生图遇到 404、429 或同模型重试后仍失败的 5xx 才自动回退。图片编辑、401/403、参数/安全错误和本地文件错误均不回退。
 
-官方文档：[U1.5 Lite](https://platform.sensenova.cn/docs#model-u1-5) / [U1 Fast](https://platform.sensenova.cn/docs#model-u1)。
+请打开 [SenseNova API 官方文档](https://platform.sensenova.cn/docs)，按标题查找 `SenseNova U1.5 Lite` 或 `SenseNova U1 Fast`。文档站的深链接在首次加载时不能可靠定位。
 
 ## 快速开始
 

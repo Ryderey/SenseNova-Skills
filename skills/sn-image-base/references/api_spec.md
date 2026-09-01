@@ -1,6 +1,6 @@
 # sn-image-base CLI contract
 
-Entrypoint: `python scripts/sn_agent_runner.py <command>`.
+Entrypoint from the `sn-image-base` skill directory: `python scripts/sn_agent_runner.py <command>`. From any other working directory, resolve the skill directory and invoke `scripts/sn_agent_runner.py` by its absolute path.
 
 ## `sn-image-generate`
 

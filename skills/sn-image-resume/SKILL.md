@@ -13,6 +13,10 @@ metadata:
 
 This skill preserves the complete resume-to-layout mapping and fixed visual rules in `prompts/resume.md`. It must never invent credentials, dates, employers, degrees, metrics, contacts, awards, or projects.
 
+## Runtime path
+
+Resolve `BASE_SKILL_DIR` as the absolute path to the sibling `sn-image-base` directory and `RUNNER` as `BASE_SKILL_DIR/scripts/sn_agent_runner.py`. Locate it relative to this `SKILL.md` and use the absolute runner path regardless of the current working directory. These are logical path names, not environment variables; never ask the user to configure them. Replace the descriptive runner path below before execution.
+
 ## Inputs
 
 | Parameter | Default | Meaning |
@@ -42,7 +46,7 @@ Condensation is allowed only to fit the visual hierarchy. Preserve names, dates,
 4. Generate with U1.5:
 
    ```bash
-   python "$SN_IMAGE_BASE/scripts/sn_agent_runner.py" sn-image-generate \
+   python "<absolute RUNNER path>" sn-image-generate \
      --prompt "$GENERATION_PROMPT" \
      --image-size "$IMAGE_SIZE" \
      --aspect-ratio "$ASPECT_RATIO" \
@@ -54,7 +58,7 @@ Condensation is allowed only to fit the visual hierarchy. Preserve names, dates,
 6. For each bounded correction, edit the previous image with U1.5 instead of regenerating the whole page:
 
    ```bash
-   python "$SN_IMAGE_BASE/scripts/sn_agent_runner.py" sn-image-edit \
+   python "<absolute RUNNER path>" sn-image-edit \
      --prompt "$CORRECTION_PROMPT" \
      --images "$CURRENT_IMAGE" \
      --image-size auto \

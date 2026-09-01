@@ -31,6 +31,25 @@ ALLOWED_DOC_FILES = {
     "sn-infographic-examples_CN.md",
 }
 ALLOWED_DOC_IMAGE_DIRS = {"infographics", "teasers"}
+IMAGE_BRANCH_CLONE_COMMAND = (
+    "git clone --branch refactor/image-viz --single-branch "
+    "https://github.com/Ryderey/SenseNova-Skills.git"
+)
+FORBIDDEN_MARKDOWN_TEXT = {
+    "$SN_IMAGE_BASE": "undefined image-base path variable",
+    "https://platform.sensenova.cn/docs#model-": (
+        "unreliable SenseNova documentation deep link"
+    ),
+}
+FORBIDDEN_SKILL_COMMANDS = {
+    "python scripts/": "runtime command depends on the current working directory",
+    "pip install -r requirements.txt": (
+        "dependency command depends on the current working directory"
+    ),
+    "pip install -r ../sn-image-base/requirements.txt": (
+        "dependency command depends on the current working directory"
+    ),
+}
 
 
 def tracked_files() -> list[Path]:
@@ -70,10 +89,39 @@ def violation(path: Path) -> str | None:
     return "unexpected top-level directory"
 
 
+def documentation_violations() -> list[tuple[Path, str]]:
+    failures: list[tuple[Path, str]] = []
+    for name in ("INSTALL.md", "INSTALL_CN.md"):
+        path = REPO_ROOT / name
+        if IMAGE_BRANCH_CLONE_COMMAND not in path.read_text(encoding="utf-8"):
+            failures.append(
+                (
+                    path.relative_to(REPO_ROOT),
+                    "clone command does not select the image branch",
+                )
+            )
+
+    for path in REPO_ROOT.rglob("*.md"):
+        if any(part in {".git", ".venv"} for part in path.parts):
+            continue
+        text = path.read_text(encoding="utf-8")
+        for token, reason in FORBIDDEN_MARKDOWN_TEXT.items():
+            if token in text:
+                failures.append((path.relative_to(REPO_ROOT), reason))
+
+    for path in (REPO_ROOT / "skills").glob("*/SKILL.md"):
+        text = path.read_text(encoding="utf-8")
+        for command, reason in FORBIDDEN_SKILL_COMMANDS.items():
+            if command in text:
+                failures.append((path.relative_to(REPO_ROOT), reason))
+    return failures
+
+
 def main() -> int:
     failures = [
         (path, reason) for path in tracked_files() if (reason := violation(path))
     ]
+    failures.extend(documentation_violations())
     if failures:
         for path, reason in failures:
             print(f"[FAIL] {path.as_posix()}: {reason}")

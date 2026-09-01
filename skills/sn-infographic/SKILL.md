@@ -13,6 +13,10 @@ metadata:
 
 This is a complete scene skill built on `sn-image-base`. Preserve the prompt library, 87 layouts, 66 styles, quality rubric, multi-round review, ranking, and Chinese/English examples.
 
+## Runtime path
+
+Resolve `BASE_SKILL_DIR` as the absolute path to the sibling `sn-image-base` directory and `RUNNER` as `BASE_SKILL_DIR/scripts/sn_agent_runner.py`. Locate it relative to this `SKILL.md` and use the absolute runner path regardless of the current working directory. These are logical path names, not environment variables; never ask the user to configure them. Replace the descriptive runner path below before execution.
+
 ## Inputs
 
 | Parameter | Default | Rules |
@@ -49,7 +53,7 @@ Use the current host Agent to analyze content, expand prompts, inspect generated
 6. Generate round 1 with U1.5:
 
    ```bash
-   python "$SN_IMAGE_BASE/scripts/sn_agent_runner.py" sn-image-generate \
+   python "<absolute RUNNER path>" sn-image-generate \
      --prompt "$EXPANDED_PROMPT" \
      --image-size "$IMAGE_SIZE" \
      --aspect-ratio "$ASPECT_RATIO" \
@@ -62,7 +66,7 @@ Use the current host Agent to analyze content, expand prompts, inspect generated
 8. For rounds 2-8, prefer native U1.5 editing of the best prior image to reduce layout drift:
 
    ```bash
-   python "$SN_IMAGE_BASE/scripts/sn_agent_runner.py" sn-image-edit \
+   python "<absolute RUNNER path>" sn-image-edit \
      --prompt "$CORRECTION_PROMPT" \
      --images "$BEST_PRIOR_IMAGE" \
      --image-size auto \

@@ -62,6 +62,39 @@ class RepositoryScopeTests(unittest.TestCase):
 
 class DocumentationTests(unittest.TestCase):
     LINK = re.compile(r"!?(?:\[[^\]]*\])\(([^)]+)\)")
+    IMAGE_BRANCH_CLONE_COMMAND = (
+        "git clone --branch refactor/image-viz --single-branch "
+        "https://github.com/Ryderey/SenseNova-Skills.git"
+    )
+
+    def test_installation_selects_the_image_branch(self) -> None:
+        for name in ("INSTALL.md", "INSTALL_CN.md"):
+            text = (REPO_ROOT / name).read_text(encoding="utf-8")
+            self.assertIn(self.IMAGE_BRANCH_CLONE_COMMAND, text)
+            self.assertNotIn("OpenSenseNova/SenseNova-Skills", text)
+
+    def test_skill_runtime_commands_are_location_independent(self) -> None:
+        forbidden = (
+            "$SN_IMAGE_BASE",
+            "python scripts/",
+            "pip install -r requirements.txt",
+            "pip install -r ../sn-image-base/requirements.txt",
+        )
+        for path in SKILLS_ROOT.glob("*/SKILL.md"):
+            text = path.read_text(encoding="utf-8")
+            for token in forbidden:
+                self.assertNotIn(token, text, f"{path.relative_to(REPO_ROOT)}: {token}")
+
+    def test_official_docs_links_do_not_use_unreliable_model_hashes(self) -> None:
+        for path in REPO_ROOT.rglob("*.md"):
+            if any(part in {".git", ".venv"} for part in path.parts):
+                continue
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn(
+                "https://platform.sensenova.cn/docs#model-",
+                text,
+                str(path.relative_to(REPO_ROOT)),
+            )
 
     def test_relative_markdown_links_resolve(self) -> None:
         missing: list[str] = []

@@ -12,6 +12,10 @@ metadata:
 
 Use `scripts/sn_agent_runner.py` as the stable CLI. It preserves the original `sn-image-generate`, `sn-image-recognize`, and `sn-text-optimize` contracts and adds `sn-image-edit`.
 
+## Runtime paths
+
+Resolve `BASE_SKILL_DIR` as the absolute directory containing this `SKILL.md`. Resolve `RUNNER` as `BASE_SKILL_DIR/scripts/sn_agent_runner.py` and `REQUIREMENTS` as `BASE_SKILL_DIR/requirements.txt`. Use those absolute paths regardless of the current working directory. These are logical path names, not environment variables; never ask the user to configure them. Replace the descriptive path markers in the examples below with the resolved absolute paths before execution.
+
 ## Runtime policy
 
 - Default image model: `sensenova-u1.5-lite`.
@@ -24,13 +28,13 @@ Use `scripts/sn_agent_runner.py` as the stable CLI. It preserves the original `s
 Install dependencies once:
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install -r "<absolute REQUIREMENTS path>"
 ```
 
 ## Generate
 
 ```bash
-python scripts/sn_agent_runner.py sn-image-generate \
+python "<absolute RUNNER path>" sn-image-generate \
   --prompt "A clean bilingual product architecture infographic" \
   --image-size 2k \
   --aspect-ratio 16:9 \
@@ -61,7 +65,7 @@ Automatic fallback applies only to text-to-image when the primary returns 404, 4
 Use native U1.5 editing for local files, public URLs, Data URLs, multiple references, and continued editing of a prior result:
 
 ```bash
-python scripts/sn_agent_runner.py sn-image-edit \
+python "<absolute RUNNER path>" sn-image-edit \
   --prompt "Keep the composition; correct the Chinese title and strengthen hierarchy" \
   --images first-round.png brand-reference.webp \
   --image-size auto \
@@ -76,12 +80,12 @@ Local images are converted to image Data URLs in memory. Public and existing Dat
 Prefer the host Agent. Invoke these compatibility tools only when an external runtime is explicitly configured:
 
 ```bash
-python scripts/sn_agent_runner.py sn-text-optimize \
+python "<absolute RUNNER path>" sn-text-optimize \
   --user-prompt "Rewrite this image prompt" \
   --model YOUR_TEXT_MODEL \
   --output-format json
 
-python scripts/sn_agent_runner.py sn-image-recognize \
+python "<absolute RUNNER path>" sn-image-recognize \
   --user-prompt "Review typography and factual accuracy" \
   --images output.png \
   --model YOUR_VISION_MODEL \

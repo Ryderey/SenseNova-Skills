@@ -10,10 +10,14 @@ metadata:
 
 # sn-image-doctor
 
+## Runtime paths
+
+Resolve `DOCTOR_SKILL_DIR` as the absolute directory containing this `SKILL.md`. Resolve `DOCTOR` as `DOCTOR_SKILL_DIR/scripts/check_environment.py` and `BASE_REQUIREMENTS` as the sibling `sn-image-base/requirements.txt`. Use those absolute paths regardless of the current working directory. These are logical path names, not environment variables; never ask the user to configure them. Replace the descriptive path markers below with the resolved absolute paths before execution.
+
 Run this before generation when installation or configuration is uncertain:
 
 ```bash
-python scripts/check_environment.py --verbose
+python "<absolute DOCTOR path>" --verbose
 ```
 
 The check is offline and does not spend model quota. It validates:
@@ -29,7 +33,7 @@ Exit code is 0 only when required image checks pass. Missing text/vision adapter
 To install dependencies:
 
 ```bash
-python -m pip install -r ../sn-image-base/requirements.txt
+python -m pip install -r "<absolute BASE_REQUIREMENTS path>"
 ```
 
 Minimal image configuration:

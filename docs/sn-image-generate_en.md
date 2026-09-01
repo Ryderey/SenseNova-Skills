@@ -11,7 +11,7 @@ This repository contains only `sn-image-base`, `sn-image-doctor`, `sn-infographi
 - `watermark=false`, `prompt_extend=true`, `response_format=b64_json`; save immediately.
 - No default `SN_CHAT_MODEL`; the host Agent plans and reviews first.
 
-Official documentation: [U1.5 Lite](https://platform.sensenova.cn/docs#model-u1-5) / [U1 Fast](https://platform.sensenova.cn/docs#model-u1).
+Open the official [SenseNova API documentation](https://platform.sensenova.cn/docs) and find the `SenseNova U1.5 Lite` or `SenseNova U1 Fast` section by its heading. The documentation site's deep links are not reliable on a cold load.
 
 ## Configure and diagnose
 
