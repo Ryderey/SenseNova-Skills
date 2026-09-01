@@ -142,7 +142,7 @@ def build_parser() -> argparse.ArgumentParser:
     gen_parser.add_argument(
         "--api-key",
         default="",
-        help="API key (CLI > SN_IMAGE_GEN_API_KEY > SN_API_KEY)",
+        help="API key (CLI override > SENSENOVA_API_KEY)",
     )
     gen_parser.add_argument(
         "--base-url",
@@ -165,7 +165,7 @@ def build_parser() -> argparse.ArgumentParser:
     edit_parser.add_argument("--aspect-ratio", default=None, help="Optional ratio such as 16:9")
     edit_parser.add_argument("--model", default=None, help="Image editing model override")
     edit_parser.add_argument(
-        "--api-key", default="", help="API key (CLI > SN_IMAGE_GEN_API_KEY > SN_API_KEY)"
+        "--api-key", default="", help="API key (CLI override > SENSENOVA_API_KEY)"
     )
     edit_parser.add_argument("--base-url", default="", help="API base URL")
     edit_parser.add_argument("--timeout", type=float, default=300.0)
@@ -206,7 +206,7 @@ def build_parser() -> argparse.ArgumentParser:
     recog_parser.add_argument(
         "--api-key",
         default=None,
-        help="API key (CLI > SN_VISION_API_KEY > SN_CHAT_API_KEY > SN_API_KEY)",
+        help="API key (CLI override > SENSENOVA_API_KEY)",
     )
     recog_parser.add_argument(
         "--base-url",
@@ -243,7 +243,7 @@ def build_parser() -> argparse.ArgumentParser:
     opt_parser.add_argument(
         "--api-key",
         default=None,
-        help="API key (CLI > SN_TEXT_API_KEY > SN_CHAT_API_KEY > SN_API_KEY)",
+        help="API key (CLI override > SENSENOVA_API_KEY)",
     )
     opt_parser.add_argument(
         "--base-url",
@@ -557,7 +557,7 @@ RUNTIME_PROFILES = {
         "model_config": "SN_VISION_MODEL",
         "api_key_config": "SN_VISION_API_KEY",
         "label": "vision",
-        "key_env": "SN_VISION_API_KEY, SN_CHAT_API_KEY, or SN_API_KEY",
+        "key_env": "SENSENOVA_API_KEY",
         "url_env": "SN_VISION_BASE_URL, SN_CHAT_BASE_URL, or SN_BASE_URL",
         "model_env": "SN_VISION_MODEL or SN_CHAT_MODEL",
         "type_env": "SN_VISION_TYPE or SN_CHAT_TYPE",
@@ -569,7 +569,7 @@ RUNTIME_PROFILES = {
         "model_config": "SN_TEXT_MODEL",
         "api_key_config": "SN_TEXT_API_KEY",
         "label": "text",
-        "key_env": "SN_TEXT_API_KEY, SN_CHAT_API_KEY, or SN_API_KEY",
+        "key_env": "SENSENOVA_API_KEY",
         "url_env": "SN_TEXT_BASE_URL, SN_CHAT_BASE_URL, or SN_BASE_URL",
         "model_env": "SN_TEXT_MODEL or SN_CHAT_MODEL",
         "type_env": "SN_TEXT_TYPE or SN_CHAT_TYPE",

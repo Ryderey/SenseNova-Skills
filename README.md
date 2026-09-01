@@ -43,7 +43,7 @@ python -m pip install -r skills/sn-image-base/requirements.txt
 Copy `.env.example` to an ignored `.env` and set only your key for the default setup:
 
 ```dotenv
-SN_API_KEY=your-key
+SENSENOVA_API_KEY=your-key
 ```
 
 Run diagnostics:

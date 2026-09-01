@@ -16,7 +16,7 @@ Official documentation: [U1.5 Lite](https://platform.sensenova.cn/docs#model-u1-
 ## Configure and diagnose
 
 ```dotenv
-SN_API_KEY=your-key
+SENSENOVA_API_KEY=your-key
 SN_IMAGE_GEN_BASE_URL=https://token.sensenova.cn/v1
 SN_IMAGE_GEN_MODEL=sensenova-u1.5-lite
 SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1-fast

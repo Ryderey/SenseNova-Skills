@@ -38,7 +38,7 @@ python -m pip install -r skills/sn-image-base/requirements.txt
 复制 `.env.example` 为 `.env` 并填写 Key；`.env` 已被 Git 忽略。
 
 ```dotenv
-SN_API_KEY=your-key
+SENSENOVA_API_KEY=your-key
 ```
 
 图像默认值已经内置：

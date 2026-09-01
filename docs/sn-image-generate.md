@@ -16,7 +16,7 @@
 ## 配置与检查
 
 ```dotenv
-SN_API_KEY=your-key
+SENSENOVA_API_KEY=your-key
 SN_IMAGE_GEN_BASE_URL=https://token.sensenova.cn/v1
 SN_IMAGE_GEN_MODEL=sensenova-u1.5-lite
 SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1-fast

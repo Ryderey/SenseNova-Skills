@@ -43,7 +43,7 @@ python -m pip install -r skills/sn-image-base/requirements.txt
 复制 `.env.example` 为本地 `.env`，默认配置只需填写：
 
 ```dotenv
-SN_API_KEY=your-key
+SENSENOVA_API_KEY=your-key
 ```
 
 检查环境：

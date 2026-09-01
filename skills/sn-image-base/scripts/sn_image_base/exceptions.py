@@ -25,8 +25,7 @@ class MissingApiKeyError(BadConfigurationError):
 
     DEFAULT_MESSAGE = (
         "API key is required but was not provided. "
-        "Set SN_API_KEY/SENSENOVA_API_KEY, or set SN_IMAGE_GEN_API_KEY only for an image-generation-specific "
-        "override, or pass --api-key explicitly."
+        "Set SENSENOVA_API_KEY, or pass --api-key explicitly for a third-party backend."
     )
 
 

@@ -38,7 +38,7 @@ python -m pip install -r skills/sn-image-base/requirements.txt
 Copy `.env.example` to `.env` and set the key. `.env` is ignored by Git.
 
 ```dotenv
-SN_API_KEY=your-key
+SENSENOVA_API_KEY=your-key
 ```
 
 The image defaults are already:
