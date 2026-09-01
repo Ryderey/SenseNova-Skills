@@ -4,7 +4,7 @@ English | [简体中文](README_CN.md)
 
 ![SenseNova image and visualization examples](docs/images/teasers/teaser_v2.webp)
 
-This branch is intentionally focused: it contains only five complete image and visualization skills. It is designed for any Agent Skills-compatible host and uses `sensenova-u1.5-lite` as the default image model. Check the SenseNova account console for current pricing and entitlement details.
+This branch is intentionally focused: it contains only five complete image and visualization skills. It is designed for any Agent Skills-compatible host and uses `sensenova-u1.5-lite`, currently free during public beta, as the default model for image generation and editing. Check the SenseNova account console for future pricing and entitlement changes.
 
 ## Included skills
 

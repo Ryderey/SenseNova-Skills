@@ -77,6 +77,24 @@ class RepositoryScopeTests(unittest.TestCase):
         self.assertIn("sn-image-edit", resume)
         self.assertIn("Factual Integrity Rule (Highest Priority)", resume_prompt)
 
+    def test_image_skill_commands_inherit_the_u15_primary_default(self) -> None:
+        for name in (
+            "sn-image-base",
+            "sn-infographic",
+            "sn-image-imitate",
+            "sn-image-resume",
+        ):
+            text = (SKILLS_ROOT / name / "SKILL.md").read_text(encoding="utf-8")
+            image_commands = [
+                block
+                for block in re.findall(r"```bash\n(.*?)```", text, re.DOTALL)
+                if "sn-image-generate" in block or "sn-image-edit" in block
+            ]
+            self.assertTrue(image_commands, name)
+            self.assertTrue(
+                all("--model" not in command for command in image_commands), name
+            )
+
     def test_legacy_host_paths_are_absent(self) -> None:
         legacy_host = "open" + "claw"
         offenders = []

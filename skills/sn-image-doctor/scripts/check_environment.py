@@ -127,6 +127,7 @@ def check_image_runtime(verbose: bool) -> bool:
 
     checks = {
         "API key is configured": bool(configs.SN_IMAGE_GEN_API_KEY),
+        "image backend is sensenova": configs.SN_IMAGE_GEN_MODEL_TYPE == "sensenova",
         f"primary model is {primary}": configs.SN_IMAGE_GEN_MODEL == primary,
         f"fallback model is {fallback}": configs.SN_IMAGE_GEN_FALLBACK_MODEL
         == fallback,

@@ -45,6 +45,7 @@ class ConfigurationTests(unittest.TestCase):
             for key in keys:
                 os.environ.pop(key, None)
             configs = Configs()
+        self.assertEqual(configs.SN_IMAGE_GEN_MODEL_TYPE, "sensenova")
         self.assertEqual(configs.SN_IMAGE_GEN_MODEL, DEFAULT_MODEL)
         self.assertEqual(configs.SN_IMAGE_GEN_FALLBACK_MODEL, FAST_MODEL)
         self.assertEqual(configs.SN_CHAT_MODEL, "")
