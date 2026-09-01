@@ -24,3 +24,6 @@ deep-research-reports/
 .env
 .env.*
 !.env.example
+
+# Local planning workbook
+SenseNova技能清单.xlsx

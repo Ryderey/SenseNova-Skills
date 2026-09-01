@@ -23,7 +23,6 @@ ALLOWED_ROOT_FILES = {
     "LICENSE",
     "README.md",
     "README_CN.md",
-    "SenseNova技能清单.xlsx",
 }
 ALLOWED_DOC_FILES = {
     "sn-image-generate.md",
