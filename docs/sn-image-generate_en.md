@@ -11,6 +11,8 @@ This repository contains only `sn-image-base`, `sn-image-doctor`, `sn-infographi
 - `watermark=false`, `prompt_extend=true`, `response_format=b64_json`; save immediately.
 - No default `SN_CHAT_MODEL`; the host Agent plans and reviews first.
 
+Model calls follow the account plan and credit rules. `watermark=false` is free only during the current public beta and is documented to become a premium paid feature afterward.
+
 Open the official [SenseNova API documentation](https://platform.sensenova.cn/docs) and find the `SenseNova U1.5 Lite` or `SenseNova U1 Fast` section by its heading. The documentation site's deep links are not reliable on a cold load.
 
 ## Configure and diagnose
@@ -48,7 +50,9 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-generate \
   --output-format json
 ```
 
-Sizes: `1k`, `2k`, `4k`, or `WIDTHxHEIGHT`. Explicit dimensions must be multiples of 32, 512-4096 per side, and at most 3:1. PNG/JPEG/WEBP are supported.
+Sizes: official `2k` / `4k`, repository compatibility preset `1k`, or `WIDTHxHEIGHT`. `1k` is mapped to valid explicit dimensions rather than sent as an API constant. U1.5 2K 16:9 / 9:16 uses the official recommended `2720x1536` / `1536x2720`; Fast uses its fixed `2752x1536` / `1536x2752` buckets. Explicit dimensions must be multiples of 32, 512-4096 per side, and at most 3:1. PNG/JPEG/WEBP are supported.
+
+URL responses are downloaded immediately: U1.5 generation/edit URLs expire after 24 hours and U1 Fast URLs after 1 hour. The default Base64 path has no URL-expiry risk.
 
 Use `--model`, `--fallback-model`, and `--no-fallback` for control. Only 404, 429, and retry-exhausted 5xx may fall back. Bad/safety requests, 401/403, and file errors never do.
 

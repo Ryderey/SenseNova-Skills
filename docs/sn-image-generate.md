@@ -11,6 +11,8 @@
 - `watermark=false`、`prompt_extend=true`、`response_format=b64_json`，结果立即落盘。
 - 没有默认 `SN_CHAT_MODEL`；优先由当前 Agent 规划、看图和评审。
 
+模型调用按账号套餐及积分规则计费。`watermark=false` 当前仅在公测期免费，官方说明公测结束后将作为高级付费特性。
+
 请打开 [SenseNova API 官方文档](https://platform.sensenova.cn/docs)，按标题查找 `SenseNova U1.5 Lite` 或 `SenseNova U1 Fast`。文档站的深链接在首次加载时不能可靠定位。
 
 ## 配置与检查
@@ -48,7 +50,9 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-generate \
   --output-format json
 ```
 
-支持 `1k` / `2k` / `4k` / `WIDTHxHEIGHT`。显式宽高必须为 32 的倍数、512–4096、比例最大 3:1。格式支持 PNG/JPEG/WEBP。
+支持官方 `2k` / `4k`、本仓库兼容预设 `1k`，以及 `WIDTHxHEIGHT`。`1k` 不会作为 API 常量发送，而会映射为合法显式尺寸。U1.5 的 2K 16:9 / 9:16 使用官方建议的 `2720x1536` / `1536x2720`；Fast 使用其固定桶 `2752x1536` / `1536x2752`。显式宽高必须为 32 的倍数、512–4096、比例最大 3:1。格式支持 PNG/JPEG/WEBP。
+
+选择 URL 返回时会立即下载：U1.5 生成/编辑 URL 有效 24 小时，U1 Fast URL 有效 1 小时。默认 Base64 路径不受 URL 时效影响。
 
 可用 `--model`、`--fallback-model`、`--no-fallback` 控制模型。仅 404、429 或同模型重试后仍失败的 5xx 会自动回退。400/安全拦截、401/403、文件错误不会回退。
 

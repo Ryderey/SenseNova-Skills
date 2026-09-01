@@ -4,7 +4,7 @@
 
 ![SenseNova 图像与可视化案例](docs/images/teasers/teaser_v2.webp)
 
-本分支只维护 5 个完整的“图像与可视化”技能，适用于任何兼容 Agent Skills 的智能体。生图与图片编辑默认使用当前免费公测的 `sensenova-u1.5-lite`；后续价格与账号权益变化请以 SenseNova 控制台为准。
+本分支只维护 5 个完整的“图像与可视化”技能，适用于任何兼容 Agent Skills 的智能体。生图与图片编辑默认使用 `sensenova-u1.5-lite`；模型调用按账号当前套餐及积分规则计费。
 
 ## 保留的技能
 
@@ -28,6 +28,8 @@
 - 不设置默认文本/视觉聊天模型；优先由当前 Agent 完成规划和评审
 
 只有文生图遇到 404、429 或同模型重试后仍失败的 5xx 才自动回退。图片编辑、401/403、参数/安全错误和本地文件错误均不回退。
+
+本仓库有意显式发送 `watermark=false`。SenseNova 当前在公测期免费开放无水印，官方说明公测结束后将作为高级付费特性；届时用于生产前应先确认账号费用。
 
 请打开 [SenseNova API 官方文档](https://platform.sensenova.cn/docs)，按标题查找 `SenseNova U1.5 Lite` 或 `SenseNova U1 Fast`。文档站的深链接在首次加载时不能可靠定位。
 

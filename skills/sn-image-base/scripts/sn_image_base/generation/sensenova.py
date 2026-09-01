@@ -324,17 +324,17 @@ class SensenovaText2ImageClient(T2IBaseClient):
             width, height = map(int, explicit.groups())
             cls._validate_dimensions(width, height)
             if fast:
-                return cls._nearest_bucket(width / height, BUCKETS_2K)
+                return cls._nearest_bucket(width / height, FAST_BUCKETS_2K)
             return f"{width}x{height}"
 
         ratio = cls._parse_ratio(aspect_ratio or "1:1")
         preset = value.upper()
         if fast:
-            return cls._nearest_bucket(ratio, BUCKETS_2K)
+            return cls._nearest_bucket(ratio, FAST_BUCKETS_2K)
         if preset == "1K":
             return cls._nearest_bucket(ratio, BUCKETS_1K)
         if preset == "2K":
-            return cls._nearest_bucket(ratio, BUCKETS_2K)
+            return cls._nearest_bucket(ratio, U15_BUCKETS_2K)
         if preset == "4K":
             if ratio >= 1:
                 width = 4096
@@ -475,7 +475,7 @@ BUCKETS_1K: dict[str, tuple[int, int]] = {
     "21:9": (2048, 864),
     "9:21": (864, 2048),
 }
-BUCKETS_2K: dict[str, tuple[int, int]] = {
+FAST_BUCKETS_2K: dict[str, tuple[int, int]] = {
     "2:3": (1664, 2496),
     "3:2": (2496, 1664),
     "3:4": (1760, 2368),
@@ -486,5 +486,10 @@ BUCKETS_2K: dict[str, tuple[int, int]] = {
     "16:9": (2752, 1536),
     "9:16": (1536, 2752),
     "21:9": (3072, 1376),
-    "9:21": (1376, 3072),
+    "9:21": (1344, 3136),
+}
+U15_BUCKETS_2K: dict[str, tuple[int, int]] = {
+    **FAST_BUCKETS_2K,
+    "16:9": (2720, 1536),
+    "9:16": (1536, 2720),
 }

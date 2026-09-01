@@ -121,6 +121,30 @@ class SensenovaPayloadTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "3:1"):
             self.client._resolve_size("4096x512", "1:1")
 
+    def test_fast_uses_all_eleven_official_2k_buckets(self) -> None:
+        expected = {
+            "2:3": "1664x2496",
+            "3:2": "2496x1664",
+            "3:4": "1760x2368",
+            "4:3": "2368x1760",
+            "4:5": "1824x2272",
+            "5:4": "2272x1824",
+            "1:1": "2048x2048",
+            "16:9": "2752x1536",
+            "9:16": "1536x2752",
+            "21:9": "3072x1376",
+            "9:21": "1344x3136",
+        }
+        for ratio, size in expected.items():
+            with self.subTest(ratio=ratio):
+                self.assertEqual(
+                    self.client._resolve_size("2K", ratio, fast=True), size
+                )
+
+    def test_u15_uses_official_recommended_widescreen_2k_sizes(self) -> None:
+        self.assertEqual(self.client._resolve_size("2K", "16:9"), "2720x1536")
+        self.assertEqual(self.client._resolve_size("2K", "9:16"), "1536x2720")
+
     def test_local_image_becomes_data_url_and_remote_url_is_preserved(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             image_path = Path(temp_dir) / "reference.png"

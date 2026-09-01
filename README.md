@@ -4,7 +4,7 @@ English | [简体中文](README_CN.md)
 
 ![SenseNova image and visualization examples](docs/images/teasers/teaser_v2.webp)
 
-This branch is intentionally focused: it contains only five complete image and visualization skills. It is designed for any Agent Skills-compatible host and uses `sensenova-u1.5-lite`, currently free during public beta, as the default model for image generation and editing. Check the SenseNova account console for future pricing and entitlement changes.
+This branch is intentionally focused: it contains only five complete image and visualization skills. It is designed for any Agent Skills-compatible host and uses `sensenova-u1.5-lite` as the default model for image generation and editing. Model use follows the account's current plan and credit rules.
 
 ## Included skills
 
@@ -28,6 +28,8 @@ The full bilingual infographic gallery remains available in [English](docs/sn-in
 - Text/vision model: none; the host Agent plans and reviews by default
 
 U1 Fast is used automatically only for recoverable text-to-image failures (404, 429, or retry-exhausted 5xx). It is never used for image editing, authentication/authorization failures, bad parameters, safety blocks, or local file problems.
+
+The repository deliberately sends `watermark=false`. SenseNova currently offers watermark removal free during public beta and documents it as a premium paid feature after the beta; review account charges before production use when that policy changes.
 
 See the official [SenseNova API documentation](https://platform.sensenova.cn/docs) and find the `SenseNova U1.5 Lite` or `SenseNova U1 Fast` section by its heading. The documentation site's deep links are not reliable on a cold load.
 

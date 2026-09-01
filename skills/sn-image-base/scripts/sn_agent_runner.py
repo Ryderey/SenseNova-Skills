@@ -86,7 +86,10 @@ def build_parser() -> argparse.ArgumentParser:
     gen_parser.add_argument(
         "--image-size",
         default="2k",
-        help="1K/2K/4K preset or explicit WIDTHxHEIGHT (multiples of 32, 512-4096)",
+        help=(
+            "2K/4K API preset, 1K compatibility preset mapped to explicit dimensions, "
+            "or WIDTHxHEIGHT (multiples of 32, 512-4096)"
+        ),
     )
     gen_parser.add_argument(
         "--aspect-ratio",
@@ -161,7 +164,11 @@ def build_parser() -> argparse.ArgumentParser:
     edit_parser.add_argument(
         "--images", required=True, nargs="+", help="Local paths, public URLs, or image Data URLs"
     )
-    edit_parser.add_argument("--image-size", default="auto", help="auto, 1K/2K/4K, or WIDTHxHEIGHT")
+    edit_parser.add_argument(
+        "--image-size",
+        default="auto",
+        help="auto, 2K/4K API preset, 1K mapped compatibility preset, or WIDTHxHEIGHT",
+    )
     edit_parser.add_argument("--aspect-ratio", default=None, help="Optional ratio such as 16:9")
     edit_parser.add_argument("--model", default=None, help="Image editing model override")
     edit_parser.add_argument(

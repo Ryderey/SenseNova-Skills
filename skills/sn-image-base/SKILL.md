@@ -20,7 +20,7 @@ Resolve `BASE_SKILL_DIR` as the absolute directory containing this `SKILL.md`. R
 
 - Default image model: `sensenova-u1.5-lite`.
 - Default generation-only fallback: `sensenova-u1-fast`.
-- Default output: no watermark, prompt extension enabled, `b64_json` saved immediately.
+- Default output: no watermark, prompt extension enabled, `b64_json` saved immediately. SenseNova documents `watermark=false` as free during public beta and a premium paid feature afterward; disclose that cost boundary when it is relevant to production use.
 - Never select a chat/text/vision model implicitly. The host Agent should plan prompts, inspect images, and judge quality with its own capabilities.
 - Use `sn-text-optimize` or `sn-image-recognize` only when the caller explicitly passes `--model`, or configures `SN_TEXT_MODEL` / `SN_VISION_MODEL` (or shared `SN_CHAT_MODEL`). Missing models are errors with configuration guidance.
 - Keep `nano-banana` and `openai-image` backends available only through explicit `SN_IMAGE_GEN_MODEL_TYPE` and model configuration.
@@ -49,7 +49,7 @@ Important options:
 | `--model` | `SN_IMAGE_GEN_MODEL` / `sensenova-u1.5-lite` | Primary image model |
 | `--fallback-model` | `SN_IMAGE_GEN_FALLBACK_MODEL` / `sensenova-u1-fast` | Text-to-image fallback |
 | `--no-fallback` | false | Disable automatic fallback |
-| `--image-size` | `2k` | `1k`, `2k`, `4k`, or `WIDTHxHEIGHT` |
+| `--image-size` | `2k` | Official `2k`/`4k`, local compatibility preset `1k` mapped to explicit dimensions, or `WIDTHxHEIGHT` |
 | `--aspect-ratio` | `16:9` | Supported ratio, up to 3:1 either direction |
 | `--watermark` / `--no-watermark` | false | Watermark control |
 | `--prompt-extend` / `--no-prompt-extend` | true | U1.5 prompt extension |
@@ -57,6 +57,8 @@ Important options:
 | `--image-format` | `png` | U1.5 output (`png`, `jpeg`, `webp`) |
 
 Explicit dimensions must be multiples of 32, each between 512 and 4096 pixels, and no wider/taller than 3:1. U1 Fast is limited to its official 2K buckets; a 4K or explicit U1.5 request is mapped to the nearest Fast bucket only when Fast is explicitly selected or used as fallback.
+
+When URL transport is selected, download immediately: U1.5 generation/edit URLs expire after 24 hours, while U1 Fast URLs expire after 1 hour. The default `b64_json` path is not subject to URL expiry.
 
 Automatic fallback applies only to text-to-image when the primary returns 404, 429, or a 5xx after same-model retries. Never fall back for 400/validation or safety errors, 401/403, local file errors, network errors without an HTTP response, or image editing. JSON always reports `model`, `fallback_used`, and `fallback_reason`.
 
