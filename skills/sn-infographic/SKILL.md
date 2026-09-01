@@ -13,9 +13,9 @@ metadata:
 
 This is a complete scene skill built on `sn-image-base`. Preserve the prompt library, 87 layouts, 66 styles, quality rubric, multi-round review, ranking, and Chinese/English examples.
 
-## Runtime path
+## Runtime dependency
 
-Resolve `BASE_SKILL_DIR` as the absolute path to the sibling `sn-image-base` directory and `RUNNER` as `BASE_SKILL_DIR/scripts/sn_agent_runner.py`. Locate it relative to this `SKILL.md` and use the absolute runner path regardless of the current working directory. These are logical path names, not environment variables; never ask the user to configure them. Replace the descriptive runner path below before execution.
+Before rendering, read the sibling [`sn-image-base`](../sn-image-base/SKILL.md) skill and use its absolute `RUNNER`, model defaults, fallback policy, and output contract in the commands below.
 
 ## Inputs
 

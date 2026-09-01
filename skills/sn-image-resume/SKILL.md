@@ -13,9 +13,9 @@ metadata:
 
 This skill preserves the complete resume-to-layout mapping and fixed visual rules in `prompts/resume.md`. It must never invent credentials, dates, employers, degrees, metrics, contacts, awards, or projects.
 
-## Runtime path
+## Runtime dependency
 
-Resolve `BASE_SKILL_DIR` as the absolute path to the sibling `sn-image-base` directory and `RUNNER` as `BASE_SKILL_DIR/scripts/sn_agent_runner.py`. Locate it relative to this `SKILL.md` and use the absolute runner path regardless of the current working directory. These are logical path names, not environment variables; never ask the user to configure them. Replace the descriptive runner path below before execution.
+Before rendering, read the sibling [`sn-image-base`](../sn-image-base/SKILL.md) skill and use its absolute `RUNNER`, model defaults, fallback policy, and output contract in the commands below.
 
 ## Inputs
 
