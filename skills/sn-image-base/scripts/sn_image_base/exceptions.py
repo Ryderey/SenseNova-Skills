@@ -25,7 +25,8 @@ class MissingApiKeyError(BadConfigurationError):
 
     DEFAULT_MESSAGE = (
         "API key is required but was not provided. "
-        "Set SENSENOVA_API_KEY, or pass --api-key explicitly for a third-party backend."
+        "Set SENSENOVA_API_KEY, set a capability-specific API key override, "
+        "or pass --api-key explicitly."
     )
 
 

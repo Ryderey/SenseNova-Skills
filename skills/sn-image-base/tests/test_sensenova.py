@@ -57,6 +57,7 @@ class ConfigurationTests(unittest.TestCase):
         ):
             configs = Configs()
             rendered = configs.to_string()
+        self.assertEqual(configs.SENSENOVA_API_KEY, "sk-secret-value-1234")
         self.assertEqual(configs.SN_IMAGE_GEN_API_KEY, "sk-secret-value-1234")
         self.assertEqual(configs.SN_CHAT_API_KEY, "sk-secret-value-1234")
         self.assertEqual(configs.SN_TEXT_API_KEY, "sk-secret-value-1234")
@@ -64,23 +65,24 @@ class ConfigurationTests(unittest.TestCase):
         self.assertNotIn("sk-secret-value-1234", rendered)
         self.assertIn("******", rendered)
 
-    def test_legacy_key_variables_are_not_read(self) -> None:
+    def test_capability_keys_override_shared_key(self) -> None:
         with patch.dict(
             os.environ,
             {
-                "SN_API_KEY": "legacy-shared-key",
-                "SN_IMAGE_GEN_API_KEY": "legacy-image-key",
-                "SN_CHAT_API_KEY": "legacy-chat-key",
-                "SN_TEXT_API_KEY": "legacy-text-key",
-                "SN_VISION_API_KEY": "legacy-vision-key",
+                "SENSENOVA_API_KEY": "shared-key",
+                "SN_IMAGE_GEN_API_KEY": "image-key",
+                "SN_CHAT_API_KEY": "chat-key",
+                "SN_TEXT_API_KEY": "text-key",
+                "SN_VISION_API_KEY": "vision-key",
             },
             clear=True,
         ):
             configs = Configs()
-        self.assertEqual(configs.SN_IMAGE_GEN_API_KEY, "")
-        self.assertEqual(configs.SN_CHAT_API_KEY, "")
-        self.assertEqual(configs.SN_TEXT_API_KEY, "")
-        self.assertEqual(configs.SN_VISION_API_KEY, "")
+        self.assertEqual(configs.SENSENOVA_API_KEY, "shared-key")
+        self.assertEqual(configs.SN_IMAGE_GEN_API_KEY, "image-key")
+        self.assertEqual(configs.SN_CHAT_API_KEY, "chat-key")
+        self.assertEqual(configs.SN_TEXT_API_KEY, "text-key")
+        self.assertEqual(configs.SN_VISION_API_KEY, "vision-key")
 
 
 class SensenovaPayloadTests(unittest.TestCase):

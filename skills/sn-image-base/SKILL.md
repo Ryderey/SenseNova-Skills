@@ -92,6 +92,6 @@ Supported adapter protocols remain `openai-completions` and `anthropic-messages`
 
 ## Configuration
 
-Set the single shared credential variable `SENSENOVA_API_KEY`; image generation, editing, and explicitly configured SenseNova text/vision adapters all reuse it. The official base URL, primary model, and fallback model already have image-specific defaults. Use `--api-key` only when an explicitly selected third-party backend needs a different credential.
+Resolution priority is CLI > capability-specific environment variable > shared environment variable. The minimal setup is `SENSENOVA_API_KEY`; use `SN_IMAGE_GEN_API_KEY`, `SN_CHAT_API_KEY`, `SN_TEXT_API_KEY`, or `SN_VISION_API_KEY` only when that capability needs a different credential. The official base URL, primary model, and fallback model already have image-specific defaults.
 
 Never place credentials in prompts, command histories, logs, examples, or committed files. Prefer temporary environment injection or a local ignored `.env`.

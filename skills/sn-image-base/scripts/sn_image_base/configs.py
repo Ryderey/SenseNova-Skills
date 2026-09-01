@@ -71,13 +71,19 @@ class Configs:
     default is kept.
     """
 
-    # One credential variable is shared by all SenseNova capabilities.
+    # Global defaults shared by all SenseNova capabilities.
+    SENSENOVA_API_KEY: Annotated[str, Field("SENSENOVA_API_KEY", secret=True)] = ""
     SN_BASE_URL: Annotated[str, Field("SN_BASE_URL")] = ""
 
     # image-generate
     SN_IMAGE_GEN_API_KEY: Annotated[
         str,
-        Field("SENSENOVA_API_KEY", required=True, secret=True),
+        Field(
+            "SN_IMAGE_GEN_API_KEY",
+            "SENSENOVA_API_KEY",
+            required=True,
+            secret=True,
+        ),
     ] = ""
     SN_IMAGE_GEN_BASE_URL: Annotated[
         str, Field("SN_IMAGE_GEN_BASE_URL", "SN_BASE_URL", required=True)
@@ -90,9 +96,9 @@ class Configs:
         "sensenova-u1-fast"
     )
 
-    # Chat runtime shared by text and vision commands. Internal capability
-    # fields stay compatible, but all SenseNova runtimes use one credential.
-    SN_CHAT_API_KEY: Annotated[str, Field("SENSENOVA_API_KEY", secret=True)] = ""
+    # Chat runtime shared by text and vision commands; command-specific
+    # SN_TEXT_* / SN_VISION_* values override these defaults.
+    SN_CHAT_API_KEY: Annotated[str, Field("SN_CHAT_API_KEY", "SENSENOVA_API_KEY", secret=True)] = ""
     SN_CHAT_BASE_URL: Annotated[str, Field("SN_CHAT_BASE_URL", "SN_BASE_URL")] = (
         "https://token.sensenova.cn/v1"
     )
@@ -104,7 +110,12 @@ class Configs:
     SN_CHAT_MODEL: Annotated[str, Field("SN_CHAT_MODEL")] = ""
     SN_TEXT_API_KEY: Annotated[
         str,
-        Field("SENSENOVA_API_KEY", secret=True),
+        Field(
+            "SN_TEXT_API_KEY",
+            "SN_CHAT_API_KEY",
+            "SENSENOVA_API_KEY",
+            secret=True,
+        ),
     ] = ""
     SN_TEXT_BASE_URL: Annotated[
         str, Field("SN_TEXT_BASE_URL", "SN_CHAT_BASE_URL", "SN_BASE_URL")
@@ -116,7 +127,12 @@ class Configs:
     SN_TEXT_MODEL: Annotated[str, Field("SN_TEXT_MODEL", "SN_CHAT_MODEL")] = ""
     SN_VISION_API_KEY: Annotated[
         str,
-        Field("SENSENOVA_API_KEY", secret=True),
+        Field(
+            "SN_VISION_API_KEY",
+            "SN_CHAT_API_KEY",
+            "SENSENOVA_API_KEY",
+            secret=True,
+        ),
     ] = ""
     SN_VISION_BASE_URL: Annotated[
         str, Field("SN_VISION_BASE_URL", "SN_CHAT_BASE_URL", "SN_BASE_URL")
@@ -170,7 +186,10 @@ class Configs:
             if not value:
                 if field.required:
                     if field_name == "SN_IMAGE_GEN_API_KEY":
-                        msg = "Image generation API key is not set; configure SENSENOVA_API_KEY"
+                        msg = (
+                            "Image generation API key is not set; configure SENSENOVA_API_KEY, "
+                            "or configure SN_IMAGE_GEN_API_KEY only for an image-generation-specific override"
+                        )
                     else:
                         msg = f"Field '{field_name}' is required but not set; try setting the environment variable(s) {field.env_names}"
                     errors.append((field_name, msg))
