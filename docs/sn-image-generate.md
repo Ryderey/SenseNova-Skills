@@ -22,6 +22,16 @@ SN_IMAGE_GEN_MODEL=sensenova-u1.5-lite
 SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1-fast
 ```
 
+默认只需配置 `SENSENOVA_API_KEY`。只有不同能力使用不同凭证时才设置覆盖项：
+
+| 变量 | 用途 | 读取优先级 |
+| --- | --- | --- |
+| `SENSENOVA_API_KEY` | 所有能力共用的默认 Key | 共享后备 |
+| `SN_IMAGE_GEN_API_KEY` | 图片生成与编辑 | `--api-key` > 本变量 > 共享 Key |
+| `SN_CHAT_API_KEY` | 文本与视觉适配器共用的可选 Key | `--api-key` > 能力专用 Key > 本变量 > 共享 Key |
+| `SN_TEXT_API_KEY` | 仅文本适配器 | `--api-key` > 本变量 > Chat Key > 共享 Key |
+| `SN_VISION_API_KEY` | 仅视觉适配器 | `--api-key` > 本变量 > Chat Key > 共享 Key |
+
 ```bash
 python -m pip install -r skills/sn-image-base/requirements.txt
 python skills/sn-image-doctor/scripts/check_environment.py --verbose

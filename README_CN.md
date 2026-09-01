@@ -46,6 +46,8 @@ python -m pip install -r skills/sn-image-base/requirements.txt
 SENSENOVA_API_KEY=your-key
 ```
 
+通常只需这一个共享 Key。仅当某项能力使用不同凭证时，才设置可选的 `SN_IMAGE_GEN_API_KEY`、`SN_CHAT_API_KEY`、`SN_TEXT_API_KEY` 或 `SN_VISION_API_KEY`；读取优先级为命令行参数 > 能力专用 Key > 共享 Key。详见[安装说明](INSTALL_CN.md#配置)。
+
 检查环境：
 
 ```bash

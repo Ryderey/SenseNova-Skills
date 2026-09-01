@@ -41,6 +41,15 @@ Copy `.env.example` to `.env` and set the key. `.env` is ignored by Git.
 SENSENOVA_API_KEY=your-key
 ```
 
+This shared key is enough for the default setup. Optional overrides let a capability use a different credential:
+
+- `SN_IMAGE_GEN_API_KEY`: image generation and editing.
+- `SN_CHAT_API_KEY`: shared fallback for explicitly configured text and vision adapters.
+- `SN_TEXT_API_KEY`: text adapter only; overrides `SN_CHAT_API_KEY`.
+- `SN_VISION_API_KEY`: vision adapter only; overrides `SN_CHAT_API_KEY`.
+
+Key resolution is `--api-key` > direct capability key > `SN_CHAT_API_KEY` where applicable > `SENSENOVA_API_KEY`. Leave every override empty when all capabilities use the same SenseNova key.
+
 The image defaults are already:
 
 ```dotenv

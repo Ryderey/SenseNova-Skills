@@ -41,6 +41,15 @@ python -m pip install -r skills/sn-image-base/requirements.txt
 SENSENOVA_API_KEY=your-key
 ```
 
+默认配置使用这一个共享 Key 即可。仅当某项能力需要不同凭证时，才使用以下可选覆盖项：
+
+- `SN_IMAGE_GEN_API_KEY`：图片生成与编辑。
+- `SN_CHAT_API_KEY`：显式配置的文本与视觉适配器共用的后备 Key。
+- `SN_TEXT_API_KEY`：仅用于文本适配器，优先于 `SN_CHAT_API_KEY`。
+- `SN_VISION_API_KEY`：仅用于视觉适配器，优先于 `SN_CHAT_API_KEY`。
+
+Key 读取顺序为 `--api-key` > 当前能力专用 Key > 适用时的 `SN_CHAT_API_KEY` > `SENSENOVA_API_KEY`。如果所有能力共用同一个商汤 Key，所有覆盖项都留空。
+
 图像默认值已经内置：
 
 ```dotenv

@@ -22,6 +22,16 @@ SN_IMAGE_GEN_MODEL=sensenova-u1.5-lite
 SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1-fast
 ```
 
+The default setup needs only `SENSENOVA_API_KEY`. Set an override only when a capability uses a different credential:
+
+| Variable | Purpose | Resolution order |
+| --- | --- | --- |
+| `SENSENOVA_API_KEY` | Default shared key for every capability | Shared fallback |
+| `SN_IMAGE_GEN_API_KEY` | Image generation and editing | `--api-key` > this variable > shared key |
+| `SN_CHAT_API_KEY` | Optional key shared by text and vision adapters | `--api-key` > direct capability key > this variable > shared key |
+| `SN_TEXT_API_KEY` | Text adapter only | `--api-key` > this variable > chat key > shared key |
+| `SN_VISION_API_KEY` | Vision adapter only | `--api-key` > this variable > chat key > shared key |
+
 ```bash
 python -m pip install -r skills/sn-image-base/requirements.txt
 python skills/sn-image-doctor/scripts/check_environment.py --verbose
