@@ -49,7 +49,7 @@ Maintain linguistic consistency across the entire response.
 
 # Language Consistency for Content Placement
 
-All user information mapped into the fixed portfolio-resume layout may be faithfully condensed, reorganized, or translated into the detected output language. Do not expand it with new facts, claims, credentials, or examples.
+Apply the Factual Integrity Rule above. Only narrative prose and structural headings may be faithfully condensed, reorganized, or translated into the detected output language. Fact-ledger values remain verbatim unless the user explicitly authorizes a specific translation. Do not expand the source with new facts, claims, credentials, or examples.
 
 This includes:
 
@@ -64,7 +64,7 @@ This includes:
 - bottom navigation card titles
 - any added structural headings
 
-If the user provides content in multiple languages, preserve critical proper nouns, brand names, software names, institution names, and project titles in their original form when appropriate, but keep the surrounding descriptive text in the chosen output language.
+If the user provides content in multiple languages, keep every protected fact-ledger value in its original form and translate only the surrounding descriptive prose into the chosen output language.
 
 # Overall Composition Blueprint
 

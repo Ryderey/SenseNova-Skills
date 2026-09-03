@@ -3,9 +3,12 @@ from __future__ import annotations
 import base64
 import binascii
 import io
+import ipaddress
 import os
+import socket
 import tempfile
 from pathlib import Path
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 from PIL import Image
@@ -25,6 +28,37 @@ def _bounded(raw: bytes) -> bytes:
     return raw
 
 
+def decode_bounded_base64(value: str) -> bytes:
+    """Reject oversized encoded input before allocating its decoded payload."""
+    max_encoded_bytes = ((MAX_IMAGE_BYTES + 2) // 3) * 4
+    if len(value) > max_encoded_bytes:
+        raise ValueError(f"Image exceeds the {MAX_IMAGE_BYTES // (1024 * 1024)} MiB limit.")
+    try:
+        return _bounded(base64.b64decode(value, validate=True))
+    except binascii.Error as exc:
+        raise ValueError("Image contains invalid base64 data.") from exc
+
+
+def require_public_http_url(value: str) -> None:
+    parsed = urlsplit(value)
+    if (
+        parsed.scheme not in {"http", "https"}
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise ValueError("Remote image must use a public HTTP(S) URL.")
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        addresses = socket.getaddrinfo(parsed.hostname, port, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        raise ValueError("Remote image host could not be resolved.") from exc
+    if not addresses or any(
+        not ipaddress.ip_address(address[4][0]).is_global for address in addresses
+    ):
+        raise ValueError("Remote image URL must resolve only to public IP addresses.")
+
+
 def read_image_source(source: str | bytes | Path) -> bytes:
     """Read a bounded local, Data URL, or HTTP(S) image source."""
     if isinstance(source, bytes):
@@ -34,21 +68,30 @@ def read_image_source(source: str | bytes | Path) -> bytes:
         marker = ";base64,"
         if marker not in value:
             raise ValueError("Image Data URL must use base64 encoding.")
-        try:
-            return _bounded(base64.b64decode(value.split(marker, 1)[1], validate=True))
-        except binascii.Error as exc:
-            raise ValueError("Image Data URL contains invalid base64 data.") from exc
+        return decode_bounded_base64(value.split(marker, 1)[1])
     if value.startswith(("https://", "http://")):
-        data = bytearray()
-        with httpx.stream("GET", value, timeout=30.0, follow_redirects=True) as response:
-            response.raise_for_status()
-            if int(response.headers.get("content-length", "0") or 0) > MAX_IMAGE_BYTES:
-                raise ValueError("Remote image exceeds the download limit.")
-            for chunk in response.iter_bytes():
-                data.extend(chunk)
-                if len(data) > MAX_IMAGE_BYTES:
+        current_url = value
+        for _redirect in range(6):
+            require_public_http_url(current_url)
+            data = bytearray()
+            with httpx.stream(
+                "GET", current_url, timeout=30.0, follow_redirects=False
+            ) as response:
+                if response.is_redirect:
+                    location = response.headers.get("location")
+                    if not location:
+                        response.raise_for_status()
+                    current_url = urljoin(current_url, location)
+                    continue
+                response.raise_for_status()
+                if int(response.headers.get("content-length", "0") or 0) > MAX_IMAGE_BYTES:
                     raise ValueError("Remote image exceeds the download limit.")
-        return bytes(data)
+                for chunk in response.iter_bytes():
+                    data.extend(chunk)
+                    if len(data) > MAX_IMAGE_BYTES:
+                        raise ValueError("Remote image exceeds the download limit.")
+                return bytes(data)
+        raise ValueError("Remote image exceeded the redirect limit.")
     path = Path(value).expanduser()
     if not path.is_file():
         raise FileNotFoundError(f"Image file not found: {path}")

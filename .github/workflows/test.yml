@@ -25,6 +25,6 @@ jobs:
       - name: Unit tests
         run: python -m unittest discover -s skills/sn-image-base/tests -p "test_*.py" -v
       - name: Ruff
-        run: python -m ruff check --no-cache skills/sn-image-base/scripts skills/sn-image-base/tests skills/sn-image-doctor/scripts
+        run: python -m ruff check --no-fix --no-cache skills/sn-image-base/scripts skills/sn-image-base/tests skills/sn-image-doctor/scripts
       - name: Repository scope
         run: python skills/sn-image-doctor/scripts/check_repository_scope.py

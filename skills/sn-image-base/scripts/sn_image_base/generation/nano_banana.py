@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import tempfile
 from pathlib import Path
 from typing import Any, Literal
@@ -9,7 +8,7 @@ import httpx
 from typing_extensions import override
 
 from sn_image_base.configs import global_configs, is_valid_base_url
-from sn_image_base.image_utils import save_image_bytes
+from sn_image_base.image_utils import decode_bounded_base64, save_image_bytes
 from sn_image_base.utils.error_utils import U1HttpErrorBase
 
 from .core import ensure_output_path, unique_output_path
@@ -175,7 +174,7 @@ class NanoBananaText2ImageClient(T2IBaseClient):
                     "error": error_msg,
                 }
             image, mime_type = images[-1]
-            image_bytes = base64.b64decode(image, validate=True)
+            image_bytes = decode_bounded_base64(image)
             suffix = mime_type_to_suffix(mime_type)
             saved_path = save_image_bytes(image_bytes, output_path.with_suffix(suffix))
             return {
@@ -219,10 +218,7 @@ class NanoBananaText2ImageClient(T2IBaseClient):
                 )
             )
         if not is_valid_base_url(base_url):
-            raise ValueError(
-                f"Base URL is not a valid base URL: {base_url}. "
-                f"Try setting environment variable(s): {global_configs.get_env_var_help('SN_IMAGE_GEN_BASE_URL')}"
-            )
+            raise ValueError("Base URL is not a valid HTTP(S) base URL.")
         return base_url
 
     @override

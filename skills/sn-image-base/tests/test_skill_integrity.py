@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 from urllib.parse import unquote
 
@@ -112,6 +113,9 @@ class RepositoryScopeTests(unittest.TestCase):
         self.assertIn("Portrait and QR gate", resume)
         self.assertIn("Omit QR codes entirely", resume)
         self.assertNotIn("rewritten, expanded", resume)
+        self.assertIn("Only narrative prose and structural headings", resume)
+        self.assertNotIn("All user information mapped", resume)
+        self.assertIn("including round 1", infographic)
 
     def test_image_skill_commands_inherit_the_u15_primary_default(self) -> None:
         for name in (
@@ -171,15 +175,13 @@ class RepositoryScopeTests(unittest.TestCase):
 
 class DocumentationTests(unittest.TestCase):
     LINK = re.compile(r"!?(?:\[[^\]]*\])\(([^)]+)\)")
-    IMAGE_BRANCH_CLONE_COMMAND = (
-        "git clone --branch image-viz --single-branch "
-        "https://github.com/Ryderey/SenseNova-Skills.git"
-    )
+    CANONICAL_CLONE_COMMAND = "git clone https://github.com/Ryderey/SenseNova-Skills.git"
 
-    def test_installation_selects_the_image_branch(self) -> None:
+    def test_installation_uses_the_canonical_default_branch(self) -> None:
         for name in ("INSTALL.md", "INSTALL_CN.md"):
             text = (REPO_ROOT / name).read_text(encoding="utf-8")
-            self.assertIn(self.IMAGE_BRANCH_CLONE_COMMAND, text)
+            self.assertIn(self.CANONICAL_CLONE_COMMAND, text)
+            self.assertNotIn("--branch image-viz", text)
             self.assertNotIn("OpenSenseNova/SenseNova-Skills", text)
 
     def test_skill_runtime_commands_are_location_independent(self) -> None:
@@ -232,13 +234,38 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("ubuntu-latest", test_workflow)
         self.assertIn("windows-latest", test_workflow)
         self.assertIn("python -m unittest discover", test_workflow)
-        self.assertIn("python -m ruff check", test_workflow)
+        self.assertIn("python -m ruff check --no-fix", test_workflow)
+        ruff_config = (REPO_ROOT / "skills/sn-image-base/scripts/ruff.toml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("fix = false", ruff_config)
         action_refs = re.findall(r"uses:\s+[^@\s]+@([^\s]+)", test_workflow + pr_workflow)
         self.assertTrue(action_refs)
         self.assertTrue(all(re.fullmatch(r"[0-9a-f]{40}", ref) for ref in action_refs))
 
 
 class DoctorTests(unittest.TestCase):
+    def test_selected_optional_adapter_must_have_a_complete_valid_runtime(self) -> None:
+        doctor = load_doctor_module()
+        configs = SimpleNamespace(
+            SN_TEXT_MODEL="text-model",
+            SN_TEXT_API_KEY="",
+            SN_TEXT_BASE_URL="not-a-url",
+            SN_TEXT_TYPE="unknown",
+            SN_VISION_MODEL="",
+            SN_VISION_API_KEY="",
+            SN_VISION_BASE_URL="",
+            SN_VISION_TYPE="",
+        )
+        output = io.StringIO()
+        with (
+            patch.object(doctor, "_load_runtime", return_value=(configs,)),
+            contextlib.redirect_stdout(output),
+        ):
+            result = doctor.check_optional_chat_runtime(verbose=False)
+        self.assertFalse(result)
+        self.assertIn("[FAIL] text adapter", output.getvalue())
+
     def test_invalid_base_url_is_reported_without_a_traceback(self) -> None:
         env = os.environ.copy()
         env.update(

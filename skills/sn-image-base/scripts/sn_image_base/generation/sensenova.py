@@ -23,8 +23,10 @@ from sn_image_base.generation.core.client_base import (
 from sn_image_base.image_utils import (
     MAX_IMAGE_BYTES,
     MIME_SUFFIX,
+    decode_bounded_base64,
     normalize_for_model,
     read_image_source,
+    require_public_http_url,
     save_image_bytes,
     validate_image_file,
 )
@@ -63,7 +65,7 @@ class SensenovaText2ImageClient(T2IBaseClient):
         if not base_url:
             raise InvalidBaseUrlError(global_configs.get_env_var_help("SN_IMAGE_GEN_BASE_URL"))
         if not is_valid_base_url(base_url):
-            raise InvalidBaseUrlError(f"Invalid image API base URL: {base_url}")
+            raise InvalidBaseUrlError("Invalid image API HTTP(S) base URL.")
         super().__init__(
             api_key=api_key,
             base_url=base_url,
@@ -267,7 +269,7 @@ class SensenovaText2ImageClient(T2IBaseClient):
     def base_url(self) -> str:
         value = self._base_url or global_configs.SN_IMAGE_GEN_BASE_URL
         if not value or not is_valid_base_url(value):
-            raise InvalidBaseUrlError(f"Invalid image API base URL: {value}")
+            raise InvalidBaseUrlError("Invalid image API HTTP(S) base URL.")
         return value
 
     @override
@@ -321,6 +323,8 @@ class SensenovaText2ImageClient(T2IBaseClient):
         value = (resolution or DEFAULT_RESOLUTION).strip()
         if value.lower() == "auto":
             if allow_auto:
+                if aspect_ratio is not None:
+                    raise ValueError("--aspect-ratio cannot be combined with image-size='auto'.")
                 return "auto"
             raise ValueError("size='auto' is only supported for image editing.")
         explicit = _EXPLICIT_SIZE.fullmatch(value)
@@ -402,7 +406,7 @@ def save_base64_image(value: str, save_path: Path) -> Path:
     """Decode, validate and atomically store an API b64_json image."""
     if ";base64," in value:
         value = value.split(";base64,", 1)[1]
-    return save_image_bytes(base64.b64decode(value, validate=True), save_path)
+    return save_image_bytes(decode_bounded_base64(value), save_path)
 
 
 async def download_image(
@@ -411,6 +415,7 @@ async def download_image(
     timeout: float = DEFAULT_HTTP_REQUEST_TIMEOUT,
 ) -> Path:
     """Download a temporary model URL, validate it and atomically store it."""
+    require_public_http_url(url)
     save_path.parent.mkdir(parents=True, exist_ok=True)
     temp_path: Path | None = None
     try:

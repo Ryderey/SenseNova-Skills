@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import math
 import re
 import tempfile
@@ -12,7 +11,7 @@ from typing_extensions import override
 
 from sn_image_base.configs import global_configs, is_valid_base_url
 from sn_image_base.exceptions import BadConfigurationError
-from sn_image_base.image_utils import save_image_bytes
+from sn_image_base.image_utils import decode_bounded_base64, save_image_bytes
 from sn_image_base.utils.error_utils import U1HttpErrorBase
 
 from .core import ensure_output_path, unique_output_path
@@ -220,10 +219,7 @@ class OpenAIImageGenerationClient(T2IBaseClient):
                 )
             )
         if not is_valid_base_url(base_url):
-            raise ValueError(
-                f"Base URL is not a valid base URL: {base_url}. "
-                f"Try setting environment variable(s): {global_configs.get_env_var_help('SN_IMAGE_GEN_BASE_URL')}"
-            )
+            raise ValueError("Base URL is not a valid HTTP(S) base URL.")
         return base_url
 
     @override
@@ -314,8 +310,8 @@ class OpenAIImageGenerationClient(T2IBaseClient):
                 mime_type = "image/png"  # fallback to png
                 b64_data = encoded
             try:
-                decoded = base64.b64decode(b64_data)
-            except Exception as e:
+                decoded = decode_bounded_base64(b64_data)
+            except ValueError as e:
                 raise ValueError(
                     f"Failed to decode base64 data in response: {e}. b64_json: {encoded[:100]}... (truncated)"
                 ) from e

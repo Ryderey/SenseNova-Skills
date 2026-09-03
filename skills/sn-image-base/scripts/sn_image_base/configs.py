@@ -29,7 +29,7 @@ prepare_env()
 class Field:
     """Metadata marker that pairs a field with one or more env var names.
 
-    Env vars are tried in order; the first env var that is set is returned.
+    Env vars are tried in order; the first non-blank env var is returned.
     """
 
     __slots__ = ("env_names", "required", "secret")
@@ -40,7 +40,7 @@ class Field:
         self.secret = secret
 
     def resolve(self, target_type: type | None = None) -> str | int | float | None:
-        """Return the first env var value that is set, converted to target_type.
+        """Return the first non-blank env var value, converted to target_type.
 
         Args:
             target_type: The type to convert to (str, int, float, etc.) or None.
@@ -54,6 +54,8 @@ class Field:
         for n in self.env_names:
             if n in os.environ:
                 raw = os.environ[n]
+                if not raw.strip():
+                    continue
                 if target_type is int:
                     return int(raw)
                 if target_type is float:
@@ -194,6 +196,14 @@ class Configs:
                         msg = f"Field '{field_name}' is required but not set; try setting the environment variable(s) {field.env_names}"
                     errors.append((field_name, msg))
                 continue
+            actual_type = get_args(hint)[0] if get_origin(hint) is Annotated else hint
+            if get_origin(actual_type) is Literal and value not in get_args(actual_type):
+                errors.append(
+                    (
+                        field_name,
+                        f"{field_name} must be one of {get_args(actual_type)}, got {value!r}",
+                    )
+                )
 
         # Check fields combination rules:
         if not self.SN_IMAGE_GEN_MODEL:
@@ -240,7 +250,7 @@ class Configs:
         errors.extend(
             (
                 key,
-                f"{key} is not a valid base URL: {getattr(self, key)}",
+                f"{key} is not a valid HTTP(S) base URL",
             )
             for key in ("SN_CHAT_BASE_URL", "SN_TEXT_BASE_URL", "SN_VISION_BASE_URL")
             if getattr(self, key) and not is_valid_base_url(getattr(self, key))
@@ -248,7 +258,7 @@ class Configs:
         errors.extend(
             (
                 key,
-                f"{key} is not a valid base URL: {getattr(self, key)}",
+                f"{key} is not a valid HTTP(S) base URL",
             )
             for key in (
                 "SN_BASE_URL",
@@ -303,7 +313,14 @@ class Configs:
 def is_valid_base_url(url: str) -> bool:
     with contextlib.suppress(ValueError):
         parsed = urlparse(url)
-        return bool(parsed.scheme and parsed.netloc)
+        return bool(
+            parsed.scheme in {"http", "https"}
+            and parsed.hostname
+            and parsed.username is None
+            and parsed.password is None
+            and not parsed.query
+            and not parsed.fragment
+        )
     return False
 
 

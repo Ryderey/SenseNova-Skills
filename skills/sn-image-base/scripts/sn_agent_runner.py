@@ -39,6 +39,7 @@ from sn_image_base.generation import (
 from sn_image_base.llm import AnthropicMessagesAdapter, OpenAIChatAdapter
 
 ALLOWED_IMAGE_SIZES = frozenset({"1k", "2k", "4k"})
+ALLOWED_CHAT_INTERFACES = frozenset({"anthropic-messages", "openai-completions"})
 
 
 def _resolve_prompt(
@@ -474,6 +475,11 @@ async def run_image_generate(args: argparse.Namespace) -> tuple[dict, int]:
 
 async def run_image_edit(args: argparse.Namespace) -> tuple[dict, int]:
     """Run U1.5 native editing; edits never fall back to a text-only model."""
+    if global_configs.SN_IMAGE_GEN_MODEL_TYPE != "sensenova":
+        raise BadConfigurationError(
+            "Image editing requires the SenseNova backend; "
+            "set SN_IMAGE_GEN_MODEL_TYPE=sensenova."
+        )
     api_key = args.api_key or global_configs.SN_IMAGE_GEN_API_KEY
     if not api_key:
         raise MissingApiKeyError(global_configs.get_env_var_help("SN_IMAGE_GEN_API_KEY"))
@@ -667,6 +673,11 @@ def _resolve_model_runtime(kind: str, args: argparse.Namespace) -> tuple[str, st
     )
     label = profile["label"]
 
+    if iface_type not in ALLOWED_CHAT_INTERFACES:
+        raise BadConfigurationError(
+            f"Unsupported {label} interface type {iface_type!r}. "
+            f"Set {profile['type_env']} to one of {sorted(ALLOWED_CHAT_INTERFACES)}."
+        )
     if not api_key:
         raise MissingApiKeyError(
             f"No API key provided for {label} chat runtime. Set {profile['key_env']}, or pass --api-key."
@@ -676,7 +687,7 @@ def _resolve_model_runtime(kind: str, args: argparse.Namespace) -> tuple[str, st
             f"No base URL provided for {label} chat runtime. Set {profile['url_env']}, or pass --base-url."
         )
     if not is_valid_base_url(base_url):
-        raise InvalidBaseUrlError(f"Invalid base URL: {base_url}")
+        raise InvalidBaseUrlError("Invalid HTTP(S) base URL.")
     if not model:
         raise BadConfigurationError(
             f"No model provided for {label} chat runtime. Set {profile['model_env']} or pass --model."

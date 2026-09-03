@@ -18,7 +18,7 @@ SCRIPT_DIR = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import sn_agent_runner
-from sn_image_base.configs import Configs
+from sn_image_base.configs import Configs, is_valid_base_url
 from sn_image_base.generation import OpenAIImageGenerationClient
 from sn_image_base.generation.core import unique_output_path
 from sn_image_base.generation.sensenova import (
@@ -107,6 +107,55 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(configs.SN_TEXT_API_KEY, "text-key")
         self.assertEqual(configs.SN_VISION_API_KEY, "vision-key")
 
+    def test_blank_capability_keys_fall_back_to_shared_key(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "SENSENOVA_API_KEY": "shared-key",
+                "SN_IMAGE_GEN_API_KEY": "",
+                "SN_CHAT_API_KEY": "",
+                "SN_TEXT_API_KEY": "",
+                "SN_VISION_API_KEY": "",
+            },
+            clear=True,
+        ):
+            configs = Configs()
+        self.assertEqual(configs.SN_IMAGE_GEN_API_KEY, "shared-key")
+        self.assertEqual(configs.SN_CHAT_API_KEY, "shared-key")
+        self.assertEqual(configs.SN_TEXT_API_KEY, "shared-key")
+        self.assertEqual(configs.SN_VISION_API_KEY, "shared-key")
+
+    def test_runtime_types_and_base_urls_are_validated(self) -> None:
+        self.assertTrue(is_valid_base_url("https://api.example.com/v1"))
+        self.assertTrue(is_valid_base_url("http://localhost:8000/v1"))
+        for value in (
+            "ftp://example.com",
+            "file://server/share",
+            "https://user:secret@example.com/v1",
+            "https://example.com/v1?token=secret",
+        ):
+            with self.subTest(value=value):
+                self.assertFalse(is_valid_base_url(value))
+
+        with patch.dict(
+            os.environ,
+            {"SENSENOVA_API_KEY": "shared-key", "SN_TEXT_TYPE": "unknown-protocol"},
+            clear=True,
+        ):
+            errors, _warnings = Configs().validate_configs()
+        self.assertTrue(any(field == "SN_TEXT_TYPE" for field, _message in errors))
+
+        with patch.dict(
+            os.environ,
+            {
+                "SENSENOVA_API_KEY": "shared-key",
+                "SN_TEXT_BASE_URL": "https://user:top-secret@example.test/v1",
+            },
+            clear=True,
+        ):
+            errors, _warnings = Configs().validate_configs()
+        self.assertNotIn("top-secret", repr(errors))
+
 
 class SensenovaPayloadTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -142,6 +191,8 @@ class SensenovaPayloadTests(unittest.TestCase):
             self.client._resolve_size("480x1024", "1:1")
         with self.assertRaisesRegex(ValueError, "3:1"):
             self.client._resolve_size("4096x512", "1:1")
+        with self.assertRaisesRegex(ValueError, "aspect-ratio"):
+            self.client._resolve_size("auto", "16:9", allow_auto=True)
 
     def test_fast_uses_all_eleven_official_2k_buckets(self) -> None:
         expected = {
@@ -188,10 +239,48 @@ class SensenovaPayloadTests(unittest.TestCase):
             )
 
         remote = "https://example.test/reference.png"
-        with patch("sn_image_base.image_utils.httpx.stream", fake_stream):
+        with (
+            patch("sn_image_base.image_utils.httpx.stream", fake_stream),
+            patch(
+                "sn_image_base.image_utils.socket.getaddrinfo",
+                return_value=[(2, 1, 6, "", ("93.184.216.34", 443))],
+            ),
+        ):
             normalized = self.client.image_to_data_url(remote)
         self.assertTrue(normalized.startswith("data:image/png;base64,"))
         self.assertEqual(base64.b64decode(normalized.split(",", 1)[1]), png_bytes())
+
+    def test_remote_images_reject_private_destinations_before_request(self) -> None:
+        with (
+            patch(
+                "sn_image_base.image_utils.socket.getaddrinfo",
+                return_value=[(2, 1, 6, "", ("127.0.0.1", 80))],
+            ),
+            patch("sn_image_base.image_utils.httpx.stream") as stream,
+            self.assertRaisesRegex(ValueError, "public"),
+        ):
+            read_image_source("http://localhost/reference.png")
+        stream.assert_not_called()
+
+    def test_remote_images_revalidate_redirect_targets(self) -> None:
+        @contextmanager
+        def redirect_stream(_method: str, url: str, **_kwargs):
+            yield httpx.Response(
+                302,
+                headers={"location": "http://[::1]/private.png"},
+                request=httpx.Request("GET", url),
+            )
+
+        def resolve(host: str, port: int, **_kwargs):
+            address = "93.184.216.34" if host == "example.test" else "::1"
+            return [(2, 1, 6, "", (address, port))]
+
+        with (
+            patch("sn_image_base.image_utils.socket.getaddrinfo", side_effect=resolve),
+            patch("sn_image_base.image_utils.httpx.stream", redirect_stream),
+            self.assertRaisesRegex(ValueError, "public"),
+        ):
+            read_image_source("https://example.test/reference.png")
 
     def test_b64_json_is_saved_and_validated(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -226,6 +315,14 @@ class SensenovaPayloadTests(unittest.TestCase):
                 self.assertRaisesRegex(ValueError, "pixel limit"),
             ):
                 normalize_for_model(png_bytes())
+
+            with (
+                patch("sn_image_base.image_utils.MAX_IMAGE_BYTES", 8),
+                patch("sn_image_base.image_utils.base64.b64decode") as decode,
+                self.assertRaisesRegex(ValueError, "exceeds"),
+            ):
+                read_image_source("data:image/png;base64," + "A" * 100)
+            decode.assert_not_called()
 
     def test_default_output_paths_do_not_collide(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -447,6 +544,22 @@ class FallbackMatrixTests(unittest.TestCase):
         )
         self.assertEqual(client._timeout, 12.5)
         self.assertFalse(client._ssl_verify)
+
+
+class RunnerGuardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_edit_rejects_non_sensenova_generation_backend(self) -> None:
+        args = sn_agent_runner.build_parser().parse_args(
+            ["sn-image-edit", "--prompt", "edit", "--images", "reference.png"]
+        )
+        with (
+            patch.object(
+                sn_agent_runner.global_configs,
+                "SN_IMAGE_GEN_MODEL_TYPE",
+                "openai-image",
+            ),
+            self.assertRaisesRegex(Exception, "SenseNova"),
+        ):
+            await sn_agent_runner.run_image_edit(args)
 
 
 class AnthropicContractTests(unittest.TestCase):

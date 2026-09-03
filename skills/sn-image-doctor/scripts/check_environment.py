@@ -7,6 +7,7 @@ import argparse
 import importlib.util
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILLS_DIR = SCRIPT_DIR.parents[1]
@@ -18,6 +19,22 @@ EXPECTED_SKILLS = {
     "sn-image-imitate",
     "sn-image-resume",
 }
+SUPPORTED_CHAT_TYPES = {"anthropic-messages", "openai-completions"}
+
+
+def _valid_adapter_base_url(value: str) -> bool:
+    try:
+        parsed = urlparse(value)
+        return bool(
+            parsed.scheme in {"http", "https"}
+            and parsed.hostname
+            and parsed.username is None
+            and parsed.password is None
+            and not parsed.query
+            and not parsed.fragment
+        )
+    except ValueError:
+        return False
 
 
 def check_installation(verbose: bool) -> bool:
@@ -167,22 +184,47 @@ def check_image_runtime(verbose: bool) -> bool:
 def check_optional_chat_runtime(verbose: bool) -> bool:
     print("[4/4] Checking optional external text/vision adapters...")
     configs, *_rest = _load_runtime()
-    configured = {
-        "text": bool(configs.SN_TEXT_MODEL),
-        "vision": bool(configs.SN_VISION_MODEL),
+    runtimes = {
+        "text": {
+            "model": configs.SN_TEXT_MODEL,
+            "api_key": configs.SN_TEXT_API_KEY
+            or getattr(configs, "SN_CHAT_API_KEY", ""),
+            "base_url": configs.SN_TEXT_BASE_URL
+            or getattr(configs, "SN_CHAT_BASE_URL", ""),
+            "type": configs.SN_TEXT_TYPE or getattr(configs, "SN_CHAT_TYPE", ""),
+        },
+        "vision": {
+            "model": configs.SN_VISION_MODEL,
+            "api_key": configs.SN_VISION_API_KEY
+            or getattr(configs, "SN_CHAT_API_KEY", ""),
+            "base_url": configs.SN_VISION_BASE_URL
+            or getattr(configs, "SN_CHAT_BASE_URL", ""),
+            "type": configs.SN_VISION_TYPE or getattr(configs, "SN_CHAT_TYPE", ""),
+        },
     }
-    if not any(configured.values()):
+    selected = {label: values for label, values in runtimes.items() if values["model"]}
+    if not selected:
         print(
             "  [OK] No external chat model selected; the host Agent will plan and review"
         )
         return True
-    for label, enabled in configured.items():
-        if verbose or enabled:
-            print(
-                f"  {'[OK]' if enabled else '[WARN]'} {label} adapter {'configured' if enabled else 'not configured'}"
-            )
-    # These adapters are optional. Their low-level commands validate model/key/url at call time.
-    return True
+    valid = True
+    for label, values in selected.items():
+        problems = []
+        if not values["api_key"]:
+            problems.append("API key is missing")
+        if not _valid_adapter_base_url(values["base_url"]):
+            problems.append("base URL is invalid")
+        if values["type"] not in SUPPORTED_CHAT_TYPES:
+            problems.append("interface type is unsupported")
+        if problems:
+            valid = False
+            print(f"  [FAIL] {label} adapter: {', '.join(problems)}")
+        elif verbose:
+            print(f"  [OK] {label} adapter is fully configured")
+    if valid and not verbose:
+        print("  [OK] Selected external chat adapters are fully configured")
+    return valid
 
 
 def main() -> int:

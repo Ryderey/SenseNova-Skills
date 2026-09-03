@@ -1,7 +1,7 @@
 # Project Review and Remediation Ledger
 
 Review date: 2026-09-03  
-Scope: the complete `image-viz` branch  
+Scope: the complete five-skill image/visualization repository at `e193511`
 Baseline: five Agent Skills, the shared Python runtime, prompts/references, tests, diagnostics, installation documents, and GitHub workflows
 
 ## Review conclusion

@@ -12,7 +12,7 @@
 ## 克隆与安装
 
 ```bash
-git clone --branch image-viz --single-branch https://github.com/Ryderey/SenseNova-Skills.git
+git clone https://github.com/Ryderey/SenseNova-Skills.git
 cd SenseNova-Skills
 python -m venv .venv
 ```

@@ -25,6 +25,7 @@ ALLOWED_ROOT_FILES = {
     "README_CN.md",
 }
 ALLOWED_DOC_FILES = {
+    "project-review-2026-09-03-follow-up.md",
     "project-review-2026-09-03.md",
     "sn-image-generate.md",
     "sn-image-generate_en.md",
@@ -32,10 +33,7 @@ ALLOWED_DOC_FILES = {
     "sn-infographic-examples_CN.md",
 }
 ALLOWED_DOC_IMAGE_DIRS = {"infographics", "teasers"}
-IMAGE_BRANCH_CLONE_COMMAND = (
-    "git clone --branch image-viz --single-branch "
-    "https://github.com/Ryderey/SenseNova-Skills.git"
-)
+CANONICAL_CLONE_COMMAND = "git clone https://github.com/Ryderey/SenseNova-Skills.git"
 FORBIDDEN_MARKDOWN_TEXT = {
     "$SN_IMAGE_BASE": "undefined image-base path variable",
     "https://platform.sensenova.cn/docs#model-": (
@@ -94,11 +92,11 @@ def documentation_violations() -> list[tuple[Path, str]]:
     failures: list[tuple[Path, str]] = []
     for name in ("INSTALL.md", "INSTALL_CN.md"):
         path = REPO_ROOT / name
-        if IMAGE_BRANCH_CLONE_COMMAND not in path.read_text(encoding="utf-8"):
+        if CANONICAL_CLONE_COMMAND not in path.read_text(encoding="utf-8"):
             failures.append(
                 (
                     path.relative_to(REPO_ROOT),
-                    "clone command does not select the image branch",
+                    "clone command does not use the repository default branch",
                 )
             )
 

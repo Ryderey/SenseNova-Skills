@@ -62,8 +62,8 @@ Use the current host Agent to analyze content, expand prompts, inspect generated
    ```
 
    The base runtime handles the allowed U1 Fast fallback for this initial text-to-image request.
-7. When `max_rounds > 1`, inspect each image with `references/prompts-critic-system.md`, supplying the candidate image, fact ledger, required text labels, and final generation prompt. Use its weighted score and red-line gates; `references/evaluation-standard.md` evaluates input-prompt completeness only and must not be used as an image-quality rubric.
-8. For rounds 2-8, prefer native U1.5 editing of the best prior image to reduce layout drift:
+7. Inspect every generated image, including round 1, with `references/prompts-critic-system.md`, supplying the candidate image, fact ledger, required text labels, and final generation prompt. Use its weighted score and red-line gates; `references/evaluation-standard.md` evaluates input-prompt completeness only and must not be used as an image-quality rubric.
+8. When `max_rounds > 1` and the current candidate does not meet the stop gate, prefer native U1.5 editing of the best prior image for rounds 2-8 to reduce layout drift:
 
    ```bash
    python "<absolute RUNNER path>" sn-image-edit \
