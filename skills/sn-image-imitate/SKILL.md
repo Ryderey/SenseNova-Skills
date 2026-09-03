@@ -42,12 +42,12 @@ Use the current Agent's visual understanding and writing ability for analysis, r
    - exact visible text/data where relevant;
    - palette, type character, illustration/material treatment, and background;
    - elements that must remain fixed versus content that may change.
-3. Rewrite the blueprint with `prompts/caption_rewrite.md`, replacing only the requested content. Preserve region count, proportions, visual rhythm, palette relationships, and layout locks. Use the target content's language unless the user requests another language.
-4. Attempt 1 uses native U1.5 editing with the original reference:
+3. Rewrite the blueprint with `prompts/caption_rewrite.md` and require its structured result. Reject a rewrite when `semantic_residue_check` is not `PASS`, a reference topic-bearing element is absent from `semantic_replacement_ledger`, or a `carry_over` entry lacks the user's exact request and the required compatibility evidence. General requests to preserve the reference's style or layout never authorize semantic carry-over. Translate every topic-bearing element to the target topic while preserving each element's structural and stylistic role. Preserve region count, proportions, visual rhythm, palette relationships, and layout locks. Use the target content's language unless the user requests another language.
+4. Attempt 1 uses native U1.5 editing with the original reference and only `rewritten_caption` as the editing instruction:
 
    ```bash
    python "<absolute RUNNER path>" sn-image-edit \
-     --prompt "$EDIT_PROMPT" \
+     --prompt "$REWRITTEN_CAPTION" \
      --images "$REFERENCE_IMAGE" \
      --image-size auto \
      --save-path "$TEMP_DIR/attempt_1.png" \
@@ -55,7 +55,7 @@ Use the current Agent's visual understanding and writing ability for analysis, r
    ```
 
    Do not fall back to U1 Fast; it cannot accept images.
-5. Review each candidate against the original reference and blueprint using `prompts/layout_review.md`. Record `layout_similarity_score`, `style_similarity_score`, content accuracy, legibility, violations, and correction instructions. A candidate passes only when layout score reaches `layout_threshold`, content is accurate, and there is no illegible/pseudo-text red line.
+5. Review each candidate with `prompts/layout_review.md`, supplying the original reference, candidate, target content, `rewritten_caption`, and the complete `semantic_replacement_ledger`. Record all fields in its schema. A candidate passes only when layout score reaches `layout_threshold`, target content is accurate, all required text is legible, every ledger entry is valid, and `semantic_residue` is empty.
 6. For attempts 2-8, edit the current best candidate with the original reference as a second input when useful:
 
    ```bash
@@ -81,6 +81,16 @@ Retain original core fields and include model provenance:
   "image": "/absolute/path/attempt_2.png",
   "reference_blueprint": "...",
   "generation_prompt": "...",
+  "semantic_replacement_ledger": [
+    {
+      "reference_element": "pig mascot",
+      "action": "replace",
+      "target_element": "chicken mascot",
+      "explicit_user_request_quote": null,
+      "compatibility": "compatible",
+      "contradiction_acknowledgment_quote": null
+    }
+  ],
   "layout_passed": true,
   "attempts": [
     {
@@ -91,6 +101,9 @@ Retain original core fields and include model provenance:
       "fallback_used": false,
       "layout_similarity_score": 0.81,
       "style_similarity_score": 0.84,
+      "content_accuracy_score": 1.0,
+      "text_legibility_score": 0.95,
+      "semantic_residue": [],
       "violations": [],
       "rank": 1
     }
@@ -98,4 +111,4 @@ Retain original core fields and include model provenance:
 }
 ```
 
-`friendly` shows a short summary and the selected image. `verbose` also shows the blueprint, rewritten prompt, attempt ranking, scores, violations, model, timing, and output paths. Never expose Base64 image data or credentials.
+`friendly` shows a short summary and the selected image. `verbose` also shows the blueprint, rewritten prompt, semantic replacement ledger, attempt ranking, scores, violations, model, timing, and output paths. Never expose Base64 image data or credentials.

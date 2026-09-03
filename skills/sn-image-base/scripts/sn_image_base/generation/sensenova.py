@@ -3,25 +3,30 @@ from __future__ import annotations
 import asyncio
 import base64
 import binascii
-import mimetypes
 import os
 import re
 import tempfile
-import time
 from pathlib import Path
 from typing import Any, Literal
 
 import httpx
-from PIL import Image
 from typing_extensions import override
 
 from sn_image_base.configs import global_configs, is_valid_base_url
 from sn_image_base.exceptions import InvalidBaseUrlError, MissingApiKeyError
-from sn_image_base.generation.core import ensure_output_path
+from sn_image_base.generation.core import ensure_output_path, unique_output_path
 from sn_image_base.generation.core.client_base import (
     DEFAULT_HTTP_REQUEST_TIMEOUT,
     DEFAULT_MAX_CONNECTIONS,
     T2IBaseClient,
+)
+from sn_image_base.image_utils import (
+    MAX_IMAGE_BYTES,
+    MIME_SUFFIX,
+    normalize_for_model,
+    read_image_source,
+    save_image_bytes,
+    validate_image_file,
 )
 from sn_image_base.utils.error_utils import U1HttpErrorBase
 
@@ -237,9 +242,8 @@ class SensenovaText2ImageClient(T2IBaseClient):
     def _default_output_path(path: Path | None, prefix: str, output_format: str) -> Path:
         suffix = _FORMAT_SUFFIX.get(output_format, ".png")
         if path is None:
-            OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-            path = OUTPUT_DIR / f"{prefix}_{time.strftime('%Y%m%d_%H%M%S')}{suffix}"
-        elif path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"}:
+            path = unique_output_path(OUTPUT_DIR, prefix, suffix)
+        elif path.suffix.lower() != suffix:
             path = path.with_suffix(suffix)
         return ensure_output_path(path)
 
@@ -376,16 +380,8 @@ class SensenovaText2ImageClient(T2IBaseClient):
 
     @staticmethod
     def image_to_data_url(image: str | Path) -> str:
-        value = str(image)
-        if value.startswith(("https://", "http://", "data:image/")):
-            return value
-        path = Path(value).expanduser()
-        if not path.is_file():
-            raise FileNotFoundError(f"Reference image not found: {path}")
-        mime_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-        if not mime_type.startswith("image/"):
-            raise ValueError(f"Reference file is not a supported image: {path}")
-        encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+        mime_type, raw = normalize_for_model(read_image_source(image))
+        encoded = base64.b64encode(raw).decode("ascii")
         return f"data:{mime_type};base64,{encoded}"
 
     @override
@@ -406,24 +402,7 @@ def save_base64_image(value: str, save_path: Path) -> Path:
     """Decode, validate and atomically store an API b64_json image."""
     if ";base64," in value:
         value = value.split(";base64,", 1)[1]
-    raw = base64.b64decode(value, validate=True)
-    save_path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            dir=save_path.parent, prefix=f".{save_path.name}.", suffix=".tmp", delete=False
-        ) as temporary:
-            temporary.write(raw)
-            temporary.flush()
-            os.fsync(temporary.fileno())
-            temp_path = Path(temporary.name)
-        _validate_image_file(temp_path)
-        temp_path.replace(save_path)
-        return save_path
-    except Exception:
-        if temp_path is not None:
-            temp_path.unlink(missing_ok=True)
-        raise
+    return save_image_bytes(base64.b64decode(value, validate=True), save_path)
 
 
 async def download_image(
@@ -442,24 +421,24 @@ async def download_image(
             async with httpx.AsyncClient(timeout=timeout) as client:
                 async with client.stream("GET", url) as response:
                     response.raise_for_status()
+                    if int(response.headers.get("content-length", "0") or 0) > MAX_IMAGE_BYTES:
+                        raise ValueError("Remote image exceeds the download limit.")
+                    downloaded = 0
                     async for chunk in response.aiter_bytes():
+                        downloaded += len(chunk)
+                        if downloaded > MAX_IMAGE_BYTES:
+                            raise ValueError("Remote image exceeds the download limit.")
                         temporary.write(chunk)
             temporary.flush()
             os.fsync(temporary.fileno())
-        _validate_image_file(temp_path)
-        temp_path.replace(save_path)
-        return save_path
+        mime = validate_image_file(temp_path)
+        final_path = save_path.with_suffix(MIME_SUFFIX[mime])
+        temp_path.replace(final_path)
+        return final_path
     except Exception:
         if temp_path is not None:
             temp_path.unlink(missing_ok=True)
         raise
-
-
-def _validate_image_file(image_path: Path) -> None:
-    with Image.open(image_path) as image:
-        image.verify()
-    with Image.open(image_path) as image:
-        image.load()
 
 
 BUCKETS_1K: dict[str, tuple[int, int]] = {

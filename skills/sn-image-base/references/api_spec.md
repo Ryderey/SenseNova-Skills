@@ -6,7 +6,7 @@ Entrypoint from the `sn-image-base` skill directory: `python scripts/sn_agent_ru
 
 Required: `--prompt`.
 
-Compatibility parameters retained: `--negative-prompt`, `--image-size`, `--aspect-ratio`, `--seed`, `--unet-name`, `--api-key`, `--base-url`, `--poll-interval`, `--timeout`, `--insecure`, `--save-path`, `--output-format`.
+Compatibility parameters retained: `--image-size`, `--aspect-ratio`, `--api-key`, `--base-url`, `--timeout`, `--insecure`, `--save-path`, `--output-format`. Legacy `--negative-prompt`, `--seed`, `--unet-name`, and `--poll-interval` flags are parsed but fail clearly because the current backends do not implement them; express visual constraints in `--prompt`.
 
 Additive parameters: `--model`, `--fallback-model`, `--no-fallback`, `--watermark` / `--no-watermark`, `--prompt-extend` / `--no-prompt-extend`, `--response-format`, `--image-format`.
 
@@ -22,7 +22,7 @@ Required: `--prompt`, `--images` (one or more).
 
 Optional: `--image-size` (`auto` default), `--aspect-ratio`, `--model`, `--api-key`, `--base-url`, `--timeout`, `--insecure`, watermark/prompt-extension booleans, `--response-format`, `--save-path`, `--output-format`.
 
-Calls `POST /v1/images/edits`. Each `images` entry becomes `{ "image_url": ... }`; local files become Data URLs, public URLs/Data URLs pass through. U1 Fast is rejected.
+Calls `POST /v1/images/edits`. Each local file, public HTTP(S) URL, or Data URL is read through a 64 MiB / 40-million-pixel validation boundary, normalized to PNG/JPEG when needed, and emitted as `{ "image_url": "data:..." }`. U1 Fast is rejected.
 
 For `response_format=url`, the runtime downloads immediately. U1.5 generation/edit URLs expire after 24 hours; U1 Fast generation URLs expire after 1 hour.
 

@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_REQUEST_TIMEOUT = 150.0
 DEFAULT_MAX_TOKENS = 4096
+ANTHROPIC_VERSION = "2023-06-01"
 
 
 class AnthropicMessagesAdapter(LlmAdapter, VlmAdapter):
@@ -58,6 +59,7 @@ class AnthropicMessagesAdapter(LlmAdapter, VlmAdapter):
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
             "x-api-key": self._api_key,
+            "anthropic-version": ANTHROPIC_VERSION,
         }
 
     @staticmethod
@@ -88,22 +90,19 @@ class AnthropicMessagesAdapter(LlmAdapter, VlmAdapter):
         *,
         images: list[str | bytes] | None = None,
     ) -> dict[str, Any]:
-        messages: list[dict[str, Any]] = []
-        if system_prompt:
-            messages.append({"role": "user", "content": system_prompt})
-
         user_content: str | list[dict[str, Any]]
         if images:
             user_content = self._build_vision_content(user_prompt, images)
         else:
             user_content = user_prompt
-        messages.append({"role": "user", "content": user_content})
-
-        return {
+        payload: dict[str, Any] = {
             "model": model or self._default_model,
-            "messages": messages,
+            "messages": [{"role": "user", "content": user_content}],
             "max_tokens": self._max_tokens,
         }
+        if system_prompt:
+            payload["system"] = system_prompt
+        return payload
 
     @staticmethod
     def _parse_response(data: dict[str, Any]) -> str:

@@ -15,7 +15,7 @@ Enrich the description by including the title/subtitle, overall layout organizat
 For the structural data in the image, include them into the caption in a structural format, e.g. table or multilevel list, following these guidelines:
 
 - Extract all visible data without omitting secondary or partial information.
-- For numeric values, both explicitly labeled values and those that must be actively inferred by reading axis scales, grid lines, data point positions, legends, or other visual encodings, record every derivable value exactly and completely, without omission, rounding, or approximation.
+- For numeric values, record explicitly visible labels exactly. Values inferred from axes, grid lines, or data-point positions are estimates: label each one as estimated, include an uncertainty note, and omit it when the image does not support a defensible estimate. Never present a pixel-derived estimate as an exact source value.
 - For text values, preserve the original text from the image without translation or interpretation.
 
 If the image contains several sub parts, describe each part thoroughly and clarify their relations.

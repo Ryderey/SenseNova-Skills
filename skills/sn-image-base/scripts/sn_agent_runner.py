@@ -152,7 +152,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="",
         help="API base URL (CLI > SN_IMAGE_GEN_BASE_URL > SN_BASE_URL)",
     )
-    gen_parser.add_argument("--poll-interval", type=float, default=5.0)
+    gen_parser.add_argument(
+        "--poll-interval",
+        type=float,
+        default=None,
+        help="Legacy asynchronous-backend option; current image backends reject it",
+    )
     gen_parser.add_argument("--timeout", type=float, default=300.0)
     gen_parser.add_argument("--insecure", action="store_true", help="Disable TLS verification")
     gen_parser.add_argument("-o", "--output-format", choices=["text", "json"], default="text")
@@ -300,6 +305,32 @@ def should_fallback_generation(result: dict, *, disabled: bool, fallback_model: 
     )
 
 
+def _reject_unsupported_generation_options(args: argparse.Namespace) -> None:
+    unsupported = []
+    if args.negative_prompt:
+        unsupported.append("--negative-prompt")
+    if args.seed is not None:
+        unsupported.append("--seed")
+    if args.unet_name is not None:
+        unsupported.append("--unet-name")
+    if args.poll_interval is not None:
+        unsupported.append("--poll-interval")
+    if unsupported:
+        raise ValueError(
+            f"Unsupported by the selected image backend: {', '.join(unsupported)}. "
+            "Move required constraints into --prompt."
+        )
+
+
+def _normalize_image_result(result: dict, *, model: str, operation: str) -> dict:
+    result.setdefault("model", model)
+    result.setdefault("operation", operation)
+    result.setdefault("retry_count", 0)
+    result.setdefault("fallback_used", False)
+    result.setdefault("fallback_reason", None)
+    return result
+
+
 async def run_image_generate(args: argparse.Namespace) -> tuple[dict, int]:
     """Run image-generate command using the configured image backend.
 
@@ -314,6 +345,7 @@ async def run_image_generate(args: argparse.Namespace) -> tuple[dict, int]:
             failure.
     """
     args.image_size = _normalize_image_size(args.image_size)
+    _reject_unsupported_generation_options(args)
 
     api_key = args.api_key or global_configs.SN_IMAGE_GEN_API_KEY
     if not api_key:
@@ -366,6 +398,8 @@ async def run_image_generate(args: argparse.Namespace) -> tuple[dict, int]:
             api_key=api_key,
             base_url=base_url,
             model=selected_model,
+            timeout=args.timeout,
+            ssl_verify=not args.insecure,
         )
         print(
             f"Using OpenAI-compatible model {selected_model!r} for image generation",
@@ -395,7 +429,11 @@ async def run_image_generate(args: argparse.Namespace) -> tuple[dict, int]:
                 watermark=args.watermark,
                 prompt_extend=args.prompt_extend,
             )
-        result = await client.generate(**generation_options)
+        result = _normalize_image_result(
+            await client.generate(**generation_options),
+            model=selected_model,
+            operation="generate",
+        )
         fallback_model = args.fallback_model or global_configs.SN_IMAGE_GEN_FALLBACK_MODEL
         if (
             global_configs.SN_IMAGE_GEN_MODEL_TYPE == "sensenova"
@@ -411,14 +449,18 @@ async def run_image_generate(args: argparse.Namespace) -> tuple[dict, int]:
                 f"Primary generation failed recoverably; retrying with {fallback_model!r}",
                 file=sys.stderr,
             )
-            result = await client.generate(
-                prompt=args.prompt,
-                negative_prompt=args.negative_prompt,
+            result = _normalize_image_result(
+                await client.generate(
+                    prompt=args.prompt,
+                    negative_prompt=args.negative_prompt,
+                    model=fallback_model,
+                    image_size=args.image_size,
+                    aspect_ratio=args.aspect_ratio,
+                    output_path=args.save_path,
+                    watermark=args.watermark,
+                ),
                 model=fallback_model,
-                image_size=args.image_size,
-                aspect_ratio=args.aspect_ratio,
-                output_path=args.save_path,
-                watermark=args.watermark,
+                operation="generate",
             )
             result["fallback_used"] = True
             result["fallback_reason"] = reason
@@ -447,19 +489,21 @@ async def run_image_edit(args: argparse.Namespace) -> tuple[dict, int]:
         ssl_verify=not args.insecure,
     )
     try:
-        result = await client.edit(
-            prompt=args.prompt,
-            images=args.images,
+        result = _normalize_image_result(
+            await client.edit(
+                prompt=args.prompt,
+                images=args.images,
+                model=model,
+                image_size=_normalize_image_size(args.image_size, allow_auto=True),
+                aspect_ratio=args.aspect_ratio,
+                output_path=args.save_path,
+                response_format=args.response_format,
+                watermark=args.watermark,
+                prompt_extend=args.prompt_extend,
+            ),
             model=model,
-            image_size=_normalize_image_size(args.image_size, allow_auto=True),
-            aspect_ratio=args.aspect_ratio,
-            output_path=args.save_path,
-            response_format=args.response_format,
-            watermark=args.watermark,
-            prompt_extend=args.prompt_extend,
+            operation="edit",
         )
-        result["fallback_used"] = False
-        result["fallback_reason"] = None
         return result, 0 if result["status"] == "ok" else 1
     finally:
         await client.aclose()

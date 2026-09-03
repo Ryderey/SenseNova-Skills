@@ -77,6 +77,42 @@ class RepositoryScopeTests(unittest.TestCase):
         self.assertIn("sn-image-edit", resume)
         self.assertIn("Factual Integrity Rule (Highest Priority)", resume_prompt)
 
+    def test_prompt_contracts_enforce_facts_and_semantic_replacement(self) -> None:
+        infographic = (SKILLS_ROOT / "sn-infographic/SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        critic = (
+            SKILLS_ROOT / "sn-infographic/references/prompts-critic-system.md"
+        ).read_text(encoding="utf-8")
+        imitation = (SKILLS_ROOT / "sn-image-imitate/SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        rewrite = (
+            SKILLS_ROOT / "sn-image-imitate/prompts/caption_rewrite.md"
+        ).read_text(encoding="utf-8")
+        review = (SKILLS_ROOT / "sn-image-imitate/prompts/layout_review.md").read_text(
+            encoding="utf-8"
+        )
+        resume = (SKILLS_ROOT / "sn-image-resume/prompts/resume.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("fact ledger", infographic.lower())
+        for token in ("dimension_scores", "red_lines", '"score"', "score >= 0.90"):
+            self.assertIn(token, critic)
+        self.assertIn("semantic replacement ledger", imitation)
+        self.assertIn("semantic compatibility check", rewrite)
+        self.assertIn("explicit_user_request_quote", rewrite)
+        self.assertIn("contradiction_acknowledgment_quote", rewrite)
+        self.assertIn('"semantic_residue_check": "PASS"', rewrite)
+        self.assertIn("Mexican chicken taco", rewrite)
+        self.assertIn("target content request", review)
+        self.assertIn("semantic_residue", review)
+        self.assertIn("ledger_errors", review)
+        self.assertIn("Portrait and QR gate", resume)
+        self.assertIn("Omit QR codes entirely", resume)
+        self.assertNotIn("rewritten, expanded", resume)
+
     def test_image_skill_commands_inherit_the_u15_primary_default(self) -> None:
         for name in (
             "sn-image-base",
@@ -186,6 +222,21 @@ class DocumentationTests(unittest.TestCase):
             missing, [], "Broken local Markdown links:\n" + "\n".join(missing)
         )
 
+    def test_ci_is_cross_platform_and_actions_are_immutable(self) -> None:
+        test_workflow = (REPO_ROOT / ".github/workflows/test.yml").read_text(
+            encoding="utf-8"
+        )
+        pr_workflow = (REPO_ROOT / ".github/workflows/pr_check.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("ubuntu-latest", test_workflow)
+        self.assertIn("windows-latest", test_workflow)
+        self.assertIn("python -m unittest discover", test_workflow)
+        self.assertIn("python -m ruff check", test_workflow)
+        action_refs = re.findall(r"uses:\s+[^@\s]+@([^\s]+)", test_workflow + pr_workflow)
+        self.assertTrue(action_refs)
+        self.assertTrue(all(re.fullmatch(r"[0-9a-f]{40}", ref) for ref in action_refs))
+
 
 class DoctorTests(unittest.TestCase):
     def test_invalid_base_url_is_reported_without_a_traceback(self) -> None:
@@ -225,6 +276,30 @@ class DoctorTests(unittest.TestCase):
             result = doctor.check_dependencies(verbose=False)
         self.assertFalse(result)
         self.assertIn("typing-extensions", output.getvalue())
+
+    def test_unrelated_skill_can_coexist_with_required_skills(self) -> None:
+        doctor = load_doctor_module()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            skills_root = Path(temp_dir)
+            for name in EXPECTED_SKILLS | {"sn-unrelated-skill"}:
+                skill_dir = skills_root / name
+                skill_dir.mkdir(parents=True)
+                (skill_dir / "SKILL.md").write_text("# test\n", encoding="utf-8")
+            base = skills_root / "sn-image-base"
+            (base / "requirements.txt").write_text("", encoding="utf-8")
+            (base / "scripts/sn_image_base/generation").mkdir(parents=True)
+            (base / "scripts/sn_agent_runner.py").write_text("", encoding="utf-8")
+            (base / "scripts/sn_image_base/generation/sensenova.py").write_text(
+                "", encoding="utf-8"
+            )
+
+            with (
+                patch.object(doctor, "SKILLS_DIR", skills_root),
+                patch.object(doctor, "BASE_SKILL_DIR", base),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                result = doctor.check_installation(verbose=False)
+        self.assertTrue(result)
 
 
 if __name__ == "__main__":

@@ -26,11 +26,6 @@ def check_installation(verbose: bool) -> bool:
         path.name for path in SKILLS_DIR.iterdir() if (path / "SKILL.md").is_file()
     }
     missing = sorted(EXPECTED_SKILLS - discovered)
-    unrelated = sorted(
-        name
-        for name in discovered
-        if name.startswith("sn-") and name not in EXPECTED_SKILLS
-    )
     required = [
         BASE_SKILL_DIR / "SKILL.md",
         BASE_SKILL_DIR / "requirements.txt",
@@ -43,13 +38,11 @@ def check_installation(verbose: bool) -> bool:
             print(f"  [OK] {name}")
     for name in missing:
         print(f"  [FAIL] Missing skill: {name}")
-    for name in unrelated:
-        print(f"  [FAIL] Out-of-scope skill remains: {name}")
     for path in missing_files:
         print(f"  [FAIL] Missing file: {path.relative_to(SKILLS_DIR)}")
-    ok = not (missing or unrelated or missing_files)
+    ok = not (missing or missing_files)
     if ok and not verbose:
-        print("  [OK] Exactly five image and visualization skills are installed")
+        print("  [OK] All required image and visualization skills are installed")
     return ok
 
 

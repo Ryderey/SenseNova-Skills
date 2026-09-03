@@ -75,7 +75,7 @@ python "<absolute RUNNER path>" sn-image-edit \
   --output-format json
 ```
 
-Local images are converted to image Data URLs in memory. Public and existing Data URLs pass through unchanged. U1 Fast is rejected for editing because it does not accept image input. Editing never falls back.
+Local files, public HTTP(S) URLs, and existing Data URLs are read through the same bounded image validator, normalized to PNG/JPEG where needed, and sent as Data URLs. Inputs are limited to 64 MiB and 40 million decoded pixels. U1 Fast is rejected for editing because it does not accept image input. Editing never falls back.
 
 ## Optional external text and vision adapters
 

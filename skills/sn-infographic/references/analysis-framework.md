@@ -10,7 +10,7 @@ Before creating an infographic, thoroughly analyze the source material to:
 - Identify clear learning objectives for the viewer
 - Structure information for maximum clarity and retention
 - Match content to optimal layout×style combinations
-- Preserve all source data verbatim
+- Preserve all supplied facts without inventing new claims
 
 ## Instructional Design Mindset
 
@@ -22,7 +22,7 @@ Approach content analysis as a **world-class instructional designer**:
 | **Learner-Centered** | Focus on what the viewer needs to understand |
 | **Visual Storytelling** | Use visuals to communicate, not just decorate |
 | **Cognitive Load** | Simplify complex ideas without losing accuracy |
-| **Data Integrity** | Never alter, summarize, or paraphrase source facts |
+| **Data Integrity** | Keep numbers, dates, proper nouns, quotations, and claims traceable to the source; condense only explanatory prose |
 
 ## Analysis Dimensions
 
@@ -106,7 +106,7 @@ Identify what can be shown rather than told:
 
 ### 6. Data Verbatim Extraction
 
-**Critical**: All factual information must be preserved exactly as written in the source.
+**Critical**: Preserve the meaning of every supplied fact. Copy numbers, dates, proper nouns, quotations, and contact-like strings exactly; explanatory prose may be condensed without changing its claims.
 
 | Data Type | Handling Rule |
 |-----------|---------------|
@@ -115,13 +115,13 @@ Identify what can be shown rather than told:
 | **Names** | Preserve exact spelling |
 | **Dates** | Keep original format |
 | **Technical Terms** | Do not simplify or substitute |
-| **Lists** | Preserve order and wording |
+| **Lists** | Preserve order when it carries meaning; wording may be shortened without changing the claims |
 
 **Never**:
 
 - Round numbers
 - Paraphrase quotes
-- Substitute simpler words
+- Change the meaning of a supplied claim
 - Add implied information
 - Remove context that affects meaning
 

@@ -7,7 +7,7 @@ Template for generating structured infographic content that informs the visual d
 This document bridges content analysis and visual design:
 - Transforms source material into designer-ready format
 - Organizes learning objectives into visual sections
-- Preserves all source data verbatim
+- Preserves all supplied facts and exact hard data
 - Separates content from design instructions
 
 ## Instructional Design Process
@@ -23,14 +23,14 @@ This document bridges content analysis and visual design:
 For each learning objective:
 
 1. **Key Concept**: One-sentence summary of the section
-2. **Content**: Points extracted verbatim from source
+2. **Content**: Source-grounded points, condensed only when needed for legibility
 3. **Visual Element**: What should be shown visually
 4. **Text Labels**: Exact text for headlines, subheads, labels
 
 ### Phase 3: Data Integrity Check
 
 Verify all source data is:
-- Copied exactly (no paraphrasing)
+- Grounded in the source; numbers, dates, proper nouns, quotations, and contact-like strings are copied exactly
 - Attributed correctly (for quotes)
 - Formatted consistently
 
@@ -41,7 +41,7 @@ Verify all source data is:
 | **Output format** | Markdown only | Use proper headers, lists, code blocks |
 | **Tone** | Expert trainer | Knowledgeable, clear, encouraging |
 | **No new information** | Only source content | Don't add examples not in source |
-| **Verbatim data** | Exact copies | "73% increase" not "significant increase" |
+| **Exact hard data** | Copy numbers, dates, proper nouns, and quotations exactly | "73% increase" not "significant increase" |
 | **Text as labels** | All copy intended to appear as text in the image must be structured as explicit text labels under each section's **Text Labels** field | Headlines, subheads, data callouts — all must be listed verbatim, not embedded in prose |
 
 ## Structured Content Format
@@ -65,9 +65,9 @@ The viewer will understand:
 **Key Concept**: [One-sentence summary of this section]
 
 **Content**:
-- [Point 1 - verbatim from source]
-- [Point 2 - verbatim from source]
-- [Point 3 - verbatim from source]
+- [Point 1 - source-grounded, faithfully condensed if needed]
+- [Point 2 - source-grounded, faithfully condensed if needed]
+- [Point 3 - source-grounded, faithfully condensed if needed]
 
 **Visual Element**: [Description of what to show visually]
 - Type: [icon/chart/illustration/diagram/photo]
@@ -237,7 +237,7 @@ Before finalizing structured content:
 - [ ] Title captures the main message
 - [ ] Learning objectives are clear and measurable
 - [ ] Each section maps to an objective
-- [ ] All content is verbatim from source
+- [ ] Every factual claim is traceable to the source and all hard data is exact
 - [ ] Visual elements are clearly described
 - [ ] Text labels are specified exactly
 - [ ] Data points are collected and verified

@@ -67,7 +67,7 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-edit \
   --output-format json
 ```
 
-本地图片会转成 Data URL；也支持公开 URL、Data URL、多参考图和把上一轮输出继续编辑。编辑只用 U1.5，绝不回退 U1 Fast。
+本地图片、公开 URL 与 Data URL 都会经过统一校验，限制为 64 MiB / 4000 万解码像素，必要时规范化为 PNG/JPEG 后再以 Data URL 发送。支持多参考图和把上一轮输出继续编辑；编辑只用 U1.5，绝不回退 U1 Fast。
 
 ## 五个技能
 

@@ -7,6 +7,7 @@ import os
 import sys
 import tempfile
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -18,11 +19,22 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 import sn_agent_runner
 from sn_image_base.configs import Configs
+from sn_image_base.generation import OpenAIImageGenerationClient
+from sn_image_base.generation.core import unique_output_path
 from sn_image_base.generation.sensenova import (
     DEFAULT_MODEL,
     FAST_MODEL,
     SensenovaText2ImageClient,
     save_base64_image,
+)
+from sn_image_base.image_utils import (
+    normalize_for_model,
+    read_image_source,
+    save_image_bytes,
+)
+from sn_image_base.llm.anthropic_adapter import (
+    ANTHROPIC_VERSION,
+    AnthropicMessagesAdapter,
 )
 
 
@@ -30,6 +42,16 @@ def png_bytes() -> bytes:
     buffer = io.BytesIO()
     Image.new("RGB", (32, 32), "red").save(buffer, format="PNG")
     return buffer.getvalue()
+
+
+def webp_bytes() -> bytes:
+    buffer = io.BytesIO()
+    Image.new("RGB", (32, 32), "blue").save(buffer, format="WEBP")
+    return buffer.getvalue()
+
+
+def data_url(raw: bytes, mime: str = "image/png") -> str:
+    return f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"
 
 
 class ConfigurationTests(unittest.TestCase):
@@ -145,15 +167,31 @@ class SensenovaPayloadTests(unittest.TestCase):
         self.assertEqual(self.client._resolve_size("2K", "16:9"), "2720x1536")
         self.assertEqual(self.client._resolve_size("2K", "9:16"), "1536x2720")
 
-    def test_local_image_becomes_data_url_and_remote_url_is_preserved(self) -> None:
+    def test_local_data_and_remote_images_become_validated_data_urls(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             image_path = Path(temp_dir) / "reference.png"
             image_path.write_bytes(png_bytes())
             value = self.client.image_to_data_url(image_path)
         self.assertTrue(value.startswith("data:image/png;base64,"))
         self.assertEqual(base64.b64decode(value.split(",", 1)[1]), png_bytes())
+
+        encoded = data_url(png_bytes())
+        self.assertEqual(self.client.image_to_data_url(encoded), encoded)
+
+        @contextmanager
+        def fake_stream(_method: str, url: str, **_kwargs):
+            yield httpx.Response(
+                200,
+                content=png_bytes(),
+                headers={"content-length": str(len(png_bytes()))},
+                request=httpx.Request("GET", url),
+            )
+
         remote = "https://example.test/reference.png"
-        self.assertEqual(self.client.image_to_data_url(remote), remote)
+        with patch("sn_image_base.image_utils.httpx.stream", fake_stream):
+            normalized = self.client.image_to_data_url(remote)
+        self.assertTrue(normalized.startswith("data:image/png;base64,"))
+        self.assertEqual(base64.b64decode(normalized.split(",", 1)[1]), png_bytes())
 
     def test_b64_json_is_saved_and_validated(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -162,6 +200,40 @@ class SensenovaPayloadTests(unittest.TestCase):
             self.assertEqual(saved, path)
             with Image.open(saved) as image:
                 self.assertEqual(image.size, (32, 32))
+
+    def test_webp_is_normalized_for_model_input(self) -> None:
+        mime, raw = normalize_for_model(webp_bytes())
+        self.assertEqual(mime, "image/png")
+        with Image.open(io.BytesIO(raw)) as image:
+            self.assertEqual(image.format, "PNG")
+
+    def test_image_limits_and_format_correct_suffix_are_enforced(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = Path(temp_dir) / "too-large.png"
+            source.write_bytes(png_bytes())
+            with (
+                patch("sn_image_base.image_utils.MAX_IMAGE_BYTES", 8),
+                self.assertRaisesRegex(ValueError, "exceeds"),
+            ):
+                read_image_source(source)
+
+            saved = save_image_bytes(png_bytes(), Path(temp_dir) / "result.jpg")
+            self.assertEqual(saved.suffix, ".png")
+            self.assertTrue(saved.is_file())
+
+            with (
+                patch("sn_image_base.image_utils.MAX_IMAGE_PIXELS", 100),
+                self.assertRaisesRegex(ValueError, "pixel limit"),
+            ):
+                normalize_for_model(png_bytes())
+
+    def test_default_output_paths_do_not_collide(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            first = unique_output_path(root, "t2i", ".png")
+            second = unique_output_path(root, "t2i", ".png")
+        self.assertNotEqual(first, second)
+        self.assertEqual(first.suffix, ".png")
 
 
 class SensenovaRequestTests(unittest.IsolatedAsyncioTestCase):
@@ -204,7 +276,7 @@ class SensenovaRequestTests(unittest.IsolatedAsyncioTestCase):
             output = Path(temp_dir) / "edited.png"
             result = await self.client.edit(
                 "replace the title",
-                [reference, "https://example.test/second.png"],
+                [reference, data_url(png_bytes())],
                 output_path=output,
             )
             self.assertEqual(result["status"], "ok")
@@ -213,8 +285,8 @@ class SensenovaRequestTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(
             payload["images"][0]["image_url"].startswith("data:image/png;base64,")
         )
-        self.assertEqual(
-            payload["images"][1]["image_url"], "https://example.test/second.png"
+        self.assertTrue(
+            payload["images"][1]["image_url"].startswith("data:image/png;base64,")
         )
         self.assertFalse(payload["watermark"])
 
@@ -333,6 +405,63 @@ class FallbackMatrixTests(unittest.TestCase):
                 self.eligible(503), disabled=True, fallback_model=FAST_MODEL
             )
         )
+
+    def test_legacy_generation_flags_fail_instead_of_being_ignored(self) -> None:
+        args = sn_agent_runner.build_parser().parse_args(
+            [
+                "sn-image-generate",
+                "--prompt",
+                "draw",
+                "--negative-prompt",
+                "blur",
+                "--seed",
+                "7",
+                "--unet-name",
+                "legacy",
+                "--poll-interval",
+                "1",
+            ]
+        )
+        with self.assertRaisesRegex(ValueError, "--negative-prompt.*--poll-interval"):
+            sn_agent_runner._reject_unsupported_generation_options(args)
+
+    def test_runner_normalizes_optional_backend_metadata(self) -> None:
+        result = sn_agent_runner._normalize_image_result(
+            {"status": "ok", "output": "image.png"},
+            model="configured-model",
+            operation="generate",
+        )
+        self.assertEqual(result["model"], "configured-model")
+        self.assertEqual(result["operation"], "generate")
+        self.assertEqual(result["retry_count"], 0)
+        self.assertFalse(result["fallback_used"])
+        self.assertIsNone(result["fallback_reason"])
+
+    def test_openai_backend_receives_timeout_and_tls_settings(self) -> None:
+        client = OpenAIImageGenerationClient(
+            api_key="test-key",
+            base_url="https://example.test/v1",
+            model="image-model",
+            timeout=12.5,
+            ssl_verify=False,
+        )
+        self.assertEqual(client._timeout, 12.5)
+        self.assertFalse(client._ssl_verify)
+
+
+class AnthropicContractTests(unittest.TestCase):
+    def test_system_prompt_and_version_use_messages_wire_contract(self) -> None:
+        adapter = AnthropicMessagesAdapter(
+            endpoint_url="https://example.test/v1/messages",
+            api_key="test-key",
+            model="claude-test",
+        )
+        payload = adapter._build_payload("user text", "system text", None)
+        self.assertEqual(payload["system"], "system text")
+        self.assertEqual(
+            payload["messages"], [{"role": "user", "content": "user text"}]
+        )
+        self.assertEqual(adapter._headers["anthropic-version"], ANTHROPIC_VERSION)
 
 
 if __name__ == "__main__":

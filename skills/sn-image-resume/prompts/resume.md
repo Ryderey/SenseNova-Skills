@@ -4,6 +4,8 @@
 
 Use only facts explicitly supplied by the user. Never invent or infer names, dates, employers, schools, degrees, titles, metrics, contact details, awards, publications, certifications, projects, or skills. You may condense and reorganize prose, but preserve every proper noun, date, number, title, organization, and contact string exactly. Omit missing sections instead of filling them with examples or placeholders. If content is too dense, shorten descriptive prose rather than shrinking text into illegibility.
 
+Portrait and QR gate: use a recognizable portrait only when the user supplies a portrait image. Otherwise use an abstract typographic, geometric, or profession-related visual anchor without an identifiable human face. Omit QR codes entirely; image-generated QR patterns are not verified destinations.
+
 The layout structure must be fixed to a specific vertically stacked portfolio-resume composition inspired by a playful editorial portfolio page.
 
 Do not freely invent a completely different page architecture.
@@ -47,7 +49,7 @@ Maintain linguistic consistency across the entire response.
 
 # Language Consistency for Content Placement
 
-All user information mapped into the fixed portfolio-resume layout must be rewritten, expanded, and described in the detected output language.
+All user information mapped into the fixed portfolio-resume layout may be faithfully condensed, reorganized, or translated into the detected output language. Do not expand it with new facts, claims, credentials, or examples.
 
 This includes:
 
@@ -70,7 +72,7 @@ The page should feel like a designed personal portfolio-resume landing page rath
 The composition must combine:
 
 - bold oversized title typography
-- a large portrait cutout or visual anchor
+- a supplied portrait cutout or, when absent, an abstract visual anchor
 - rounded geometric panels
 - clean section dividers
 - playful but controlled decorative icons
@@ -88,13 +90,13 @@ It should contain:
 - a very large main title occupying the upper-left to center-left area
 - the title split across two lines if needed, in a bold oversized display style
 - a short subtitle or label near the title
-- a large portrait or figure cutout placed on the right side
-- one or more rounded rectangular or circular background blocks behind the portrait
+- a supplied portrait placed on the right side, or an abstract identity anchor when no portrait is supplied
+- one or more rounded rectangular or circular background blocks behind the visual anchor
 - a few small decorative doodles, icons, quotes, marks, or motif symbols scattered lightly around the title area
 - a small amount of supporting text in smaller type near the lower right or lower middle of the hero section
 
 The title must be the most visually dominant element in this section.
-The portrait should be the second dominant element.
+The supplied portrait or abstract visual anchor should be the second dominant element.
 The hero section should feel bold, open, stylish, and immediately recognizable.
 
 # Section 1 Typography Behavior
@@ -124,7 +126,7 @@ The hero section should include light but deliberate decoration such as:
 - quote marks
 - ghosted numbers or typographic background marks
 
-These elements should enrich the page without distracting from the title or portrait.
+These elements should enrich the page without distracting from the title or visual anchor.
 
 # Section 3: About / Resume Information Structure
 
@@ -134,10 +136,10 @@ This section should be divided into two main sides:
 
 Left side:
 
-- a medium-to-large portrait block or profile image container
+- a medium-to-large supplied portrait block or abstract profile anchor
 - a rounded rectangle or soft-corner panel around the image
 - a contact card or compact contact block placed below or near the portrait
-- optional QR code / icon / mini badge module if the style supports it
+- an icon or mini badge module when supported by supplied facts; never a QR code
 
 Right side:
 
@@ -181,13 +183,13 @@ Avoid giant paragraphs.
 Avoid dense walls of text.
 Avoid tiny compressed bullet lists.
 
-# Section 6 Portrait and Contact Area
+# Section 6 Visual Anchor and Contact Area
 
 The left side of the middle section should act as a secondary visual anchor.
 
 It must include:
 
-- a portrait or image block with a strong rounded frame or shape-backed panel
+- a supplied portrait or abstract visual-anchor block with a strong rounded frame or shape-backed panel
 - a contact module beneath or beside it
 - the contact module presented as a dedicated box or strip, not loose floating text
 - contact items arranged vertically or in a clean list with icons, bullets, or small labels
@@ -262,7 +264,7 @@ This means:
 
 - keep the same section architecture
 - keep the same cover / about / contents structure
-- keep the same left-right portrait and information balance
+- keep the same left-right visual-anchor and information balance
 - keep the same bottom row of category cards
 
 But adapt the following according to the user's style:
@@ -349,8 +351,8 @@ The LONG_CAPTION must be written entirely in the detected output language.
 It must explicitly describe:
 
 - the page as a tall three-part portfolio-resume composition
-- the top hero section with huge title and right-side portrait
-- the middle about/resume section with left portrait-contact block and right information modules
+- the top hero section with huge title and a right-side supplied portrait or abstract visual anchor
+- the middle about/resume section with a left visual-anchor/contact block and right information modules
 - the bottom table-of-contents section with large rounded category cards
 - the divider logic between sections
 - the shape language, panel system, and visual rhythm

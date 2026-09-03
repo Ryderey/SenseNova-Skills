@@ -43,13 +43,13 @@ Use the current host Agent to analyze content, expand prompts, inspect generated
    - `disable`: use the original prompt.
    - `force`: expand it.
    - `auto`: expand unless every required check passes and at least 60% of optional checks pass.
-3. Analyze structure, tone, audience, language, key facts, density, and canvas using `references/analysis-framework.md`.
+3. Analyze structure, tone, audience, language, key facts, density, and canvas using `references/analysis-framework.md`. Produce a fact ledger containing every supplied number, date, proper noun, quotation, and other claim that the final image must preserve. Presentation copy may be shortened or reorganized, but every factual claim must remain traceable to this ledger.
 4. Select layout and style with `references/layout-style-selection.md`:
    - valid explicit user choices always win;
    - otherwise use deterministic relevance scoring over content, audience, canvas, and density;
    - never randomly sample;
    - read only the selected layout/style definitions when assembling the prompt.
-5. Build the final prompt from `references/base-prompt.md`, `references/prompts-expand-system.md`, `references/prompt-writing-rules.md`, `references/structured-content-template.md`, and the selected definitions. Preserve exact facts, requested language, concrete labels, visual hierarchy, no-watermark requirement, and ample readable type.
+5. Build the final prompt from `references/base-prompt.md`, `references/prompts-expand-system.md`, `references/prompt-writing-rules.md`, `references/structured-content-template.md`, and the selected definitions. Preserve the fact ledger, requested language, concrete labels, visual hierarchy, no-watermark requirement, and ample readable type. Add organizational headings only when they make no new factual claim.
 6. Generate round 1 with U1.5:
 
    ```bash
@@ -62,7 +62,7 @@ Use the current host Agent to analyze content, expand prompts, inspect generated
    ```
 
    The base runtime handles the allowed U1 Fast fallback for this initial text-to-image request.
-7. When `max_rounds > 1`, inspect each image against `references/prompts-critic-system.md` and `references/evaluation-standard.md`. Score factual accuracy, text legibility, structural completeness, layout balance, connector clarity, visual hierarchy, style consistency, and absence of watermarks. Record every violation with an imperative correction.
+7. When `max_rounds > 1`, inspect each image with `references/prompts-critic-system.md`, supplying the candidate image, fact ledger, required text labels, and final generation prompt. Use its weighted score and red-line gates; `references/evaluation-standard.md` evaluates input-prompt completeness only and must not be used as an image-quality rubric.
 8. For rounds 2-8, prefer native U1.5 editing of the best prior image to reduce layout drift:
 
    ```bash
@@ -75,7 +75,7 @@ Use the current host Agent to analyze content, expand prompts, inspect generated
    ```
 
    Editing never falls back to U1 Fast. If an edit fails, retry the edit once for a transient 5xx; if it still fails and rounds remain, make a fresh U1.5 generation with the corrected full prompt and record the mode as `regenerate`.
-9. Stop early on a clean PASS or a score of at least 0.90 with no factual/text red-line violation. Otherwise finish the budget.
+9. Stop early only when the critic returns `PASS`, `score >= 0.90`, and no factual, text-legibility, or watermark red line. Otherwise finish the budget.
 10. Rank all completed candidates by: factual accuracy and legibility first, then rubric score, then fewer violations, then later corrected round. Return the highest-quality result even if none passes; mark `quality_passed=false` in that case.
 
 ## Result contract

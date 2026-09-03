@@ -4,7 +4,6 @@ import base64
 import math
 import re
 import tempfile
-import time
 from pathlib import Path
 from typing import Any, Literal
 
@@ -13,9 +12,10 @@ from typing_extensions import override
 
 from sn_image_base.configs import global_configs, is_valid_base_url
 from sn_image_base.exceptions import BadConfigurationError
+from sn_image_base.image_utils import save_image_bytes
 from sn_image_base.utils.error_utils import U1HttpErrorBase
 
-from .core import ensure_output_path
+from .core import ensure_output_path, unique_output_path
 from .core.client_base import (
     DEFAULT_HTTP_REQUEST_TIMEOUT,
     DEFAULT_MAX_CONNECTIONS,
@@ -132,9 +132,7 @@ class OpenAIImageGenerationClient(T2IBaseClient):
         api_url = self.get_api_url(model)
 
         if output_path is None:
-            OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-            timestamp = time.strftime("%Y%m%d_%H%M%S")
-            output_path = OUTPUT_DIR / f"t2i_{timestamp}.png"
+            output_path = unique_output_path(OUTPUT_DIR, "t2i", ".png")
         output_path = ensure_output_path(output_path)
 
         client = await self._get_client()
@@ -180,8 +178,7 @@ class OpenAIImageGenerationClient(T2IBaseClient):
                 }
             image_bytes, mime_type = images[-1]
             suffix = mime_type_to_suffix(mime_type)
-            saved_path = output_path.with_suffix(suffix)
-            saved_path.write_bytes(image_bytes)
+            saved_path = save_image_bytes(image_bytes, output_path.with_suffix(suffix))
             return {
                 "status": "ok",
                 "output": str(saved_path),

@@ -22,6 +22,7 @@ Before rendering, read the sibling [`sn-image-base`](../sn-image-base/SKILL.md) 
 | Parameter | Default | Meaning |
 |---|---|---|
 | `resume_content` | required | User-provided resume facts |
+| `portrait_image` | none | Optional supplied portrait; never synthesize an identifiable face when absent |
 | `style` | inferred professional direction | Palette, tone, profession aesthetic |
 | `aspect_ratio` | `9:16` | Tall portfolio layout; all base-supported ratios remain valid |
 | `image_size` | `2k` | `2k`, `4k`, or valid explicit dimensions |
@@ -42,12 +43,24 @@ Condensation is allowed only to fit the visual hierarchy. Preserve names, dates,
 
 1. Validate that enough resume content exists for a meaningful page.
 2. Read all of `prompts/resume.md`. Apply its fixed three-zone portfolio structure, language detection, content mapping, typography hierarchy, panel system, proportions, and style-translation rules.
-3. Use the fact ledger to compose a complete generation prompt. Explicitly instruct U1.5 to reproduce exact supplied strings, avoid pseudo-text, leave absent facts out, use large legible typography, and render without a watermark.
-4. Generate with U1.5:
+3. Use the fact ledger to compose a complete generation prompt. Explicitly instruct U1.5 to reproduce exact supplied strings, avoid pseudo-text, leave absent facts out, use large legible typography, omit QR codes, and render without a watermark. When `portrait_image` is absent, use an abstract typographic or profession-related visual anchor instead of inventing a human face.
+4. When `portrait_image` is absent, generate with U1.5:
 
    ```bash
    python "<absolute RUNNER path>" sn-image-generate \
      --prompt "$GENERATION_PROMPT" \
+     --image-size "$IMAGE_SIZE" \
+     --aspect-ratio "$ASPECT_RATIO" \
+     --save-path "$TEMP_DIR/resume.png" \
+     --output-format json
+   ```
+
+   When `portrait_image` is supplied, use native editing so the provided identity reference participates directly:
+
+   ```bash
+   python "<absolute RUNNER path>" sn-image-edit \
+     --prompt "$GENERATION_PROMPT" \
+     --images "$PORTRAIT_IMAGE" \
      --image-size "$IMAGE_SIZE" \
      --aspect-ratio "$ASPECT_RATIO" \
      --save-path "$TEMP_DIR/resume.png" \
@@ -67,7 +80,7 @@ Condensation is allowed only to fit the visual hierarchy. Preserve names, dates,
    ```
 
    Each correction must identify the exact text/location and desired final state. Editing never falls back to U1 Fast.
-7. Return the last verified candidate. If visual inspection is unavailable, return the generated image with `visual_review_performed=false`; do not pretend it was reviewed.
+7. Retain the best verified candidate after every round, ranking exact fact preservation and legibility before layout/style. Return that candidate rather than automatically returning the last edit. If visual inspection is unavailable, return the generated image with `visual_review_performed=false`; do not pretend it was reviewed.
 
 ## Result contract
 

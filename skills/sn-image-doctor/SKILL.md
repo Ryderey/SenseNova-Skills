@@ -22,7 +22,7 @@ python "<absolute DOCTOR path>" --verbose
 
 The check is offline and does not spend model quota. It validates:
 
-1. Exactly these skills exist: `sn-image-base`, `sn-image-doctor`, `sn-infographic`, `sn-image-imitate`, `sn-image-resume`.
+1. These required skills exist: `sn-image-base`, `sn-image-doctor`, `sn-infographic`, `sn-image-imitate`, `sn-image-resume`. Other installed skills are allowed.
 2. Python 3.9+ and the dependencies in `sn-image-base/requirements.txt`.
 3. An image API key; the configured base URL; primary `sensenova-u1.5-lite`; fallback `sensenova-u1-fast`; `/images/generations` and `/images/edits`.
 4. U1.5 defaults: `watermark=false`, `prompt_extend=true`, `response_format=b64_json`; valid 2K/4K sizing.

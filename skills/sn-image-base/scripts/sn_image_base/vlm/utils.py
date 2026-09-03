@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import base64
-import io
-from pathlib import Path
 
-from PIL import Image
+from sn_image_base.image_utils import normalize_for_model, read_image_source
 
 
 def read_image_bytes(image: str | bytes) -> bytes:
@@ -21,28 +19,20 @@ def read_image_bytes(image: str | bytes) -> bytes:
     Raises:
         FileNotFoundError: If image is a path and the file does not exist.
     """
-    if isinstance(image, bytes):
-        return image
-    path = Path(image)
-    if not path.is_file():
-        raise FileNotFoundError(f"Image file not found: {image}")
-    return path.read_bytes()
+    return read_image_source(image)
 
 
 def detect_mime(data: bytes) -> str:
-    """Infer MIME type from image magic bytes.
+    """Validate image bytes and return the normalized model MIME type.
 
     Args:
-        data: Raw image bytes (at least 8 bytes for PNG check).
+        data: Encoded image bytes.
 
     Returns:
-        str: 'image/png', 'image/jpeg', or 'image/png' as fallback.
+        str: ``image/png`` or ``image/jpeg``. Supported alternatives normalize
+            to PNG; invalid or unsupported input raises ``ValueError``.
     """
-    if data[:8] == b"\x89PNG\r\n\x1a\n":
-        return "image/png"
-    if data[:3] == b"\xff\xd8\xff":
-        return "image/jpeg"
-    return "image/png"
+    return normalize_for_model(data)[0]
 
 
 def detect_suffix(data: bytes) -> str:
@@ -68,16 +58,10 @@ def image_to_mime_and_bytes(image: str | bytes) -> tuple[str, bytes]:
         image: File path or raw image bytes.
 
     Returns:
-        tuple[str, bytes]: (mime_type, raw_bytes). Unknown formats become PNG.
+        tuple[str, bytes]: (mime_type, raw_bytes). Supported non-PNG/JPEG
+            formats become PNG; invalid or unsupported input raises ``ValueError``.
     """
-    raw = read_image_bytes(image)
-    mime = detect_mime(raw)
-    if mime in ("image/png", "image/jpeg"):
-        return mime, raw
-    img = Image.open(io.BytesIO(raw)).convert("RGBA")
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    return "image/png", buf.getvalue()
+    return normalize_for_model(read_image_bytes(image))
 
 
 def image_to_base64(image: str | bytes) -> tuple[str, str]:

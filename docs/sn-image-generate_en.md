@@ -67,7 +67,7 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-edit \
   --output-format json
 ```
 
-Local images become Data URLs. Public URLs, Data URLs, multiple references, and continued editing are supported. Editing uses U1.5 and never falls back to U1 Fast.
+Local images, public URLs, and Data URLs are validated, bounded to 64 MiB / 40 million decoded pixels, normalized to PNG/JPEG when needed, and sent as Data URLs. Multiple references and continued editing are supported. Editing uses U1.5 and never falls back to U1 Fast.
 
 ## JSON fields
 

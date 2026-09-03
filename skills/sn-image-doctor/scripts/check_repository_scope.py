@@ -25,6 +25,7 @@ ALLOWED_ROOT_FILES = {
     "README_CN.md",
 }
 ALLOWED_DOC_FILES = {
+    "project-review-2026-09-03.md",
     "sn-image-generate.md",
     "sn-image-generate_en.md",
     "sn-infographic-examples.md",
