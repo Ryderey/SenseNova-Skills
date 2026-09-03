@@ -252,9 +252,11 @@ class SensenovaText2ImageClient(T2IBaseClient):
 
     async def _save_response(self, data: dict, output_path: Path, output_format: str) -> Path:
         if data["images_b64"]:
-            return save_base64_image(data["images_b64"][-1], output_path)
+            return save_base64_image(data["images_b64"][-1], output_path, output_format)
         if data["images_urls"]:
-            return await download_image(data["images_urls"][-1], output_path, self._timeout)
+            return await download_image(
+                data["images_urls"][-1], output_path, self._timeout, output_format
+            )
         raise ValueError("No image data returned by the model.")
 
     @property
@@ -403,17 +405,22 @@ class SensenovaText2ImageClient(T2IBaseClient):
         return {"images_urls": urls, "images_b64": encoded}
 
 
-def save_base64_image(value: str, save_path: Path) -> Path:
+def save_base64_image(
+    value: str,
+    save_path: Path,
+    output_format: str | None = None,
+) -> Path:
     """Decode, validate and atomically store an API b64_json image."""
     if ";base64," in value:
         value = value.split(";base64,", 1)[1]
-    return save_image_bytes(decode_bounded_base64(value), save_path)
+    return save_image_bytes(decode_bounded_base64(value), save_path, output_format)
 
 
 async def download_image(
     url: str,
     save_path: Path,
     timeout: float = DEFAULT_HTTP_REQUEST_TIMEOUT,
+    output_format: str | None = None,
 ) -> Path:
     """Download a temporary model URL, validate it and atomically store it."""
     save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -459,6 +466,11 @@ async def download_image(
             temporary.flush()
             os.fsync(temporary.fileno())
         mime = validate_image_file(temp_path)
+        if output_format is not None:
+            raw = temp_path.read_bytes()
+            temp_path.unlink()
+            temp_path = None
+            return save_image_bytes(raw, save_path, output_format)
         final_path = save_path.with_suffix(MIME_SUFFIX[mime])
         temp_path.replace(final_path)
         return final_path

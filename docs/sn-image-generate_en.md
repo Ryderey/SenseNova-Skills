@@ -50,7 +50,7 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-generate \
   --output-format json
 ```
 
-Sizes: official `2k` / `4k`, repository compatibility preset `1k`, or `WIDTHxHEIGHT`. `1k` is mapped to valid explicit dimensions rather than sent as an API constant. U1.5 2K 16:9 / 9:16 uses the official recommended `2720x1536` / `1536x2720`; Fast uses its fixed `2752x1536` / `1536x2752` buckets. Explicit dimensions must be multiples of 32, 512-4096 per side, and at most 3:1. PNG/JPEG/WEBP are supported.
+Sizes: official `2k` / `4k`, repository compatibility preset `1k`, or `WIDTHxHEIGHT`. `1k` is mapped to valid explicit dimensions rather than sent as an API constant. U1.5 2K 16:9 / 9:16 uses the official recommended `2720x1536` / `1536x2720`; Fast uses its fixed `2752x1536` / `1536x2752` buckets. Explicit dimensions must be multiples of 32, 512-4096 per side, and at most 3:1. PNG/JPEG/WEBP are supported; after a Fast fallback, the runtime transcodes the downloaded result to the requested format.
 
 URL responses are downloaded immediately: U1.5 generation/edit URLs expire after 24 hours and U1 Fast URLs after 1 hour. The default Base64 path has no URL-expiry risk.
 

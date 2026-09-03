@@ -20,6 +20,11 @@ MIME_SUFFIX = {
     "image/jpeg": ".jpg",
     "image/webp": ".webp",
 }
+OUTPUT_FORMAT_MIME = {
+    "png": "image/png",
+    "jpeg": "image/jpeg",
+    "webp": "image/webp",
+}
 
 
 def _bounded(raw: bytes) -> bytes:
@@ -152,9 +157,32 @@ def normalize_for_model(raw: bytes) -> tuple[str, bytes]:
     return "image/png", normalized
 
 
-def save_image_bytes(raw: bytes, save_path: Path) -> Path:
-    """Validate and atomically save image bytes with a format-correct suffix."""
+def save_image_bytes(
+    raw: bytes,
+    save_path: Path,
+    output_format: str | None = None,
+) -> Path:
+    """Validate, optionally transcode, and atomically save image bytes."""
     mime = validate_image_bytes(raw)
+    if output_format is not None:
+        requested_mime = OUTPUT_FORMAT_MIME.get(output_format)
+        if requested_mime is None:
+            raise ValueError(f"Unsupported output format: {output_format}")
+        if mime != requested_mime:
+            with Image.open(io.BytesIO(raw)) as image:
+                has_alpha = "A" in image.getbands() or "transparency" in image.info
+                mode = "RGBA" if has_alpha and output_format != "jpeg" else "RGB"
+                converted = io.BytesIO()
+                save_options = {"lossless": True} if output_format == "webp" else {}
+                image.convert(mode).save(
+                    converted,
+                    format={"png": "PNG", "jpeg": "JPEG", "webp": "WEBP"}[
+                        output_format
+                    ],
+                    **save_options,
+                )
+            raw = converted.getvalue()
+            mime = validate_image_bytes(raw)
     final_path = save_path.with_suffix(MIME_SUFFIX[mime])
     final_path.parent.mkdir(parents=True, exist_ok=True)
     temp_path: Path | None = None

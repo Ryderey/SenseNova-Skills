@@ -184,6 +184,11 @@ class DocumentationTests(unittest.TestCase):
             self.assertNotIn("--branch image-viz", text)
             self.assertNotIn("OpenSenseNova/SenseNova-Skills", text)
 
+    def test_env_example_lists_every_supported_shared_runtime_setting(self) -> None:
+        example = (REPO_ROOT / ".env.example").read_text(encoding="utf-8")
+        for key in ("SN_BASE_URL", "SN_CHAT_TYPE", "SN_TEXT_TYPE", "SN_VISION_TYPE"):
+            self.assertRegex(example, rf"(?m)^{key}=.*$")
+
     def test_skill_runtime_commands_are_location_independent(self) -> None:
         forbidden = (
             "$SN_IMAGE_BASE",

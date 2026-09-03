@@ -336,6 +336,13 @@ class SensenovaPayloadTests(unittest.TestCase):
             self.assertEqual(saved.suffix, ".png")
             self.assertTrue(saved.is_file())
 
+            converted = save_image_bytes(
+                png_bytes(), Path(temp_dir) / "converted.webp", "webp"
+            )
+            self.assertEqual(converted.suffix, ".webp")
+            with Image.open(converted) as image:
+                self.assertEqual(image.format, "WEBP")
+
             with (
                 patch("sn_image_base.image_utils.MAX_IMAGE_PIXELS", 100),
                 self.assertRaisesRegex(ValueError, "pixel limit"),
@@ -605,6 +612,69 @@ class FallbackMatrixTests(unittest.TestCase):
 
 
 class RunnerGuardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_generation_fallback_preserves_requested_output_options(self) -> None:
+        args = sn_agent_runner.build_parser().parse_args(
+            [
+                "sn-image-generate",
+                "--prompt",
+                "draw",
+                "--image-format",
+                "webp",
+                "--response-format",
+                "url",
+                "--no-prompt-extend",
+                "--save-path",
+                "out.webp",
+            ]
+        )
+        client = AsyncMock()
+        client.generate.side_effect = [
+            {
+                "status": "failed",
+                "operation": "generate",
+                "http_status": 429,
+                "error_type": "RateLimitError",
+                "fallback_eligible": True,
+            },
+            {"status": "ok", "output": "out.webp"},
+        ]
+        with (
+            patch.object(
+                sn_agent_runner.global_configs,
+                "SN_IMAGE_GEN_MODEL_TYPE",
+                "sensenova",
+            ),
+            patch.object(sn_agent_runner.global_configs, "SN_IMAGE_GEN_API_KEY", "test-key"),
+            patch.object(
+                sn_agent_runner.global_configs,
+                "SN_IMAGE_GEN_BASE_URL",
+                "https://example.test/v1",
+            ),
+            patch.object(
+                sn_agent_runner.global_configs,
+                "SN_IMAGE_GEN_MODEL",
+                DEFAULT_MODEL,
+            ),
+            patch.object(
+                sn_agent_runner.global_configs,
+                "SN_IMAGE_GEN_FALLBACK_MODEL",
+                FAST_MODEL,
+            ),
+            patch.object(
+                sn_agent_runner,
+                "SensenovaText2ImageClient",
+                return_value=client,
+            ),
+        ):
+            result, exit_code = await sn_agent_runner.run_image_generate(args)
+
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(result["fallback_used"])
+        fallback_options = client.generate.await_args_list[1].kwargs
+        self.assertEqual(fallback_options["output_format"], "webp")
+        self.assertEqual(fallback_options["response_format"], "url")
+        self.assertFalse(fallback_options["prompt_extend"])
+
     async def test_edit_rejects_non_sensenova_generation_backend(self) -> None:
         args = sn_agent_runner.build_parser().parse_args(
             ["sn-image-edit", "--prompt", "edit", "--images", "reference.png"]

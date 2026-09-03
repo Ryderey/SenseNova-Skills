@@ -1,5 +1,7 @@
 # Project Review and Remediation Ledger
 
+> Archived snapshot for `e193511`. For later findings and current verification, see [the follow-up review](project-review-2026-09-03-follow-up.md).
+
 Review date: 2026-09-03  
 Scope: the complete five-skill image/visualization repository at `e193511`
 Baseline: five Agent Skills, the shared Python runtime, prompts/references, tests, diagnostics, installation documents, and GitHub workflows
