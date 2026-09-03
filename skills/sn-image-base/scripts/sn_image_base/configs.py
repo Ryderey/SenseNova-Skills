@@ -25,6 +25,10 @@ def prepare_env() -> None:
 
 prepare_env()
 
+ImageGenerationBackend = Literal["sensenova", "nano-banana", "openai-image"]
+ChatInterfaceType = Literal["anthropic-messages", "openai-completions"]
+CHAT_INTERFACE_TYPES = frozenset(get_args(ChatInterfaceType))
+
 
 class Field:
     """Metadata marker that pairs a field with one or more env var names.
@@ -91,7 +95,7 @@ class Configs:
         str, Field("SN_IMAGE_GEN_BASE_URL", "SN_BASE_URL", required=True)
     ] = "https://token.sensenova.cn/v1"
     SN_IMAGE_GEN_MODEL_TYPE: Annotated[
-        Literal["sensenova", "nano-banana", "openai-image"], Field("SN_IMAGE_GEN_MODEL_TYPE")
+        ImageGenerationBackend, Field("SN_IMAGE_GEN_MODEL_TYPE")
     ] = "sensenova"
     SN_IMAGE_GEN_MODEL: Annotated[str, Field("SN_IMAGE_GEN_MODEL")] = "sensenova-u1.5-lite"
     SN_IMAGE_GEN_FALLBACK_MODEL: Annotated[str, Field("SN_IMAGE_GEN_FALLBACK_MODEL")] = (
@@ -105,7 +109,7 @@ class Configs:
         "https://token.sensenova.cn/v1"
     )
     SN_CHAT_TYPE: Annotated[
-        Literal["anthropic-messages", "openai-completions"], Field("SN_CHAT_TYPE")
+        ChatInterfaceType, Field("SN_CHAT_TYPE")
     ] = "openai-completions"
     # Deliberately no chat-model default: the host Agent should plan/review with
     # its own capabilities unless an external text or vision runtime is explicit.
@@ -123,7 +127,7 @@ class Configs:
         str, Field("SN_TEXT_BASE_URL", "SN_CHAT_BASE_URL", "SN_BASE_URL")
     ] = ""
     SN_TEXT_TYPE: Annotated[
-        Literal["anthropic-messages", "openai-completions"],
+        ChatInterfaceType,
         Field("SN_TEXT_TYPE", "SN_CHAT_TYPE"),
     ] = ""
     SN_TEXT_MODEL: Annotated[str, Field("SN_TEXT_MODEL", "SN_CHAT_MODEL")] = ""
@@ -140,7 +144,7 @@ class Configs:
         str, Field("SN_VISION_BASE_URL", "SN_CHAT_BASE_URL", "SN_BASE_URL")
     ] = ""
     SN_VISION_TYPE: Annotated[
-        Literal["anthropic-messages", "openai-completions"],
+        ChatInterfaceType,
         Field("SN_VISION_TYPE", "SN_CHAT_TYPE"),
     ] = ""
     SN_VISION_MODEL: Annotated[str, Field("SN_VISION_MODEL", "SN_CHAT_MODEL")] = ""

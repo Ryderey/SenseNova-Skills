@@ -24,7 +24,12 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if (d := str(SCRIPT_DIR)) not in sys.path:
     sys.path.insert(0, d)
 
-from sn_image_base.configs import global_configs, is_valid_base_url, urlparse
+from sn_image_base.configs import (
+    CHAT_INTERFACE_TYPES,
+    global_configs,
+    is_valid_base_url,
+    urlparse,
+)
 from sn_image_base.exceptions import (
     BadConfigurationError,
     InvalidBaseUrlError,
@@ -39,7 +44,6 @@ from sn_image_base.generation import (
 from sn_image_base.llm import AnthropicMessagesAdapter, OpenAIChatAdapter
 
 ALLOWED_IMAGE_SIZES = frozenset({"1k", "2k", "4k"})
-ALLOWED_CHAT_INTERFACES = frozenset({"anthropic-messages", "openai-completions"})
 
 
 def _resolve_prompt(
@@ -673,10 +677,10 @@ def _resolve_model_runtime(kind: str, args: argparse.Namespace) -> tuple[str, st
     )
     label = profile["label"]
 
-    if iface_type not in ALLOWED_CHAT_INTERFACES:
+    if iface_type not in CHAT_INTERFACE_TYPES:
         raise BadConfigurationError(
             f"Unsupported {label} interface type {iface_type!r}. "
-            f"Set {profile['type_env']} to one of {sorted(ALLOWED_CHAT_INTERFACES)}."
+            f"Set {profile['type_env']} to one of {sorted(CHAT_INTERFACE_TYPES)}."
         )
     if not api_key:
         raise MissingApiKeyError(

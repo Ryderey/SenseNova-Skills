@@ -8,7 +8,7 @@ import os
 import socket
 import tempfile
 from pathlib import Path
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
 from PIL import Image
@@ -39,7 +39,8 @@ def decode_bounded_base64(value: str) -> bytes:
         raise ValueError("Image contains invalid base64 data.") from exc
 
 
-def require_public_http_url(value: str) -> None:
+def require_public_http_url(value: str) -> tuple[str, dict[str, str], dict[str, str]]:
+    """Resolve a public URL once and return an IP-bound request target."""
     parsed = urlsplit(value)
     if (
         parsed.scheme not in {"http", "https"}
@@ -53,10 +54,24 @@ def require_public_http_url(value: str) -> None:
         addresses = socket.getaddrinfo(parsed.hostname, port, type=socket.SOCK_STREAM)
     except socket.gaierror as exc:
         raise ValueError("Remote image host could not be resolved.") from exc
-    if not addresses or any(
-        not ipaddress.ip_address(address[4][0]).is_global for address in addresses
-    ):
+    resolved = [ipaddress.ip_address(address[4][0]) for address in addresses]
+    if not resolved or any(not address.is_global for address in resolved):
         raise ValueError("Remote image URL must resolve only to public IP addresses.")
+    address = str(resolved[0])
+    connect_host = f"[{address}]" if ":" in address else address
+    original_host = parsed.hostname
+    host_header = f"[{original_host}]" if ":" in original_host else original_host
+    if parsed.port is not None:
+        connect_host = f"{connect_host}:{parsed.port}"
+        host_header = f"{host_header}:{parsed.port}"
+    connect_url = urlunsplit(
+        (parsed.scheme, connect_host, parsed.path, parsed.query, "")
+    )
+    return (
+        connect_url,
+        {"Host": host_header},
+        {"sni_hostname": original_host},
+    )
 
 
 def read_image_source(source: str | bytes | Path) -> bytes:
@@ -72,25 +87,34 @@ def read_image_source(source: str | bytes | Path) -> bytes:
     if value.startswith(("https://", "http://")):
         current_url = value
         for _redirect in range(6):
-            require_public_http_url(current_url)
+            connect_url, headers, extensions = require_public_http_url(current_url)
             data = bytearray()
-            with httpx.stream(
-                "GET", current_url, timeout=30.0, follow_redirects=False
-            ) as response:
-                if response.is_redirect:
-                    location = response.headers.get("location")
-                    if not location:
-                        response.raise_for_status()
-                    current_url = urljoin(current_url, location)
-                    continue
-                response.raise_for_status()
-                if int(response.headers.get("content-length", "0") or 0) > MAX_IMAGE_BYTES:
-                    raise ValueError("Remote image exceeds the download limit.")
-                for chunk in response.iter_bytes():
-                    data.extend(chunk)
-                    if len(data) > MAX_IMAGE_BYTES:
+            with httpx.Client(
+                timeout=30.0, follow_redirects=False, trust_env=False
+            ) as client:
+                with client.stream(
+                    "GET",
+                    connect_url,
+                    headers=headers,
+                    extensions=extensions,
+                ) as response:
+                    if response.is_redirect:
+                        location = response.headers.get("location")
+                        if not location:
+                            response.raise_for_status()
+                        current_url = urljoin(current_url, location)
+                        continue
+                    response.raise_for_status()
+                    if (
+                        int(response.headers.get("content-length", "0") or 0)
+                        > MAX_IMAGE_BYTES
+                    ):
                         raise ValueError("Remote image exceeds the download limit.")
-                return bytes(data)
+                    for chunk in response.iter_bytes():
+                        data.extend(chunk)
+                        if len(data) > MAX_IMAGE_BYTES:
+                            raise ValueError("Remote image exceeds the download limit.")
+                    return bytes(data)
         raise ValueError("Remote image exceeded the redirect limit.")
     path = Path(value).expanduser()
     if not path.is_file():

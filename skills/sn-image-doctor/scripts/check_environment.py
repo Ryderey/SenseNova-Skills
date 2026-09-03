@@ -7,7 +7,6 @@ import argparse
 import importlib.util
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILLS_DIR = SCRIPT_DIR.parents[1]
@@ -19,24 +18,6 @@ EXPECTED_SKILLS = {
     "sn-image-imitate",
     "sn-image-resume",
 }
-SUPPORTED_CHAT_TYPES = {"anthropic-messages", "openai-completions"}
-
-
-def _valid_adapter_base_url(value: str) -> bool:
-    try:
-        parsed = urlparse(value)
-        return bool(
-            parsed.scheme in {"http", "https"}
-            and parsed.hostname
-            and parsed.username is None
-            and parsed.password is None
-            and not parsed.query
-            and not parsed.fragment
-        )
-    except ValueError:
-        return False
-
-
 def check_installation(verbose: bool) -> bool:
     print("[1/4] Checking image-skill installation...")
     discovered = {
@@ -96,7 +77,11 @@ def _load_runtime():
     scripts = BASE_SKILL_DIR / "scripts"
     sys.path.insert(0, str(scripts))
     try:
-        from sn_image_base.configs import global_configs
+        from sn_image_base.configs import (
+            CHAT_INTERFACE_TYPES,
+            global_configs,
+            is_valid_base_url,
+        )
         from sn_image_base.exceptions import U1BaseError
         from sn_image_base.generation.sensenova import (
             DEFAULT_MODEL,
@@ -114,6 +99,8 @@ def _load_runtime():
             IMAGE_EDIT_ENDPOINT,
             SensenovaText2ImageClient,
             U1BaseError,
+            is_valid_base_url,
+            CHAT_INTERFACE_TYPES,
         )
     finally:
         sys.path.pop(0)
@@ -130,6 +117,8 @@ def check_image_runtime(verbose: bool) -> bool:
             edit_path,
             client_type,
             runtime_error,
+            _base_url_validator,
+            _chat_interface_types,
         ) = _load_runtime()
     except (ImportError, OSError, ValueError) as exc:
         print(f"  [FAIL] Could not load image runtime: {exc}")
@@ -183,7 +172,10 @@ def check_image_runtime(verbose: bool) -> bool:
 
 def check_optional_chat_runtime(verbose: bool) -> bool:
     print("[4/4] Checking optional external text/vision adapters...")
-    configs, *_rest = _load_runtime()
+    runtime = _load_runtime()
+    configs = runtime[0]
+    base_url_validator = runtime[-2]
+    chat_interface_types = runtime[-1]
     runtimes = {
         "text": {
             "model": configs.SN_TEXT_MODEL,
@@ -213,9 +205,9 @@ def check_optional_chat_runtime(verbose: bool) -> bool:
         problems = []
         if not values["api_key"]:
             problems.append("API key is missing")
-        if not _valid_adapter_base_url(values["base_url"]):
+        if not base_url_validator(values["base_url"]):
             problems.append("base URL is invalid")
-        if values["type"] not in SUPPORTED_CHAT_TYPES:
+        if values["type"] not in chat_interface_types:
             problems.append("interface type is unsupported")
         if problems:
             valid = False

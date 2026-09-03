@@ -233,6 +233,8 @@ class DocumentationTests(unittest.TestCase):
         )
         self.assertIn("ubuntu-latest", test_workflow)
         self.assertIn("windows-latest", test_workflow)
+        self.assertIn("  pull_request:", test_workflow)
+        self.assertNotIn("  push:", test_workflow)
         self.assertIn("python -m unittest discover", test_workflow)
         self.assertIn("python -m ruff check --no-fix", test_workflow)
         ruff_config = (REPO_ROOT / "skills/sn-image-base/scripts/ruff.toml").read_text(
@@ -259,7 +261,15 @@ class DoctorTests(unittest.TestCase):
         )
         output = io.StringIO()
         with (
-            patch.object(doctor, "_load_runtime", return_value=(configs,)),
+            patch.object(
+                doctor,
+                "_load_runtime",
+                return_value=(
+                    configs,
+                    lambda value: value.startswith(("http://", "https://")),
+                    {"anthropic-messages", "openai-completions"},
+                ),
+            ),
             contextlib.redirect_stdout(output),
         ):
             result = doctor.check_optional_chat_runtime(verbose=False)

@@ -8,6 +8,7 @@ import re
 import tempfile
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urljoin
 
 import httpx
 from typing_extensions import override
@@ -415,7 +416,6 @@ async def download_image(
     timeout: float = DEFAULT_HTTP_REQUEST_TIMEOUT,
 ) -> Path:
     """Download a temporary model URL, validate it and atomically store it."""
-    require_public_http_url(url)
     save_path.parent.mkdir(parents=True, exist_ok=True)
     temp_path: Path | None = None
     try:
@@ -423,17 +423,39 @@ async def download_image(
             dir=save_path.parent, prefix=f".{save_path.name}.", suffix=".tmp", delete=False
         ) as temporary:
             temp_path = Path(temporary.name)
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                async with client.stream("GET", url) as response:
-                    response.raise_for_status()
-                    if int(response.headers.get("content-length", "0") or 0) > MAX_IMAGE_BYTES:
-                        raise ValueError("Remote image exceeds the download limit.")
-                    downloaded = 0
-                    async for chunk in response.aiter_bytes():
-                        downloaded += len(chunk)
-                        if downloaded > MAX_IMAGE_BYTES:
+            current_url = url
+            for _redirect in range(6):
+                connect_url, headers, extensions = require_public_http_url(current_url)
+                async with httpx.AsyncClient(
+                    timeout=timeout, follow_redirects=False, trust_env=False
+                ) as client:
+                    async with client.stream(
+                        "GET",
+                        connect_url,
+                        headers=headers,
+                        extensions=extensions,
+                    ) as response:
+                        if response.is_redirect:
+                            location = response.headers.get("location")
+                            if not location:
+                                response.raise_for_status()
+                            current_url = urljoin(current_url, location)
+                            continue
+                        response.raise_for_status()
+                        if (
+                            int(response.headers.get("content-length", "0") or 0)
+                            > MAX_IMAGE_BYTES
+                        ):
                             raise ValueError("Remote image exceeds the download limit.")
-                        temporary.write(chunk)
+                        downloaded = 0
+                        async for chunk in response.aiter_bytes():
+                            downloaded += len(chunk)
+                            if downloaded > MAX_IMAGE_BYTES:
+                                raise ValueError("Remote image exceeds the download limit.")
+                            temporary.write(chunk)
+                        break
+            else:
+                raise ValueError("Remote image exceeded the redirect limit.")
             temporary.flush()
             os.fsync(temporary.fileno())
         mime = validate_image_file(temp_path)

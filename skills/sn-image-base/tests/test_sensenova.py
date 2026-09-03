@@ -7,7 +7,6 @@ import os
 import sys
 import tempfile
 import unittest
-from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -22,14 +21,17 @@ from sn_image_base.configs import Configs, is_valid_base_url
 from sn_image_base.generation import OpenAIImageGenerationClient
 from sn_image_base.generation.core import unique_output_path
 from sn_image_base.generation.sensenova import (
+    DEFAULT_HTTP_REQUEST_TIMEOUT,
     DEFAULT_MODEL,
     FAST_MODEL,
     SensenovaText2ImageClient,
+    download_image,
     save_base64_image,
 )
 from sn_image_base.image_utils import (
     normalize_for_model,
     read_image_source,
+    require_public_http_url,
     save_image_bytes,
 )
 from sn_image_base.llm.anthropic_adapter import (
@@ -229,24 +231,34 @@ class SensenovaPayloadTests(unittest.TestCase):
         encoded = data_url(png_bytes())
         self.assertEqual(self.client.image_to_data_url(encoded), encoded)
 
-        @contextmanager
-        def fake_stream(_method: str, url: str, **_kwargs):
-            yield httpx.Response(
+        def handler(request: httpx.Request) -> httpx.Response:
+            self.assertEqual(
+                str(request.url), "https://93.184.216.34/reference.png"
+            )
+            self.assertEqual(request.headers["host"], "example.test")
+            self.assertEqual(request.extensions["sni_hostname"], "example.test")
+            return httpx.Response(
                 200,
                 content=png_bytes(),
                 headers={"content-length": str(len(png_bytes()))},
-                request=httpx.Request("GET", url),
+                request=request,
             )
 
         remote = "https://example.test/reference.png"
+        client = httpx.Client(transport=httpx.MockTransport(handler))
         with (
-            patch("sn_image_base.image_utils.httpx.stream", fake_stream),
+            patch(
+                "sn_image_base.image_utils.httpx.Client", return_value=client
+            ) as client_factory,
             patch(
                 "sn_image_base.image_utils.socket.getaddrinfo",
                 return_value=[(2, 1, 6, "", ("93.184.216.34", 443))],
             ),
         ):
             normalized = self.client.image_to_data_url(remote)
+        client_factory.assert_called_once_with(
+            timeout=30.0, follow_redirects=False, trust_env=False
+        )
         self.assertTrue(normalized.startswith("data:image/png;base64,"))
         self.assertEqual(base64.b64decode(normalized.split(",", 1)[1]), png_bytes())
 
@@ -256,28 +268,42 @@ class SensenovaPayloadTests(unittest.TestCase):
                 "sn_image_base.image_utils.socket.getaddrinfo",
                 return_value=[(2, 1, 6, "", ("127.0.0.1", 80))],
             ),
-            patch("sn_image_base.image_utils.httpx.stream") as stream,
+            patch("sn_image_base.image_utils.httpx.Client") as client,
             self.assertRaisesRegex(ValueError, "public"),
         ):
             read_image_source("http://localhost/reference.png")
-        stream.assert_not_called()
+        client.assert_not_called()
+
+    def test_public_url_resolution_binds_the_connection_to_the_verified_ip(self) -> None:
+        with patch(
+            "sn_image_base.image_utils.socket.getaddrinfo",
+            return_value=[(2, 1, 6, "", ("93.184.216.34", 8443))],
+        ):
+            target, headers, extensions = require_public_http_url(
+                "https://example.test:8443/reference.png?version=1"
+            )
+        self.assertEqual(
+            target, "https://93.184.216.34:8443/reference.png?version=1"
+        )
+        self.assertEqual(headers, {"Host": "example.test:8443"})
+        self.assertEqual(extensions, {"sni_hostname": "example.test"})
 
     def test_remote_images_revalidate_redirect_targets(self) -> None:
-        @contextmanager
-        def redirect_stream(_method: str, url: str, **_kwargs):
-            yield httpx.Response(
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
                 302,
                 headers={"location": "http://[::1]/private.png"},
-                request=httpx.Request("GET", url),
+                request=request,
             )
 
         def resolve(host: str, port: int, **_kwargs):
             address = "93.184.216.34" if host == "example.test" else "::1"
             return [(2, 1, 6, "", (address, port))]
 
+        client = httpx.Client(transport=httpx.MockTransport(handler))
         with (
             patch("sn_image_base.image_utils.socket.getaddrinfo", side_effect=resolve),
-            patch("sn_image_base.image_utils.httpx.stream", redirect_stream),
+            patch("sn_image_base.image_utils.httpx.Client", return_value=client),
             self.assertRaisesRegex(ValueError, "public"),
         ):
             read_image_source("https://example.test/reference.png")
@@ -365,6 +391,38 @@ class SensenovaRequestTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["model"], DEFAULT_MODEL)
         self.assertEqual(payload["response_format"], "b64_json")
         self.assertFalse(payload["watermark"])
+
+    async def test_model_url_download_uses_the_verified_ip_and_original_sni(self) -> None:
+        async def handler(request: httpx.Request) -> httpx.Response:
+            self.assertEqual(
+                str(request.url), "https://93.184.216.34/generated.png"
+            )
+            self.assertEqual(request.headers["host"], "cdn.example.test")
+            self.assertEqual(request.extensions["sni_hostname"], "cdn.example.test")
+            return httpx.Response(200, content=png_bytes(), request=request)
+
+        async_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch(
+                "sn_image_base.image_utils.socket.getaddrinfo",
+                return_value=[(2, 1, 6, "", ("93.184.216.34", 443))],
+            ),
+            patch(
+                "sn_image_base.generation.sensenova.httpx.AsyncClient",
+                return_value=async_client,
+            ) as client_factory,
+        ):
+            saved = await download_image(
+                "https://cdn.example.test/generated.png",
+                Path(temp_dir) / "download.png",
+            )
+            self.assertTrue(saved.is_file())
+        client_factory.assert_called_once_with(
+            timeout=DEFAULT_HTTP_REQUEST_TIMEOUT,
+            follow_redirects=False,
+            trust_env=False,
+        )
 
     async def test_edit_accepts_multiple_references(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
