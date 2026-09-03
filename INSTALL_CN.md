@@ -17,6 +17,8 @@ cd SenseNova-Skills
 python -m venv .venv
 ```
 
+如需固定某个发布版本（例如宿主可复现安装），可以改为克隆发布标签，如 `git clone --branch v1.0.0 --single-branch https://github.com/Ryderey/SenseNova-Skills.git`。标签发布后不会移动。
+
 激活虚拟环境：
 
 ```bash

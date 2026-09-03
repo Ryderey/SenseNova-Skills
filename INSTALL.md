@@ -17,6 +17,8 @@ cd SenseNova-Skills
 python -m venv .venv
 ```
 
+To pin a specific release instead of the default branch (for reproducible host installs), clone a release tag instead, e.g. `git clone --branch v1.0.0 --single-branch https://github.com/Ryderey/SenseNova-Skills.git`. Tags never move once published.
+
 Activate the environment:
 
 ```bash
