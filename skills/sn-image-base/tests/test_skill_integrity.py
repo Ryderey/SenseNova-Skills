@@ -201,6 +201,20 @@ class DocumentationTests(unittest.TestCase):
             for token in forbidden:
                 self.assertNotIn(token, text, f"{path.relative_to(REPO_ROOT)}: {token}")
 
+    def test_skills_define_platform_api_key_discovery(self) -> None:
+        base = (SKILLS_ROOT / "sn-image-base/SKILL.md").read_text(encoding="utf-8")
+        doctor = (SKILLS_ROOT / "sn-image-doctor/SKILL.md").read_text(encoding="utf-8")
+        for token in (
+            r"HKEY_CURRENT_USER\Environment",
+            r"HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment",
+            "~/.bashrc",
+            "~/.zshrc",
+            "project `.env`",
+        ):
+            self.assertIn(token, base)
+        self.assertIn("Credential discovery", doctor)
+        self.assertIn("never print the key", doctor)
+
     def test_official_docs_links_do_not_use_unreliable_model_hashes(self) -> None:
         for path in REPO_ROOT.rglob("*.md"):
             if any(part in {".git", ".venv"} for part in path.parts):

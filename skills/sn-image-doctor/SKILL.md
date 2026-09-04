@@ -30,6 +30,8 @@ The check is offline and does not spend model quota. It validates:
 
 Exit code is 0 only when required image checks pass. Missing text/vision adapters never fail the doctor. Output masks secrets and must never print a complete API key.
 
+If the image API key check fails, follow `sn-image-base`'s **Credential discovery** order immediately: process environment, then Windows User/Machine persistent environment or Linux/macOS `~/.bashrc`, `~/.zshrc`, and project `.env`. Do not search unrelated config, JSON, or session files, and never print the key. After finding a persistent value, inject it and rerun the doctor in the same shell invocation, or restart the host so a new process inherits it.
+
 To install dependencies:
 
 ```bash

@@ -100,4 +100,13 @@ Supported adapter protocols remain `openai-completions` and `anthropic-messages`
 
 Resolution priority is CLI > capability-specific environment variable > shared environment variable. The minimal setup is `SENSENOVA_API_KEY`; use `SN_IMAGE_GEN_API_KEY`, `SN_CHAT_API_KEY`, `SN_TEXT_API_KEY`, or `SN_VISION_API_KEY` only when that capability needs a different credential. The official base URL, primary model, and fallback model already have image-specific defaults.
 
+### Credential discovery
+
+When a required key is absent from the current process environment, check the host's normal persistent environment locations before searching any unrelated config, JSON, or session files:
+
+- Windows: query the User environment first (`HKEY_CURRENT_USER\Environment`), then the Machine environment (`HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment`). Prefer `[Environment]::GetEnvironmentVariable("SENSENOVA_API_KEY", "User")`, then `"Machine"`; assign a found value to `$env:SENSENOVA_API_KEY` and run the command in that same PowerShell invocation. Never print the value or use a registry command that exposes it in tool output.
+- Linux/macOS: check whether `SENSENOVA_API_KEY` is declared in `~/.bashrc`, `~/.zshrc`, or the project `.env`, in that order. Search by variable name while returning filenames only, then load the trusted matching file and run the command in the same shell. Never print the matching line or value.
+
+Apply the same platform lookup to a capability-specific key when one is expected. Stop after these locations unless the user identifies another credential store. A persistent value may be missing from an already-running Agent process; same-shell injection or restarting the host makes it available without copying the key into `--api-key`.
+
 Never place credentials in prompts, command histories, logs, examples, or committed files. Prefer temporary environment injection or a local ignored `.env`.
