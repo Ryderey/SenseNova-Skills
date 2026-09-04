@@ -53,7 +53,7 @@ Output requirements:
 - Set `semantic_residue_check` to `PASS` only when every old topic-bearing element has a valid disposition and every carry-over has exact user evidence.
 
 {
-  "target_language": "zh-CN",
+  "target_language": "<BCP-47 tag inferred from target request>",
   "allowed_foreign_terms": [],
   "rewritten_caption": "complete generation caption",
   "semantic_replacement_ledger": [

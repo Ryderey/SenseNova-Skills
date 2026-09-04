@@ -93,7 +93,7 @@ Retain original core fields and include model provenance:
   "image": "/absolute/path/attempt_2.png",
   "reference_blueprint": "...",
   "generation_prompt": "...",
-  "target_language": "zh-CN",
+  "target_language": "<inferred BCP-47 language tag>",
   "allowed_foreign_terms": [],
   "ledger_validation": {"valid": true, "errors": []},
   "semantic_replacement_ledger": [

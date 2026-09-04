@@ -141,6 +141,7 @@ class RepositoryScopeTests(unittest.TestCase):
         self.assertIn("semantic compatibility check", rewrite)
         self.assertIn("reference_element_id", rewrite)
         self.assertIn("target_language", rewrite)
+        self.assertNotIn('"target_language": "zh-CN"', imitation + rewrite)
         self.assertIn("source_topic_elements", annotate)
         self.assertIn("explicit_user_request_quote", rewrite)
         self.assertIn("contradiction_acknowledgment_quote", rewrite)
