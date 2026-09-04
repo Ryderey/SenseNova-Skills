@@ -124,6 +124,9 @@ class RepositoryScopeTests(unittest.TestCase):
         rewrite = (
             SKILLS_ROOT / "sn-image-imitate/prompts/caption_rewrite.md"
         ).read_text(encoding="utf-8")
+        annotate = (
+            SKILLS_ROOT / "sn-image-imitate/prompts/image_annotate.md"
+        ).read_text(encoding="utf-8")
         review = (SKILLS_ROOT / "sn-image-imitate/prompts/layout_review.md").read_text(
             encoding="utf-8"
         )
@@ -136,13 +139,24 @@ class RepositoryScopeTests(unittest.TestCase):
             self.assertIn(token, critic)
         self.assertIn("semantic replacement ledger", imitation)
         self.assertIn("semantic compatibility check", rewrite)
+        self.assertIn("reference_element_id", rewrite)
+        self.assertIn("target_language", rewrite)
+        self.assertIn("source_topic_elements", annotate)
         self.assertIn("explicit_user_request_quote", rewrite)
         self.assertIn("contradiction_acknowledgment_quote", rewrite)
         self.assertIn('"semantic_residue_check": "PASS"', rewrite)
         self.assertIn("Mexican chicken taco", rewrite)
         self.assertIn("target content request", review)
         self.assertIn("semantic_residue", review)
+        self.assertIn("language_contamination", review)
         self.assertIn("ledger_errors", review)
+        self.assertIn("check_environment.py", imitation)
+        self.assertIn("imitation_policy.py", imitation)
+        self.assertEqual(imitation.count("--no-prompt-extend"), 3)
+        self.assertLess(
+            imitation.index("0. Before reference analysis"),
+            imitation.index("1. Validate the reference"),
+        )
         self.assertIn("Portrait and QR gate", resume)
         self.assertIn("Omit QR codes entirely", resume)
         self.assertNotIn("rewritten, expanded", resume)

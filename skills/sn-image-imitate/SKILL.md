@@ -15,7 +15,7 @@ Preserve the original reference-analysis, content-rewrite, layout-consistency re
 
 ## Runtime dependency
 
-Before rendering, read the sibling [`sn-image-base`](../sn-image-base/SKILL.md) skill and use its absolute `RUNNER`, model defaults, fallback policy, and output contract in the commands below.
+Before analysis, read the sibling [`sn-image-base`](../sn-image-base/SKILL.md) skill and use its absolute `RUNNER`, model defaults, fallback policy, output contract, and Credential discovery procedure. Resolve `DOCTOR` as the sibling `sn-image-doctor/scripts/check_environment.py` and `POLICY` as this skill's `scripts/imitation_policy.py`. Use absolute paths for all three scripts.
 
 ## Inputs
 
@@ -35,14 +35,24 @@ Use the current Agent's visual understanding and writing ability for analysis, r
 
 ## Workflow
 
-1. Validate the reference and target content. Never fabricate labels, values, logos, or facts.
-2. Analyze the reference with `prompts/image_annotate.md`. Produce and retain a detailed blueprint covering:
+0. Before reference analysis, run `python "<absolute DOCTOR path>"`. This check is offline. If the image API key is missing from the process, immediately follow `sn-image-base` Credential discovery, inject a persistent value into the same shell without printing it, and rerun the Doctor. Stop before analysis when the Doctor still fails.
+1. Validate the reference and target content, create `$TEMP_DIR`, and save the user's target request verbatim to `$TEMP_DIR/target_content.txt`. Never fabricate labels, values, logos, or facts.
+2. Analyze the reference with `prompts/image_annotate.md`. Save its `LAYOUT_BLUEPRINT_JSON` object to `$TEMP_DIR/reference_blueprint.json`, including a stable-ID `source_topic_elements` inventory. Produce and retain a detailed blueprint covering:
    - canvas and region geometry;
    - reading order, alignment, spacing, hierarchy, connectors, and icon placement;
    - exact visible text/data where relevant;
    - palette, type character, illustration/material treatment, and background;
    - elements that must remain fixed versus content that may change.
-3. Rewrite the blueprint with `prompts/caption_rewrite.md` and require its structured result. Reject a rewrite when `semantic_residue_check` is not `PASS`, a reference topic-bearing element is absent from `semantic_replacement_ledger`, or a `carry_over` entry lacks the user's exact request and the required compatibility evidence. General requests to preserve the reference's style or layout never authorize semantic carry-over. Translate every topic-bearing element to the target topic while preserving each element's structural and stylistic role. Preserve region count, proportions, visual rhythm, palette relationships, and layout locks. Use the target content's language unless the user requests another language.
+3. Rewrite the blueprint with `prompts/caption_rewrite.md` and save its structured result to `$TEMP_DIR/rewrite.json`. It must declare `target_language`, user-authorized `allowed_foreign_terms`, and exactly one ledger disposition for every source topic ID. General requests to preserve the reference's style or layout never authorize semantic carry-over. Translate every topic-bearing element to the target topic while preserving its structural and stylistic role, region count, proportions, visual rhythm, palette relationships, and layout locks. Then run:
+
+   ```bash
+   python "<absolute POLICY path>" \
+     "$TEMP_DIR/reference_blueprint.json" \
+     "$TEMP_DIR/rewrite.json" \
+     "$TEMP_DIR/target_content.txt"
+   ```
+
+   Record its JSON output as `ledger_validation`. Reject and repair the rewrite until it returns `valid=true`, allowing at most two repair passes before returning its errors without rendering. It deterministically checks ledger coverage, action/evidence fields, and unapproved Latin-script fragments in Chinese captions; semantic correctness remains the Agent's responsibility.
 4. Attempt 1 uses native U1.5 editing with the original reference and only `rewritten_caption` as the editing instruction:
 
    ```bash
@@ -50,12 +60,13 @@ Use the current Agent's visual understanding and writing ability for analysis, r
      --prompt "$REWRITTEN_CAPTION" \
      --images "$REFERENCE_IMAGE" \
      --image-size auto \
+     --no-prompt-extend \
      --save-path "$TEMP_DIR/attempt_1.png" \
      --output-format json
    ```
 
    Do not fall back to U1 Fast; it cannot accept images.
-5. Review each candidate with `prompts/layout_review.md`, supplying the original reference, candidate, target content, `rewritten_caption`, and the complete `semantic_replacement_ledger`. Record all fields in its schema. A candidate passes only when layout score reaches `layout_threshold`, target content is accurate, all required text is legible, every ledger entry is valid, and `semantic_residue` is empty.
+5. Review each candidate with `prompts/layout_review.md`, supplying the original reference, candidate, target content, `target_language`, `allowed_foreign_terms`, `rewritten_caption`, and the complete `semantic_replacement_ledger`. Record all fields in its schema. A candidate passes only when layout score reaches `layout_threshold`, target content is accurate, all required text is legible, every ledger entry is valid, and both `semantic_residue` and `language_contamination` are empty.
 6. For attempts 2-8, edit the current best candidate with the original reference as a second input when useful:
 
    ```bash
@@ -63,12 +74,13 @@ Use the current Agent's visual understanding and writing ability for analysis, r
      --prompt "$CORRECTION_PROMPT" \
      --images "$BEST_CANDIDATE" "$REFERENCE_IMAGE" \
      --image-size auto \
+     --no-prompt-extend \
      --save-path "$TEMP_DIR/attempt_${ATTEMPT}.png" \
      --output-format json
    ```
 
 7. Stop on the first fully passing result. If none passes, rank by content accuracy, layout score, style score, legibility, and fewer violations; return the best candidate with `layout_passed=false`.
-8. If native editing is unavailable, return the actual error. Use the legacy analysis → rewritten prompt → `sn-image-generate` path only when the user explicitly requests a fresh reinterpretation rather than direct imitation; mark `generation_mode=regenerate`.
+8. If native editing is unavailable, return the actual error. Use the legacy analysis → rewritten prompt → `sn-image-generate` path only when the user explicitly requests a fresh reinterpretation rather than direct imitation; pass `--no-prompt-extend` there as well and mark `generation_mode=regenerate`.
 
 ## Result contract
 
@@ -81,8 +93,12 @@ Retain original core fields and include model provenance:
   "image": "/absolute/path/attempt_2.png",
   "reference_blueprint": "...",
   "generation_prompt": "...",
+  "target_language": "zh-CN",
+  "allowed_foreign_terms": [],
+  "ledger_validation": {"valid": true, "errors": []},
   "semantic_replacement_ledger": [
     {
+      "reference_element_id": "topic_001",
       "reference_element": "pig mascot",
       "action": "replace",
       "target_element": "chicken mascot",
@@ -104,6 +120,7 @@ Retain original core fields and include model provenance:
       "content_accuracy_score": 1.0,
       "text_legibility_score": 0.95,
       "semantic_residue": [],
+      "language_contamination": [],
       "violations": [],
       "rank": 1
     }

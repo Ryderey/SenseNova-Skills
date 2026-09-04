@@ -31,6 +31,7 @@ Requirements:
 - Output valid JSON object.
 - Use normalized coordinates in `[0, 1]`.
 - Keep values concise but complete enough for layout reconstruction.
+- Inventory every topic-bearing entity, character, mascot, animal, food, product, object, prop, symbol, label, message, and data item in `source_topic_elements`. Assign unique stable IDs in reading order; include small and decorative topic signals.
 - If information is uncertain, still provide best-estimate values and note uncertainty in `notes`.
 
 Schema:
@@ -60,6 +61,15 @@ Schema:
       "from": "region_1",
       "to": "region_2",
       "type": "above|below|left_of|right_of|overlaps|contains|connected_to|sequence_next"
+    }
+  ],
+  "source_topic_elements": [
+    {
+      "id": "topic_001",
+      "reference_element": "exact description of the source element",
+      "semantic_role": "what old-topic meaning it carries",
+      "visible_text": null,
+      "region_id": "region_1"
     }
   ],
   "style_lock": {
