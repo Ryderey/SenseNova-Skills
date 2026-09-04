@@ -202,24 +202,40 @@ Analysis results (`analysis.json`) must be in the following format:
   "design_instructions": "[Any style, color, layout, or visual preferences extracted from user's steering prompt]",
   "recommended_combinations": [
     {
+      "role": "recommended",
+      "label": "[User-language direction name]",
       "layout": "[Layout]",
       "style": "[Style]",
       "recommended": true,
-      "rationale": "[Brief rationale]"
+      "rationale": "[Brief rationale]",
+      "tradeoff": "[Concrete tradeoff]"
     },
     {
+      "role": "clarity-first",
+      "label": "[User-language direction name]",
       "layout": "[Layout]",
       "style": "[Style]",
       "recommended": false,
-      "rationale": "[Brief rationale]"
+      "rationale": "[Brief rationale]",
+      "tradeoff": "[Concrete tradeoff]"
     },
     {
+      "role": "expressive",
+      "label": "[User-language direction name]",
       "layout": "[Layout]",
       "style": "[Style]",
       "recommended": false,
-      "rationale": "[Brief rationale]"
+      "rationale": "[Brief rationale]",
+      "tradeoff": "[Concrete tradeoff]"
     }
-  ]
+  ],
+  "selection": {
+    "mode": "confirm",
+    "status": "pending",
+    "source": null,
+    "layout": null,
+    "style": null
+  }
 }
 ```
 
@@ -236,4 +252,5 @@ Before proceeding to structured content generation:
 - [ ] Have I assigned stable IDs to all required text and measured CJK density?
 - [ ] Have I identified visual opportunities?
 - [ ] Have I extracted design instructions from user input?
-- [ ] Have I recommended 3 layout×style combinations?
+- [ ] Have I recommended 3 viable, meaningfully distinct layout×style combinations with a rationale and tradeoff for each?
+- [ ] If selection is still pending, have I stopped before prompt assembly and image generation?

@@ -1,6 +1,6 @@
 ---
 name: sn-infographic
-description: Create publication-ready infographics and visual explanations with content-aware layout/style selection, prompt expansion, 1-15 user-bounded rounds, visual review, U1.5 generation/editing, and ranked results. Use for 信息图, infographic, visual summary, diagram, or data visualization requests.
+description: Create publication-ready infographics and visual explanations with content-aware, user-confirmed layout/style recommendations, prompt expansion, 1-15 user-bounded rounds, visual review, U1.5 generation/editing, and ranked results. Use for 信息图, infographic, visual summary, diagram, or data visualization requests.
 metadata:
   project: SenseNova-Skills
   tier: 1
@@ -27,8 +27,9 @@ Resolve `INFOGRAPHIC_SKILL_DIR` as the absolute directory containing this `SKILL
 | `prompts_expand_mode` | `auto` | `auto`, `force`, or `disable` |
 | `aspect_ratio` | inferred, fallback `16:9` | See `references/runtime-parameters.md` |
 | `image_size` | `2k` | `2k`, `4k`, or explicit valid dimensions |
-| `layout` | automatic | Any existing filename under `references/layouts/` |
-| `style` | automatic | Any existing filename under `references/styles/` |
+| `layout` | recommended | Any existing filename under `references/layouts/` |
+| `style` | recommended | Any existing filename under `references/styles/` |
+| `selection_mode` | `confirm` | `confirm` pauses for visual-direction approval; `auto` selects the recommendation |
 
 Parse explicit `key=value` directives first, then natural-language values. Run `python "<absolute POLICY path>" rounds` with the requested value, or with no value for the default, to clamp the budget. Never raise the default or a user-supplied budget automatically; values above 8 are accepted only when the user explicitly requests them. Never ask for a size when 2K is reasonable; ask about ratio only when competing choices materially change the composition. When high-risk CJK density is detected and `max_rounds` remains 1, disclose that one round is unlikely to produce exact text rather than silently spending more quota. Even 15 rounds may not remove every malformed glyph from a dense CJK image.
 
@@ -44,11 +45,13 @@ Use the current host Agent to analyze content, expand prompts, inspect generated
    - `force`: expand it.
    - `auto`: expand unless every required check passes and at least 60% of optional checks pass.
 3. Analyze structure, tone, audience, language, key facts, density, and canvas using `references/analysis-framework.md`. Produce a fact ledger containing every supplied number, date, proper noun, quotation, and other claim that the final image must preserve, plus a required-text inventory with a stable ID for every exact field. Write it to `$TEMP_DIR/analysis.json`, run `python "<absolute POLICY path>" density "$TEMP_DIR/analysis.json"`, and copy the returned `required_text_unit_count`, `cjk_character_count`, and `text_density_risk` into the analysis. Presentation copy may be shortened or reorganized, but every factual claim must remain traceable to this ledger.
-4. Select layout and style with `references/layout-style-selection.md`:
-   - valid explicit user choices win except for the documented high-risk CJK density safeguard;
-   - otherwise use deterministic relevance scoring over content, audience, canvas, and density;
-   - never randomly sample;
-   - read only the selected layout/style definitions when assembling the prompt.
+4. Recommend and resolve the visual direction with `references/layout-style-selection.md`:
+   - Lock any valid layout or style explicitly requested by the user, except for the documented high-risk CJK density safeguard, and rank the unresolved dimension deterministically over content, audience, canvas, and density.
+   - When neither dimension is locked, produce three meaningfully distinct viable layout×style combinations: recommended, clarity-first, and expressive. Give each a user-language direction name, a one-sentence rationale, and a tradeoff.
+   - In the default `selection_mode=confirm`, present the shortlist and pause before prompt assembly or any image API call. Both valid dimensions explicitly supplied by the user count as confirmation; when only one is explicit, keep it fixed and ask the user to choose among three options for the other.
+   - In `selection_mode=auto`, or when the user says “直接生成”, “你决定”, or an equivalent instruction, state the recommended combination and reason, then continue without pausing.
+   - Record the resolved layout, style, `selection_source`, and alternatives in `analysis.json`. Preserve the resolved direction through every edit and regeneration unless the user asks to reconsider it.
+   - Never randomly sample. Read only the resolved layout/style definitions when assembling the prompt.
 5. Build the final prompt from `references/base-prompt.md`, `references/prompts-expand-system.md`, `references/prompt-writing-rules.md`, `references/structured-content-template.md`, and the selected definitions. Apply the CJK density gate before finalizing the layout. If it changes an explicit layout, tell the user which internal columns or rows will change before rendering; proceed with text accuracy unless they explicitly prioritize layout fidelity. Preserve the fact ledger, requested language, concrete labels, visual hierarchy, no-watermark requirement, and ample readable type. Add organizational headings only when they make no new factual claim, and add every intended heading to the required-text inventory before review.
 6. Generate round 1 with U1.5:
 
@@ -92,6 +95,10 @@ Keep the original core fields and add provenance fields without removing anythin
   "status": "ok",
   "need_main_agent_send": true,
   "output_mode": "friendly",
+  "selection_mode": "confirm",
+  "selection_status": "resolved",
+  "selection_source": "user_confirmed",
+  "selection_alternatives": ["...", "...", "..."],
   "expanded_prompt": "...",
   "layout": "hub-spoke",
   "style": "corporate-memphis",
@@ -120,7 +127,7 @@ Keep the original core fields and add provenance fields without removing anythin
 }
 ```
 
-In `friendly` mode, show a short summary plus only `image`. In `verbose` mode, include selected layout/style, model/fallback provenance, per-round timing, ordered scores/violations, prompts, and every image in rank order. Never expose credentials or Base64 payloads.
+In `friendly` mode, show the resolved layout×style and its one-sentence reason, then only `image`. In `verbose` mode, also include alternatives, `selection_source`, model/fallback provenance, per-round timing, ordered scores/violations, prompts, and every image in rank order. Never expose credentials or Base64 payloads.
 
 ## Required resources
 

@@ -73,6 +73,26 @@ class RepositoryScopeTests(unittest.TestCase):
         self.assertIn("sn-image-edit", skill)
         self.assertIn("Rank all completed candidates", skill)
 
+    def test_infographic_confirms_visual_direction_before_generation(self) -> None:
+        skill = (SKILLS_ROOT / "sn-infographic/SKILL.md").read_text(encoding="utf-8")
+        selection = (
+            SKILLS_ROOT / "sn-infographic/references/layout-style-selection.md"
+        ).read_text(encoding="utf-8")
+        analysis = (
+            SKILLS_ROOT / "sn-infographic/references/analysis-framework.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertLess(
+            skill.index("selection_mode=confirm"), skill.index("Generate round 1")
+        )
+        for source in ("user_explicit", "user_confirmed", "auto"):
+            self.assertIn(f"selection_source={source}", selection)
+        self.assertIn("Do not assemble the final prompt", selection)
+        self.assertIn("Clarity-first", selection)
+        self.assertIn("Expressive", selection)
+        self.assertIn('"status": "pending"', analysis)
+        self.assertEqual(analysis.count('"tradeoff": "[Concrete tradeoff]"'), 3)
+
     def test_imitation_and_resume_keep_full_workflows(self) -> None:
         imitate = (SKILLS_ROOT / "sn-image-imitate/SKILL.md").read_text(
             encoding="utf-8"

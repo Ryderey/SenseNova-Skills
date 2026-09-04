@@ -4,7 +4,7 @@ Resolved by the host Agent's own reasoning — no external LLM call is required.
 
 **Operate on names only until selection is complete.** This procedure ranks layout/style names (for example `hub-spoke`, `corporate-memphis`) from content, audience and canvas relevance. Read only the two selected definition files when assembling the final prompt. All 87 layouts and 66 styles remain available for explicit user selection.
 
-An explicit `layout` or `style` requested by the user wins when its matching definition file exists. If it does not exist, report the invalid name and continue with automatic selection. After selection, apply the high-risk CJK density gate from `prompt-writing-rules.md` to the resolved internal reading flow; style choices are unaffected.
+An explicit `layout` or `style` requested by the user wins when its matching definition file exists. If it does not exist, report the invalid name and continue with recommendations. After selection, apply the high-risk CJK density gate from `prompt-writing-rules.md` to the resolved internal reading flow; style choices are unaffected.
 
 ## Step 1 — Layout Candidates (by data_type)
 
@@ -64,7 +64,7 @@ Each context has a primary (match_score=1.0) and alternatives (match_score=0.7).
 | Futuristic / Luxury Tech | `liquid-metal` | `neon-futurism`, `holographic`, `parametric-design` |
 | Internet / Youth Culture | `vaporwave` | `glitch-art`, `cyberpunk`, `pixel-art` |
 
-## Step 3 — Deterministic relevance ranking
+## Step 3 — Deterministic relevance ranking and shortlist
 
 Rank layout and style independently. Do not use randomness.
 
@@ -79,10 +79,30 @@ Rank layout and style independently. Do not use randomness.
    - landscape/wide: `swimlane`, `binary-comparison`, `dashboard`, `data-landscape`, `panorama`
    - square: `hub-spoke`, `circular-flow`, `bento-grid`, `nine-grid`, `center-focus`
 4. Add 10 points when the option directly supports the amount of content: sparse → focal/minimal layouts; dense → grid/dashboard/container layouts.
-5. Reject any candidate whose definition file does not exist. Choose the highest score; break ties by primary before alternative, then table order, then lexical name.
+5. Reject any candidate whose definition file does not exist. Rank by score; break ties by primary before alternative, then table order, then lexical name.
+6. Build three viable combinations in this order:
+   - **Recommended:** the highest-scoring compatible layout×style pair.
+   - **Clarity-first:** the best alternative for reading order, text density, and information retrieval.
+   - **Expressive:** the strongest visually distinct alternative that still fits the content and audience.
 
-Record `layout`, `style`, and a one-sentence `selection_reason` in the result. This makes repeated runs explainable while still allowing visual variation through prompts and edits.
+Every combination must be unique. When at least three compatible styles exist, use a different style file for each; vary the layout as well when doing so does not weaken an explicit structure requirement. Keep an explicitly requested layout or style fixed while varying the unresolved dimension. Give each option a short direction name in the user's language, the raw layout/style IDs, one sentence of rationale, and one concrete tradeoff.
+
+## Step 4 — User-visible confirmation gate
+
+- When both layout and style were explicitly supplied and valid, treat them as confirmed and record `selection.status=resolved` and `selection_source=user_explicit`.
+- In `selection_mode=auto`, select Recommended, show its names and rationale before rendering, and record `selection.status=resolved` and `selection_source=auto`.
+- Otherwise show the three numbered combinations with Recommended marked, including rationale and tradeoff. Ask the user to reply with `1`, `2`, `3`, or another valid layout/style, then stop. Do not assemble the final prompt or call image generation/editing until the user answers.
+- After the user chooses, record `selection.status=resolved`, `selection_source=user_confirmed`, the resolved `layout`, `style`, `selection_reason`, and all three alternatives. Reuse that direction for every refinement round unless the user explicitly asks for new recommendations.
+
+Use this compact presentation:
+
+```text
+1. [Recommended] Human-readable direction (layout × style) — rationale. Tradeoff: ...
+2. [Clarity-first] Human-readable direction (layout × style) — rationale. Tradeoff: ...
+3. [Expressive] Human-readable direction (layout × style) — rationale. Tradeoff: ...
+Choose 1/2/3, or name another layout/style.
+```
 
 ## Fallback
 
-If `data_type` or context cannot be determined, use `hub-spoke` + `corporate-memphis`; adjust only when audience or canvas clearly makes another candidate more relevant.
+If `data_type` or context cannot be determined, do not silently collapse to one fixed pair. In confirmation mode, explain the ambiguity and offer three options fitted to the known audience and canvas. In auto mode only, use `hub-spoke` + `corporate-memphis` as the last resort after applying every available signal.
