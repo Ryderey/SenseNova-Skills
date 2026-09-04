@@ -12,7 +12,7 @@ This branch is intentionally focused: it contains only five complete image and v
 |---|---|
 | [`sn-image-base`](skills/sn-image-base/SKILL.md) | U1.5 text-to-image, native multi-reference editing, explicit optional text/vision adapters, and controlled U1 Fast fallback |
 | [`sn-image-doctor`](skills/sn-image-doctor/SKILL.md) | Offline installation, dependency, key, endpoint, model, sizing, and watermark diagnostics |
-| [`sn-infographic`](skills/sn-infographic/SKILL.md) | 87 layouts, 66 styles, prompt expansion, 1-8 rounds, visual review, edit-based refinement, and result ranking |
+| [`sn-infographic`](skills/sn-infographic/SKILL.md) | 87 layouts, 66 styles, prompt expansion, 1-15 user-bounded rounds, visual review, evidence-based editing/regeneration, and result ranking |
 | [`sn-image-imitate`](skills/sn-image-imitate/SKILL.md) | Reference analysis, content rewrite, U1.5 native imitation, consistency review, and ranked retries |
 | [`sn-image-resume`](skills/sn-image-resume/SKILL.md) | Fact-preserving visual resumes with fixed layout rules and edit-based correction |
 

@@ -4,7 +4,7 @@ Resolved by the host Agent's own reasoning — no external LLM call is required.
 
 **Operate on names only until selection is complete.** This procedure ranks layout/style names (for example `hub-spoke`, `corporate-memphis`) from content, audience and canvas relevance. Read only the two selected definition files when assembling the final prompt. All 87 layouts and 66 styles remain available for explicit user selection.
 
-An explicit `layout` or `style` requested by the user wins when its matching definition file exists. If it does not exist, report the invalid name and continue with automatic selection.
+An explicit `layout` or `style` requested by the user wins when its matching definition file exists. If it does not exist, report the invalid name and continue with automatic selection. After selection, apply the high-risk CJK density gate from `prompt-writing-rules.md` to the resolved internal reading flow; style choices are unaffected.
 
 ## Step 1 — Layout Candidates (by data_type)
 

@@ -6,16 +6,31 @@ Evaluate one generated infographic against its expected content and design instr
 
 1. Candidate image.
 2. Fact ledger containing every required number, date, proper noun, quotation, and claim.
-3. Required text labels.
+3. Required-text inventory containing a stable ID, exact text, and semantic role for every required field.
 4. Final generation prompt, including the selected layout and style.
 
 The fact ledger is the authority for content. Do not treat plausible-looking text or unlabeled visual estimates as correct.
+
+## Required-text audit
+
+Account for every required-text ID exactly once and compare the rendered text character by character. Do not accept a visually similar Han character as equivalent. Record each issue with its stable ID when applicable, expected text, observed text when readable, and approximate position as percentages of image width and height.
+
+Use only these issue types:
+
+- `mangled_glyph`: pseudo-text, an invalid glyph, or a character that cannot be read reliably;
+- `missing_character`: one or more characters, or the entire required string, are absent;
+- `wrong_character`: a readable character differs from the expected character;
+- `duplicate_entry`: a required entry appears more than once;
+- `extra_entry`: text or a repeated entry appears without a matching inventory ID.
+
+Set `expected_count` to the inventory length, `observed_count` to all rendered semantic text units including duplicates and extras, and `exact_match_count` to inventory IDs rendered exactly once with character-perfect text. Any issue above is a red line. This audit is structured visual inspection, not OCR; never claim deterministic OCR was performed.
 
 ## Red lines
 
 Return `FAIL` regardless of score when any red line is present:
 
 - a required fact or label is missing, changed, contradicted, or replaced with pseudo-text;
+- a required text unit contains a mangled, missing, or wrong character, is duplicated, or an extra entry is present;
 - the image adds a factual claim not supported by the ledger;
 - required text is unreadable, clipped, malformed, or too small to read at normal viewing size;
 - a watermark is present;
@@ -60,7 +75,7 @@ Return strict JSON only:
 
 {
   "reasoning": "concise evidence-based summary",
-  "result": "PASS",
+  "result": "FAIL",
   "score": 0.0,
   "dimension_scores": {
     "factual_accuracy": 0.0,
@@ -72,7 +87,21 @@ Return strict JSON only:
     "style_consistency": 0.0,
     "watermark_absence": 0.0
   },
-  "red_lines": [],
+  "red_lines": ["required text mismatch"],
+  "text_audit": {
+    "expected_count": 0,
+    "observed_count": 0,
+    "exact_match_count": 0,
+    "issues": [
+      {
+        "type": "wrong_character",
+        "ledger_id": "section.item.field",
+        "expected_text": "exact required text",
+        "observed_text": "rendered text",
+        "position": {"x_percent": 0, "y_percent": 0}
+      }
+    ]
+  },
   "violations": [
     {
       "rule_name": "factual accuracy",

@@ -13,7 +13,7 @@ Reconstruct the user’s [Raw Information] into a comprehensive visual synthesis
     - Categorization: Define sub-categories with distinct visual markers.
     - Density Control: If the input is brief, keep the composition appropriately sparse. You may add neutral organizational headings, but every factual statement, recommendation, example, Pro-tip, or Key Insight must be explicitly supported by the [Raw Information].
 2. **Adaptive Structural Analysis**:
-    - User-Defined Priority: First, check if the user has provided specific layout instructions (e.g., "three-column grid," "horizontal timeline"). If present, strictly follow these instructions.
+    - Resolved Layout Priority: Follow the host Agent's resolved layout instructions. They already incorporate the user's request and any disclosed CJK density safeguard; do not restore raw layout details that the resolved instructions supersede.
     - Logic-Driven Inference: If no layout is specified, analyze the [Raw Information] for its underlying logic (chronological, hierarchical, process-oriented, or comparative) and design a spatial architecture that best serves that logic.
 3. **Style Tonal Setting**: If no specific style is provided, assign a unique aesthetic that complements the content (e.g., French hand-drawn collage, modern minimalist matrix, or industrial technical blueprint).
 4. **Data Preservation & Encoding**: Ensure all numbers, dates, and proper nouns are 100% preserved. Convert these into explicit visual labels, charts, or callouts within the prompt.

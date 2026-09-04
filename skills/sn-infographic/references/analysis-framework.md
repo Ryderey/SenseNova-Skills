@@ -87,7 +87,19 @@ Every infographic should have 1-3 clear learning objectives.
 |-------|------------|----------------------|
 | **Simple** (3-5 points) | Few main concepts, clear relationships | sparse layouts, single focus |
 | **Moderate** (6-8 points) | Multiple concepts, some relationships | balanced layouts, clear sections |
-| **Complex** (9+ points) | Many concepts, intricate relationships | dense layouts, multiple sections |
+| **Complex** (9+ points) | Many concepts, intricate relationships | structured layouts, multiple sections; use one dominant reading flow when exact CJK text is dense |
+
+### 4.1 Exact Text Density Assessment
+
+Build a required-text inventory before selecting the final layout. A required text unit is each exact field that must be rendered in a distinct semantic role, even when related fields may later share one visual row. Give every unit a stable descriptive ID such as `spring.lichun.name`, `spring.lichun.date`, or `spring.lichun.tip`.
+
+Record:
+
+- `required_text_unit_count`: number of exact required fields;
+- `cjk_character_count`: number of Unicode characters named `CJK UNIFIED IDEOGRAPH-*` or `CJK COMPATIBILITY IDEOGRAPH-*` across those fields;
+- `text_density_risk`: the risk returned by `scripts/infographic_policy.py`.
+
+Do not estimate these values manually. `scripts/infographic_policy.py` is the single source of truth for counting and threshold boundaries. Its result is a rendering-risk heuristic, not a guarantee. High-risk CJK content requires the single-reading-flow rules in `prompt-writing-rules.md` and character-level review after every round.
 
 ### 5. Visual Opportunity Mapping
 
@@ -159,6 +171,12 @@ Analysis results (`analysis.json`) must be in the following format:
     "[Exact data point 2]",
     "[Exact quote with attribution]"
   ],
+  "required_text_inventory": [
+    {"id": "section.item.field", "text": "[Exact required text]", "role": "[title/date/label/body/etc.]"}
+  ],
+  "required_text_unit_count": 0,
+  "cjk_character_count": 0,
+  "text_density_risk": "normal",
   "layout_style_signals": [
     {
       "signal": "content_type",
@@ -215,6 +233,7 @@ Before proceeding to structured content generation:
 - [ ] Do I understand the target audience?
 - [ ] Have I classified the content type correctly?
 - [ ] Have I extracted all data points verbatim?
+- [ ] Have I assigned stable IDs to all required text and measured CJK density?
 - [ ] Have I identified visual opportunities?
 - [ ] Have I extracted design instructions from user input?
 - [ ] Have I recommended 3 layout×style combinations?

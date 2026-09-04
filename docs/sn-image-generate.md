@@ -73,7 +73,7 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-edit \
 
 - `sn-image-base`：生成、编辑，以及显式配置的文本/视觉兼容适配器。
 - `sn-image-doctor`：离线诊断模型、端点、依赖、尺寸、水印和 Key。
-- `sn-infographic`：87 布局、66 风格、1–8 轮、视觉评审和排序；首轮生成，后续优先编辑。
+- `sn-infographic`：87 布局、66 风格、用户限定的 1–15 轮、视觉评审和排序；后续按错误范围选择编辑或重新生成。
 - `sn-image-imitate`：参考图解析、内容改写、原生编辑仿制、多轮一致性评审。
 - `sn-image-resume`：固定简历视觉规则、事实防虚构、生成后文字/层级/布局纠错。
 

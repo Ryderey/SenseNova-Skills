@@ -69,3 +69,15 @@ All hard data from the source must be:
 
 - Preserved **verbatim** — no paraphrasing of numbers, dates, or proper nouns
 - Presented in a visually distinct format: bold text, labeled callout boxes, sticky notes, or data badges
+
+## 9. CJK Text Density Gate
+
+Apply these rules when `text_density_risk` returned by `scripts/infographic_policy.py` is `high`.
+
+For high-risk CJK content:
+
+- Prefer one dominant reading flow and a single body-text column inside each repeated section. Avoid parallel columns of small body copy.
+- Preserve the user's section grouping, order, palette, and visual concept while simplifying internal rows or columns.
+- Related fields may share one quoted visual row, but each field must remain separately represented in the required-text inventory and critic audit.
+- Treat an explicit multi-column layout as a soft constraint when it conflicts with exact text rendering. Text accuracy wins unless the user explicitly says layout fidelity is more important.
+- Keep type comfortably readable and disclose that dense CJK generation has an inherent malformed-glyph risk that additional rounds may not eliminate.

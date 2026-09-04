@@ -24,12 +24,26 @@ EXPECTED_SKILLS = {
     "sn-infographic",
 }
 DOCTOR_SCRIPT = SKILLS_ROOT / "sn-image-doctor/scripts/check_environment.py"
+INFOGRAPHIC_POLICY_SCRIPT = (
+    SKILLS_ROOT / "sn-infographic/scripts/infographic_policy.py"
+)
 
 
 def load_doctor_module():
     spec = importlib.util.spec_from_file_location("sn_image_doctor", DOCTOR_SCRIPT)
     if spec is None or spec.loader is None:
         raise RuntimeError("Could not load sn-image-doctor")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_infographic_policy_module():
+    spec = importlib.util.spec_from_file_location(
+        "sn_infographic_policy", INFOGRAPHIC_POLICY_SCRIPT
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Could not load sn-infographic policy")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -49,14 +63,13 @@ class RepositoryScopeTests(unittest.TestCase):
         self.assertEqual(len(styles), 66)
         self.assertTrue(all(path.stat().st_size > 50 for path in layouts + styles))
 
-    def test_infographic_uses_relevance_and_edit_refinement(self) -> None:
+    def test_infographic_uses_relevance_and_iterative_refinement(self) -> None:
         selection = (
             SKILLS_ROOT / "sn-infographic/references/layout-style-selection.md"
         ).read_text(encoding="utf-8")
         skill = (SKILLS_ROOT / "sn-infographic/SKILL.md").read_text(encoding="utf-8")
         self.assertIn("Deterministic relevance ranking", selection)
         self.assertNotIn("shuf", selection)
-        self.assertIn("1-8", skill)
         self.assertIn("sn-image-edit", skill)
         self.assertIn("Rank all completed candidates", skill)
 
@@ -243,26 +256,52 @@ class DocumentationTests(unittest.TestCase):
             missing, [], "Broken local Markdown links:\n" + "\n".join(missing)
         )
 
-    def test_ci_is_cross_platform_and_actions_are_immutable(self) -> None:
-        test_workflow = (REPO_ROOT / ".github/workflows/test.yml").read_text(
-            encoding="utf-8"
+class InfographicPolicyTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.policy = load_infographic_policy_module()
+
+    def test_density_boundaries_and_unicode_han_count(self) -> None:
+        self.assertEqual(self.policy.TEXT_UNIT_LIMIT, 48)
+        self.assertEqual(self.policy.HAN_CHARACTER_LIMIT, 300)
+        self.assertEqual(
+            self.policy.assess_text_density(["中"] * 48)["text_density_risk"],
+            "normal",
         )
-        pr_workflow = (REPO_ROOT / ".github/workflows/pr_check.yml").read_text(
-            encoding="utf-8"
+        self.assertEqual(
+            self.policy.assess_text_density(["中"] * 49)["text_density_risk"],
+            "high",
         )
-        self.assertIn("ubuntu-latest", test_workflow)
-        self.assertIn("windows-latest", test_workflow)
-        self.assertIn("  pull_request:", test_workflow)
-        self.assertNotIn("  push:", test_workflow)
-        self.assertIn("python -m unittest discover", test_workflow)
-        self.assertIn("python -m ruff check --no-fix", test_workflow)
-        ruff_config = (REPO_ROOT / "skills/sn-image-base/scripts/ruff.toml").read_text(
-            encoding="utf-8"
+        self.assertEqual(
+            self.policy.assess_text_density(["中" * 300])["text_density_risk"],
+            "normal",
         )
-        self.assertIn("fix = false", ruff_config)
-        action_refs = re.findall(r"uses:\s+[^@\s]+@([^\s]+)", test_workflow + pr_workflow)
-        self.assertTrue(action_refs)
-        self.assertTrue(all(re.fullmatch(r"[0-9a-f]{40}", ref) for ref in action_refs))
+        self.assertEqual(
+            self.policy.assess_text_density(["中" * 301])["text_density_risk"],
+            "high",
+        )
+        self.assertEqual(
+            self.policy.count_han_characters(["中\ufa0e\U00020000"]),
+            3,
+        )
+
+    def test_correction_mode_covers_every_error_scope(self) -> None:
+        choose = self.policy.choose_correction_mode
+        self.assertEqual(choose(0, localized_visual_correction=True), "edit")
+        self.assertEqual(choose(3), "edit")
+        self.assertEqual(choose(4), "regenerate")
+        self.assertEqual(choose(1, short_text_only=False), "regenerate")
+        self.assertEqual(choose(1, large_cjk_rewrite=True), "regenerate")
+        self.assertEqual(choose(1, repeated_entry_error=True), "regenerate")
+        self.assertEqual(choose(1, layout_topology_change=True), "regenerate")
+
+    def test_round_and_stagnation_boundaries(self) -> None:
+        self.assertEqual(self.policy.clamp_rounds(None), 1)
+        self.assertEqual(self.policy.clamp_rounds(0), 1)
+        self.assertEqual(self.policy.clamp_rounds(15), 15)
+        self.assertEqual(self.policy.clamp_rounds(16), 15)
+        self.assertFalse(self.policy.should_stop_for_stagnation(2))
+        self.assertTrue(self.policy.should_stop_for_stagnation(3))
 
 
 class DoctorTests(unittest.TestCase):

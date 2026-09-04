@@ -12,7 +12,7 @@
 |---|---|
 | [`sn-image-base`](skills/sn-image-base/SKILL.md) | U1.5 文生图、原生多参考图编辑、显式可选的文本/视觉适配器，以及受控的 U1 Fast 回退 |
 | [`sn-image-doctor`](skills/sn-image-doctor/SKILL.md) | 离线检查安装、依赖、Key、端点、模型、尺寸及无水印默认值 |
-| [`sn-infographic`](skills/sn-infographic/SKILL.md) | 87 种布局、66 种风格、提示词扩写、1–8 轮生成、视觉评审、编辑式修正和质量排序 |
+| [`sn-infographic`](skills/sn-infographic/SKILL.md) | 87 种布局、66 种风格、提示词扩写、用户限定的 1–15 轮生成、视觉评审、按问题选择编辑或重新生成，以及质量排序 |
 | [`sn-image-imitate`](skills/sn-image-imitate/SKILL.md) | 参考图解析、内容改写、U1.5 原生仿制、一致性评审与多轮排序 |
 | [`sn-image-resume`](skills/sn-image-resume/SKILL.md) | 事实不虚构、固定视觉规则、生成后编辑纠错的可视化简历 |
 
