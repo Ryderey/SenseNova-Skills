@@ -10,13 +10,23 @@ This branch is intentionally focused: it contains only five complete image and v
 
 | Skill | Capability |
 |---|---|
-| [`sn-image-base`](skills/sn-image-base/SKILL.md) | U1.5 text-to-image, native multi-reference editing, explicit optional text/vision adapters, and controlled U1 Fast fallback |
+| [`sn-image-base`](skills/sn-image-base/SKILL.md) | U1.5 text-to-image, native multi-reference editing, composition and blending, explicit optional text/vision adapters, and controlled U1 Fast fallback |
 | [`sn-image-doctor`](skills/sn-image-doctor/SKILL.md) | Offline installation, dependency, key, endpoint, model, sizing, and watermark diagnostics |
 | [`sn-infographic`](skills/sn-infographic/SKILL.md) | 87 layouts, 66 styles, prompt expansion, 1-15 user-bounded rounds, visual review, evidence-based editing/regeneration, and result ranking |
 | [`sn-image-imitate`](skills/sn-image-imitate/SKILL.md) | Reference analysis, content rewrite, U1.5 native imitation, consistency review, and ranked retries |
 | [`sn-image-resume`](skills/sn-image-resume/SKILL.md) | Fact-preserving visual resumes with fixed layout rules and edit-based correction |
 
 The full bilingual infographic gallery remains available in [English](docs/sn-infographic-examples.md) and [Chinese](docs/sn-infographic-examples_CN.md).
+
+## Natural-language use (recommended)
+
+You do not need to remember the three user-facing skill names. Start with “Use SenseNova skills…” and describe the intent. Terms such as infographic, reference-image redesign, resume, or multi-image blending help an Agent Skills-compatible host choose the corresponding skill.
+
+```text
+Use SenseNova skills to create a renewable-energy infographic
+Use SenseNova skills to redesign this reference image for my product
+Use SenseNova skills to create a resume poster
+```
 
 ## Defaults
 

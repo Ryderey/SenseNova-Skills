@@ -1,6 +1,6 @@
 ---
 name: sn-infographic
-description: Create publication-ready infographics and visual explanations with content-aware, user-confirmed layout/style recommendations, prompt expansion, 1-15 user-bounded rounds, visual review, U1.5 generation/editing, and ranked results. Use for 信息图, infographic, visual summary, diagram, or data visualization requests.
+description: Create new text- or data-led visuals with SenseNova, including user-confirmed layout and style selection, generation, review, and correction. Use for “SenseNova 技能” requests involving 信息图、海报、宣传单、Banner、长图、图表、数据可视化、视觉总结、流程图或科普图. Use the reference-image imitation workflow instead when a supplied image defines the target style or layout.
 metadata:
   project: SenseNova-Skills
   tier: 1

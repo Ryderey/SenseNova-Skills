@@ -1,6 +1,6 @@
 ---
 name: sn-image-imitate
-description: Recreate a reference image's style and layout with new user content using U1.5 native editing, reference analysis, layout-locked rewriting, bounded visual review, and best-candidate ranking. Use for 风格模仿, style imitation, or “按这张图重做”.
+description: Recreate a supplied reference image's style and layout with new user content using SenseNova. Use for “SenseNova 技能” requests involving 仿图、参考图重做、照图改版、风格模仿、保留版式换内容或以图改图. Apply when a reference image defines the target layout or visual direction.
 metadata:
   project: SenseNova-Skills
   tier: 1

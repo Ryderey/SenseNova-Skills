@@ -10,13 +10,23 @@
 
 | Skill | 能力 |
 |---|---|
-| [`sn-image-base`](skills/sn-image-base/SKILL.md) | U1.5 文生图、原生多参考图编辑、显式可选的文本/视觉适配器，以及受控的 U1 Fast 回退 |
+| [`sn-image-base`](skills/sn-image-base/SKILL.md) | U1.5 文生图、原生多参考图编辑、合成与融合、显式可选的文本/视觉适配器，以及受控的 U1 Fast 回退 |
 | [`sn-image-doctor`](skills/sn-image-doctor/SKILL.md) | 离线检查安装、依赖、Key、端点、模型、尺寸及无水印默认值 |
 | [`sn-infographic`](skills/sn-infographic/SKILL.md) | 87 种布局、66 种风格、提示词扩写、用户限定的 1–15 轮生成、视觉评审、按问题选择编辑或重新生成，以及质量排序 |
 | [`sn-image-imitate`](skills/sn-image-imitate/SKILL.md) | 参考图解析、内容改写、U1.5 原生仿制、一致性评审与多轮排序 |
 | [`sn-image-resume`](skills/sn-image-resume/SKILL.md) | 事实不虚构、固定视觉规则、生成后编辑纠错的可视化简历 |
 
 完整的信息图中英文案例库仍保留：[中文](docs/sn-infographic-examples_CN.md) / [English](docs/sn-infographic-examples.md)。
+
+## 自然语言使用（推荐）
+
+无需记忆三个用户技能名，只需用“用 SenseNova 技能……”表达需求。信息图、参考图改版、简历或多图融合等意图词会帮助兼容的 Agent Skills 宿主自动选择相应技能。
+
+```text
+用 SenseNova 技能做一张新能源信息图
+用 SenseNova 技能照这张图改版，换成我的产品
+用 SenseNova 技能帮我做简历海报
+```
 
 ## 默认策略
 

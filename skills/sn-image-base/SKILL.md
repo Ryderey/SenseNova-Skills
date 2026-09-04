@@ -1,6 +1,6 @@
 ---
 name: sn-image-base
-description: Low-level image runtime for SenseNova U1.5 generation and native editing, plus explicitly configured text/vision adapters. Use directly or as the shared backend for the other SenseNova image skills.
+description: Shared SenseNova U1.5 runtime for generation and native image editing. Use directly for “SenseNova 技能” requests to combine, merge, or collage multiple supplied images, including 图片合成、多图合成、图片融合、多图融合、融图或拼图; also use it as the backend for other SenseNova image skills.
 metadata:
   project: SenseNova-Skills
   tier: 0

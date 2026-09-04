@@ -1,6 +1,6 @@
 ---
 name: sn-image-resume
-description: Turn provided resume content into a fact-preserving, designed portfolio-resume image with a fixed visual system, U1.5 generation, and optional U1.5 editing for text/hierarchy/layout corrections. Use for 简历图, resume poster, visual resume, or portfolio resume.
+description: Turn supplied career facts into a fact-preserving visual resume with SenseNova. Use for “SenseNova 技能” requests involving 简历、个人简历、求职简历、简历图、简历海报、求职海报、视觉简历、履历、CV 或作品集简历. Resume or career intent takes precedence over generic poster terms.
 metadata:
   project: SenseNova-Skills
   tier: 1
