@@ -14,7 +14,7 @@ Use `scripts/sn_agent_runner.py` as the stable CLI. It preserves the original `s
 
 ## Runtime paths
 
-Resolve `BASE_SKILL_DIR` as the absolute directory containing this `SKILL.md`. Resolve `RUNNER` as `BASE_SKILL_DIR/scripts/sn_agent_runner.py` and `REQUIREMENTS` as `BASE_SKILL_DIR/requirements.txt`. Use those absolute paths regardless of the current working directory. These are logical path names, not environment variables; never ask the user to configure them. Replace the descriptive path markers in the examples below with the resolved absolute paths before execution.
+Resolve `BASE_SKILL_DIR` as the absolute directory containing this `SKILL.md`. Resolve `RUNNER` as `BASE_SKILL_DIR/scripts/sn_agent_runner.py` and `REQUIREMENTS` as `BASE_SKILL_DIR/requirements.txt`. Resolve `PYTHON` as the same interpreter that passes `sn-image-doctor`; prefer the repository `.venv` interpreter when it exists and has the required packages. Use absolute paths regardless of the current working directory, and never assume the host inherited a previously activated shell environment. On PowerShell, invoke a quoted executable path with the call operator (`& "<absolute PYTHON path>" ...`); on POSIX shells, execute the quoted path directly. These are logical path names, not environment variables; never ask the user to configure them.
 
 ## Runtime policy
 
@@ -28,13 +28,13 @@ Resolve `BASE_SKILL_DIR` as the absolute directory containing this `SKILL.md`. R
 Install dependencies once:
 
 ```bash
-python -m pip install -r "<absolute REQUIREMENTS path>"
+"<absolute PYTHON path>" -m pip install -r "<absolute REQUIREMENTS path>"
 ```
 
 ## Generate
 
 ```bash
-python "<absolute RUNNER path>" sn-image-generate \
+"<absolute PYTHON path>" "<absolute RUNNER path>" sn-image-generate \
   --prompt "A clean bilingual product architecture infographic" \
   --image-size 2k \
   --aspect-ratio 16:9 \
@@ -46,6 +46,7 @@ Important options:
 
 | Option | Default | Meaning |
 |---|---|---|
+| `--prompt` / `--prompt-path` | required | Inline prompt or UTF-8 prompt file; prefer the file form for long or multiline copy |
 | `--model` | `SN_IMAGE_GEN_MODEL` / `sensenova-u1.5-lite` | Primary image model |
 | `--fallback-model` | `SN_IMAGE_GEN_FALLBACK_MODEL` / `sensenova-u1-fast` | Text-to-image fallback |
 | `--no-fallback` | false | Disable automatic fallback |
@@ -67,7 +68,7 @@ Automatic fallback applies only to text-to-image when the primary returns 404, 4
 Use native U1.5 editing for local files, public URLs, Data URLs, multiple references, and continued editing of a prior result:
 
 ```bash
-python "<absolute RUNNER path>" sn-image-edit \
+"<absolute PYTHON path>" "<absolute RUNNER path>" sn-image-edit \
   --prompt "Keep the composition; correct the Chinese title and strengthen hierarchy" \
   --images first-round.png brand-reference.webp \
   --image-size auto \
@@ -77,17 +78,19 @@ python "<absolute RUNNER path>" sn-image-edit \
 
 Local files, public HTTP(S) URLs, and existing Data URLs are read through the same bounded image validator, normalized to PNG/JPEG where needed, and sent as Data URLs. Inputs are limited to 64 MiB and 40 million decoded pixels. U1 Fast is rejected for editing because it does not accept image input. Editing never falls back.
 
+Both image commands accept `--prompt-path <UTF-8 file>` instead of `--prompt`; the options are mutually exclusive. Prefer the file form for assembled infographic, resume, and correction prompts so shell quoting cannot alter Chinese text or line breaks.
+
 ## Optional external text and vision adapters
 
 Prefer the host Agent. Invoke these compatibility tools only when an external runtime is explicitly configured:
 
 ```bash
-python "<absolute RUNNER path>" sn-text-optimize \
+"<absolute PYTHON path>" "<absolute RUNNER path>" sn-text-optimize \
   --user-prompt "Rewrite this image prompt" \
   --model YOUR_TEXT_MODEL \
   --output-format json
 
-python "<absolute RUNNER path>" sn-image-recognize \
+"<absolute PYTHON path>" "<absolute RUNNER path>" sn-image-recognize \
   --user-prompt "Review typography and factual accuracy" \
   --images output.png \
   --model YOUR_VISION_MODEL \
@@ -99,6 +102,8 @@ Supported adapter protocols remain `openai-completions` and `anthropic-messages`
 ## Configuration
 
 Resolution priority is CLI > capability-specific environment variable > shared environment variable. The minimal setup is `SENSENOVA_API_KEY`; use `SN_IMAGE_GEN_API_KEY`, `SN_CHAT_API_KEY`, `SN_TEXT_API_KEY`, or `SN_VISION_API_KEY` only when that capability needs a different credential. The official base URL, primary model, and fallback model already have image-specific defaults.
+
+Environment lookup order is: existing process values, the file named by `SN_ENV_FILE`, then the nearest `.env` found from the current working directory upward. File values never override existing process values. `sn-image-doctor --verbose` reports the selected Python executable and environment-file path without printing secrets.
 
 ### Credential discovery
 

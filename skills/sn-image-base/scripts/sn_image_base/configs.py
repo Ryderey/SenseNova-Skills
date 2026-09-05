@@ -12,18 +12,31 @@ SCRIPT_DIR = Path(__file__).absolute().parent
 SKILLS_DIR = SCRIPT_DIR.parents[1]
 
 
-def prepare_env() -> None:
+def prepare_env() -> Path | None:
     try:
-        from dotenv import load_dotenv
+        from dotenv import find_dotenv, load_dotenv
     except ImportError:
         warnings.warn("python-dotenv is not installed, `.env` files will be ignored", stacklevel=2)
-        return
-    # Agent-agnostic precedence: an already-injected process environment wins;
-    # an optional .env in the caller's working directory only fills missing keys.
-    load_dotenv(override=False)
+        return None
+
+    explicit = os.environ.get("SN_ENV_FILE", "").strip()
+    if explicit:
+        dotenv_path = Path(explicit).expanduser().resolve()
+        if not dotenv_path.is_file():
+            warnings.warn(f"SN_ENV_FILE does not exist: {dotenv_path}", stacklevel=2)
+            return None
+    else:
+        found = find_dotenv(usecwd=True)
+        if not found:
+            return None
+        dotenv_path = Path(found).resolve()
+
+    # An already-injected process environment always wins over file values.
+    load_dotenv(dotenv_path=dotenv_path, override=False)
+    return dotenv_path
 
 
-prepare_env()
+LOADED_ENV_FILE = prepare_env()
 
 ImageGenerationBackend = Literal["sensenova", "nano-banana", "openai-image"]
 ChatInterfaceType = Literal["anthropic-messages", "openai-completions"]
@@ -94,9 +107,9 @@ class Configs:
     SN_IMAGE_GEN_BASE_URL: Annotated[
         str, Field("SN_IMAGE_GEN_BASE_URL", "SN_BASE_URL", required=True)
     ] = "https://token.sensenova.cn/v1"
-    SN_IMAGE_GEN_MODEL_TYPE: Annotated[
-        ImageGenerationBackend, Field("SN_IMAGE_GEN_MODEL_TYPE")
-    ] = "sensenova"
+    SN_IMAGE_GEN_MODEL_TYPE: Annotated[ImageGenerationBackend, Field("SN_IMAGE_GEN_MODEL_TYPE")] = (
+        "sensenova"
+    )
     SN_IMAGE_GEN_MODEL: Annotated[str, Field("SN_IMAGE_GEN_MODEL")] = "sensenova-u1.5-lite"
     SN_IMAGE_GEN_FALLBACK_MODEL: Annotated[str, Field("SN_IMAGE_GEN_FALLBACK_MODEL")] = (
         "sensenova-u1-fast"
@@ -108,9 +121,7 @@ class Configs:
     SN_CHAT_BASE_URL: Annotated[str, Field("SN_CHAT_BASE_URL", "SN_BASE_URL")] = (
         "https://token.sensenova.cn/v1"
     )
-    SN_CHAT_TYPE: Annotated[
-        ChatInterfaceType, Field("SN_CHAT_TYPE")
-    ] = "openai-completions"
+    SN_CHAT_TYPE: Annotated[ChatInterfaceType, Field("SN_CHAT_TYPE")] = "openai-completions"
     # Deliberately no chat-model default: the host Agent should plan/review with
     # its own capabilities unless an external text or vision runtime is explicit.
     SN_CHAT_MODEL: Annotated[str, Field("SN_CHAT_MODEL")] = ""
@@ -150,6 +161,7 @@ class Configs:
     SN_VISION_MODEL: Annotated[str, Field("SN_VISION_MODEL", "SN_CHAT_MODEL")] = ""
 
     def __init__(self) -> None:
+        self.env_file = LOADED_ENV_FILE
         for field, hint in get_type_hints(type(self), include_extras=True).items():
             env_var = next((a for a in get_args(hint) if isinstance(a, Field)), None)
             if env_var is None:
@@ -329,9 +341,9 @@ def is_valid_base_url(url: str) -> bool:
 
 
 def reload_env() -> None:
-    global global_configs
+    global LOADED_ENV_FILE, global_configs
 
-    prepare_env()
+    LOADED_ENV_FILE = prepare_env()
     try:
         global_configs = Configs()
         print("✅ Reloaded global_configs")

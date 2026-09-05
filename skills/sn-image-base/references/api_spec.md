@@ -4,7 +4,7 @@ Entrypoint from the `sn-image-base` skill directory: `python scripts/sn_agent_ru
 
 ## `sn-image-generate`
 
-Required: `--prompt`.
+Required: exactly one of inline `--prompt` or UTF-8 `--prompt-path`.
 
 Compatibility parameters retained: `--image-size`, `--aspect-ratio`, `--api-key`, `--base-url`, `--timeout`, `--insecure`, `--save-path`, `--output-format`. Legacy `--negative-prompt`, `--seed`, `--unet-name`, and `--poll-interval` flags are parsed but fail clearly because the current backends do not implement them; express visual constraints in `--prompt`.
 
@@ -18,7 +18,7 @@ The explicit no-watermark default is a product choice. SenseNova documents `wate
 
 ## `sn-image-edit`
 
-Required: `--prompt`, `--images` (one or more).
+Required: exactly one of inline `--prompt` or UTF-8 `--prompt-path`, plus `--images` (one or more).
 
 Optional: `--image-size` (`auto` default), `--aspect-ratio`, `--model`, `--api-key`, `--base-url`, `--timeout`, `--insecure`, watermark/prompt-extension booleans, `--response-format`, `--save-path`, `--output-format`.
 

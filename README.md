@@ -14,13 +14,13 @@ This branch is intentionally focused: it contains only five complete image and v
 | [`sn-image-doctor`](skills/sn-image-doctor/SKILL.md) | Offline installation, dependency, key, endpoint, model, sizing, and watermark diagnostics |
 | [`sn-infographic`](skills/sn-infographic/SKILL.md) | 87 layouts, 66 styles, prompt expansion, 1-15 user-bounded rounds, visual review, evidence-based editing/regeneration, and result ranking |
 | [`sn-image-imitate`](skills/sn-image-imitate/SKILL.md) | Reference analysis, content rewrite, U1.5 native imitation, consistency review, and ranked retries |
-| [`sn-image-resume`](skills/sn-image-resume/SKILL.md) | Fact-preserving visual resumes with fixed layout rules and edit-based correction |
+| [`sn-image-resume`](skills/sn-image-resume/SKILL.md) | Fact-preserving visual resumes with content-first/portfolio layouts and edit-based correction |
 
 The full bilingual infographic gallery remains available in [English](docs/sn-infographic-examples.md) and [Chinese](docs/sn-infographic-examples_CN.md).
 
 ## Natural-language use (recommended)
 
-You do not need to remember the three user-facing skill names. Start with “Use SenseNova skills…” and describe the intent. Terms such as infographic, reference-image redesign, resume, or multi-image blending help an Agent Skills-compatible host choose the corresponding skill.
+You do not need to remember the three user-facing skill names. Start with “Use SenseNova skills…” and describe the intent. Terms such as infographic, reference-image redesign, resume poster, or multi-image blending help an Agent Skills-compatible host choose the corresponding skill.
 
 ```text
 Use SenseNova skills to create a renewable-energy infographic
@@ -47,8 +47,23 @@ See the official [SenseNova API documentation](https://platform.sensenova.cn/doc
 
 ```bash
 python -m venv .venv
-# Windows: .venv\Scripts\activate
-# macOS/Linux: source .venv/bin/activate
+```
+
+Before installing dependencies, activate the virtual environment for your shell. On Windows PowerShell, run:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+On macOS/Linux, run:
+
+```bash
+source .venv/bin/activate
+```
+
+The following commands assume this virtual environment is activated and `python` refers to its interpreter. If it is not activated, use the interpreter's absolute path instead. The Agent host must use the same interpreter.
+
+```bash
 python -m pip install -r skills/sn-image-base/requirements.txt
 ```
 
@@ -59,6 +74,8 @@ SENSENOVA_API_KEY=your-key
 ```
 
 One shared key is sufficient. If a capability uses a different credential, set its optional `SN_IMAGE_GEN_API_KEY`, `SN_CHAT_API_KEY`, `SN_TEXT_API_KEY`, or `SN_VISION_API_KEY`. Image resolution is CLI argument > `SN_IMAGE_GEN_API_KEY` > `SENSENOVA_API_KEY`; text and vision resolution is CLI argument > their capability-specific key > `SN_CHAT_API_KEY` > `SENSENOVA_API_KEY`. See [Installation](INSTALL.md#configure) for details.
+
+The runtime searches for `.env` from the current task directory upward; use `SN_ENV_FILE` for an explicit absolute path when the host runs elsewhere. Doctor reports the Python executable and environment-file path so the host runtime is easy to verify.
 
 Run diagnostics:
 

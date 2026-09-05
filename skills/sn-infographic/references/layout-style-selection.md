@@ -66,21 +66,33 @@ Each context has a primary (match_score=1.0) and alternatives (match_score=0.7).
 
 ## Step 3 — Deterministic relevance ranking and shortlist
 
-Rank layout and style independently. Do not use randomness.
+Rank layout and style independently. Do not use randomness, and do not let the table's primary label outweigh stronger request evidence.
 
-1. Start the matched primary at 100 points and each listed alternative at 70 points.
-2. Add 20 points for a strong audience match:
-   - executives/decision makers: `dashboard`, `comparison-matrix`, `swiss-grid`; `corporate-memphis`, `swiss-style`, `data-visualization`
+1. Score layouts:
+   - matched primary: 70 points; each listed alternative: 60 points;
+   - explicit structural cue in the request: +25;
+   - strong audience match: +20;
+   - canvas fit: +15;
+   - content-density fit: +15.
+2. Score styles separately:
+   - every style in the matched context row: 60 points; row primary: +5 as a weak default only;
+   - explicit aesthetic, cultural, material, or medium cue in the request: +30;
+   - audience and publishing-context fit: +20;
+   - legibility fit for the actual text density: +15;
+   - illustration, photography, or rendering-medium fit: +10.
+3. Use these audience signals where relevant:
+   - executives/decision makers: `dashboard`, `comparison-matrix`, `swiss-grid`; `swiss-style`, `data-visualization`, `minimalism`
    - general/public: `bento-grid`, `storyboard`, `visual-first`; `flat-design`, `instructional-visual`, `paper-collage`
    - technical experts: `structural-breakdown`, `swimlane`, `isometric-tech-stack`; `technical-schematic`, `technical-diagram`, `sci-fi-ui`
    - children/education: `comic-strip`, `character-guide`, `step-staircase`; `cartoon-flat`, `kawaii`, `crayon-hand-drawn`
-3. Add 15 points for canvas fit:
+4. Use these layout signals where relevant:
    - portrait/tall: vertical timelines, `winding-roadmap`, `chapter-layout`, `top-image-bottom-text`
    - landscape/wide: `swimlane`, `binary-comparison`, `dashboard`, `data-landscape`, `panorama`
    - square: `hub-spoke`, `circular-flow`, `bento-grid`, `nine-grid`, `center-focus`
-4. Add 10 points when the option directly supports the amount of content: sparse → focal/minimal layouts; dense → grid/dashboard/container layouts.
-5. Reject any candidate whose definition file does not exist. Rank by score; break ties by primary before alternative, then table order, then lexical name.
-6. Build three viable combinations in this order:
+   - sparse content: focal and minimal layouts; dense content: grid, dashboard, chapter, or container layouts.
+5. For dense text, award style legibility points to restrained candidates such as `swiss-style`, `minimalism`, `data-visualization`, and `instructional-visual`; do not award them to a decorative style merely because it is the row primary.
+6. Reject any candidate whose definition file does not exist. Rank by score; break ties by stronger explicit-request evidence, then table order, then lexical name.
+7. Build three viable combinations in this order:
    - **Recommended:** the highest-scoring compatible layout×style pair.
    - **Clarity-first:** the best alternative for reading order, text density, and information retrieval.
    - **Expressive:** the strongest visually distinct alternative that still fits the content and audience.
@@ -105,4 +117,4 @@ Choose 1/2/3, or name another layout/style.
 
 ## Fallback
 
-If `data_type` or context cannot be determined, do not silently collapse to one fixed pair. In confirmation mode, explain the ambiguity and offer three options fitted to the known audience and canvas. In auto mode only, use `hub-spoke` + `corporate-memphis` as the last resort after applying every available signal.
+If `data_type` or context cannot be determined, do not silently collapse to one fixed pair. In confirmation mode, explain the ambiguity and offer three options fitted to the known audience, density, and canvas. In auto mode, score `bento-grid`, `header-body`, and `single-focal-point` against those signals; score `minimalism`, `flat-design`, and `corporate-memphis` against audience and density, then select the deterministic winner.

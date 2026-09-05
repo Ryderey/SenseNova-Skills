@@ -12,30 +12,31 @@ metadata:
 
 ## Runtime paths
 
-Resolve `DOCTOR_SKILL_DIR` as the absolute directory containing this `SKILL.md`. Resolve `DOCTOR` as `DOCTOR_SKILL_DIR/scripts/check_environment.py` and `BASE_REQUIREMENTS` as the sibling `sn-image-base/requirements.txt`. Use those absolute paths regardless of the current working directory. These are logical path names, not environment variables; never ask the user to configure them. Replace the descriptive path markers below with the resolved absolute paths before execution.
+Resolve `DOCTOR_SKILL_DIR` as the absolute directory containing this `SKILL.md`. Resolve `DOCTOR` as `DOCTOR_SKILL_DIR/scripts/check_environment.py` and `BASE_REQUIREMENTS` as the sibling `sn-image-base/requirements.txt`. Run it with the Python interpreter the host will use for image work; try the repository `.venv` interpreter first when present. Use absolute paths regardless of the current working directory. These are logical path names, not environment variables; never ask the user to configure them.
 
 Run this before generation when installation or configuration is uncertain:
 
 ```bash
-python "<absolute DOCTOR path>" --verbose
+"<absolute PYTHON path>" "<absolute DOCTOR path>" --verbose
 ```
 
 The check is offline and does not spend model quota. It validates:
 
 1. These required skills exist: `sn-image-base`, `sn-image-doctor`, `sn-infographic`, `sn-image-imitate`, `sn-image-resume`. Other installed skills are allowed.
-2. Python 3.9+ and the dependencies in `sn-image-base/requirements.txt`.
-3. An image API key; the configured base URL; primary `sensenova-u1.5-lite`; fallback `sensenova-u1-fast`; `/images/generations` and `/images/edits`.
+2. Python 3.9+, its exact executable path, and the dependencies in `sn-image-base/requirements.txt`.
+3. An image API key, configured backend/model names, a valid base URL, and the image endpoints. Custom model names are reported rather than rejected.
 4. U1.5 defaults: `watermark=false`, `prompt_extend=true`, `response_format=b64_json`; valid 2K/4K sizing.
-5. External text/vision models as optional. If none is set, report that the host Agent will plan and review; do not fail.
+5. The loaded `.env` path, if any. `SN_ENV_FILE` selects an explicit file; otherwise lookup starts at the current working directory.
+6. External text/vision models as optional. Incomplete optional adapters produce warnings and do not block image work. Use `--require-text` or `--require-vision` only when that adapter is required by the current task.
 
-Exit code is 0 only when required image checks pass. Missing text/vision adapters never fail the doctor. Output masks secrets and must never print a complete API key.
+Exit code is 0 only when required image checks pass. Before imitation or another native editing workflow, add `--require-edit` to require the SenseNova editing backend. The check is offline and does not verify remote credentials or service availability. Output masks secrets and must never print a complete API key.
 
 If the image API key check fails, follow `sn-image-base`'s **Credential discovery** order immediately: process environment, then Windows User/Machine persistent environment or Linux/macOS `~/.bashrc`, `~/.zshrc`, and project `.env`. Do not search unrelated config, JSON, or session files, and never print the key. After finding a persistent value, inject it and rerun the doctor in the same shell invocation, or restart the host so a new process inherits it.
 
 To install dependencies:
 
 ```bash
-python -m pip install -r "<absolute BASE_REQUIREMENTS path>"
+"<absolute PYTHON path>" -m pip install -r "<absolute BASE_REQUIREMENTS path>"
 ```
 
 Minimal image configuration:

@@ -1,4 +1,4 @@
-# Fixed Portfolio-Resume Layout Template Rule
+# Resume Image Layout Rules
 
 # Factual Integrity Rule (Highest Priority)
 
@@ -6,18 +6,14 @@ Use only facts explicitly supplied by the user. Never invent or infer names, dat
 
 Portrait and QR gate: use a recognizable portrait only when the user supplies a portrait image. Otherwise use an abstract typographic, geometric, or profession-related visual anchor without an identifiable human face. Omit QR codes entirely; image-generated QR patterns are not verified destinations.
 
-The layout structure must be fixed to a specific vertically stacked portfolio-resume composition inspired by a playful editorial portfolio page.
+# Layout Mode Selection
 
-Do not freely invent a completely different page architecture.
-Even when the user changes style, the overall page composition must still follow this fixed structural template.
+Select exactly one mode before writing the image prompt:
 
-The page should be organized as a tall vertical multi-section layout with three major stacked zones:
+- `content-first` is the default for resume images and job-application posters. It prioritizes readable identity, experience, education, projects, and skills.
+- `portfolio` applies only when the user explicitly asks for a creative portfolio, editorial portfolio page, playful personal-brand presentation, or the three-zone composition described below.
 
-1. Cover / Hero Section
-2. About / Resume Information Section
-3. Table of Contents / Service Navigation Section
-
-The final layout must clearly preserve this top-to-bottom reading flow.
+Content density can move a request from `portfolio` to `content-first`; style words alone do not override readability. Record the selected mode in the result.
 
 # Language Detection and Output Rule
 
@@ -66,7 +62,23 @@ This includes:
 
 If the user provides content in multiple languages, keep every protected fact-ledger value in its original form and translate only the surrounding descriptive prose into the chosen output language.
 
-# Overall Composition Blueprint
+# Content-First Mode Rules
+
+Use a tall, restrained resume composition with one clear reading order:
+
+- identity, role, and contact details in a compact header;
+- experience and projects in the widest main column;
+- education, skills, languages, and certifications in a narrower supporting column when present;
+- no table-of-contents or service-navigation cards;
+- no section or placeholder for information absent from the fact ledger.
+
+Use one column for sparse content and at most two columns for medium or dense content. Give experience and projects at least half of the usable page area. Keep chronology, dates, organizations, roles, and metrics easy to scan. For dense content, prefer a taller supported ratio or 4K output before reducing type size; condense narrative prose while preserving protected facts.
+
+# Portfolio Mode Rules
+
+The remaining composition, section, proportion, and card rules apply only when `layout_mode=portfolio`. This mode uses a vertically stacked editorial portfolio page with three zones: Cover/Hero, About/Resume Information, and Table of Contents/Service Navigation. Preserve that top-to-bottom flow while translating the user's requested style onto it.
+
+# Portfolio Overall Composition Blueprint
 
 The page should feel like a designed personal portfolio-resume landing page rather than a generic infographic.
 The composition must combine:
@@ -331,7 +343,7 @@ The typography must follow this hierarchy:
 The text must remain large, clean, and legible.
 Do not shrink the typography just to fit more decorative content.
 
-# Content Mapping Rule
+# Portfolio Content Mapping Rule
 
 When writing the LONG_CAPTION, explicitly map the user’s actual resume content into this fixed layout:
 
@@ -345,21 +357,18 @@ When writing the LONG_CAPTION, explicitly map the user’s actual resume content
 
 If the user provides additional content such as awards, publications, exhibitions, languages, or certifications, place them as compact submodules inside the middle section without breaking the overall layout skeleton.
 
-# LONG_CAPTION Writing Requirement for This Template
+# LONG_CAPTION Writing Requirement
 
-The LONG_CAPTION must be written entirely in the detected output language.
-It must explicitly describe:
+Write the LONG_CAPTION entirely in the detected output language and name the selected layout mode.
 
-- the page as a tall three-part portfolio-resume composition
-- the top hero section with huge title and a right-side supplied portrait or abstract visual anchor
-- the middle about/resume section with a left visual-anchor/contact block and right information modules
-- the bottom table-of-contents section with large rounded category cards
-- the divider logic between sections
-- the shape language, panel system, and visual rhythm
-- how the requested style is applied onto this fixed structure
-- how all user information is distributed into the predefined modules
+For `content-first`, explicitly describe the header, main reading order, section mapping, column count, protected facts, typography hierarchy, spacing, and how the requested style supports readability. Do not add portfolio navigation cards.
 
-Do not output a different page architecture.
-Do not describe a freeform poster layout.
-Do not switch to a standard plain resume grid.
-Always preserve this composition skeleton.
+For `portfolio`, explicitly describe:
+
+- the tall three-part portfolio-resume composition;
+- the top hero section with huge title and a right-side supplied portrait or abstract visual anchor;
+- the middle section with a left visual-anchor/contact block and right information modules;
+- the bottom table-of-contents section with large rounded category cards;
+- the dividers, panel system, visual rhythm, requested style, and mapping of supplied information.
+
+Keep the selected mode's architecture throughout generation and correction.

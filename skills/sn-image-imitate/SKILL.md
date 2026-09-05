@@ -15,7 +15,7 @@ Preserve the original reference-analysis, content-rewrite, layout-consistency re
 
 ## Runtime dependency
 
-Before analysis, read the sibling [`sn-image-base`](../sn-image-base/SKILL.md) skill and use its absolute `RUNNER`, model defaults, fallback policy, output contract, and Credential discovery procedure. Resolve `DOCTOR` as the sibling `sn-image-doctor/scripts/check_environment.py` and `POLICY` as this skill's `scripts/imitation_policy.py`. Use absolute paths for all three scripts.
+Before analysis, read the sibling [`sn-image-base`](../sn-image-base/SKILL.md) skill and use its absolute `PYTHON`, `RUNNER`, model defaults, fallback policy, output contract, and Credential discovery procedure. Resolve `DOCTOR` as the sibling `sn-image-doctor/scripts/check_environment.py` and `POLICY` as this skill's `scripts/imitation_policy.py`. Use absolute paths for all three scripts.
 
 ## Inputs
 
@@ -35,7 +35,7 @@ Use the current Agent's visual understanding and writing ability for analysis, r
 
 ## Workflow
 
-0. Before reference analysis, run `python "<absolute DOCTOR path>"`. This check is offline. If the image API key is missing from the process, immediately follow `sn-image-base` Credential discovery, inject a persistent value into the same shell without printing it, and rerun the Doctor. Stop before analysis when the Doctor still fails.
+0. Before reference analysis, run `"<absolute PYTHON path>" "<absolute DOCTOR path>" --require-edit`. This check is offline. If the image API key is missing from the process, immediately follow `sn-image-base` Credential discovery, inject a persistent value into the same shell without printing it, and rerun the Doctor. Stop before analysis when the Doctor still fails.
 1. Validate the reference and target content, create `$TEMP_DIR`, and save the user's target request verbatim to `$TEMP_DIR/target_content.txt`. Never fabricate labels, values, logos, or facts.
 2. Analyze the reference with `prompts/image_annotate.md`. Save its `LAYOUT_BLUEPRINT_JSON` object to `$TEMP_DIR/reference_blueprint.json`, including a stable-ID `source_topic_elements` inventory. Produce and retain a detailed blueprint covering:
    - canvas and region geometry;
@@ -43,10 +43,10 @@ Use the current Agent's visual understanding and writing ability for analysis, r
    - exact visible text/data where relevant;
    - palette, type character, illustration/material treatment, and background;
    - elements that must remain fixed versus content that may change.
-3. Rewrite the blueprint with `prompts/caption_rewrite.md` and save its structured result to `$TEMP_DIR/rewrite.json`. It must declare `target_language`, user-authorized `allowed_foreign_terms`, and exactly one ledger disposition for every source topic ID. General requests to preserve the reference's style or layout never authorize semantic carry-over. Translate every topic-bearing element to the target topic while preserving its structural and stylistic role, region count, proportions, visual rhythm, palette relationships, and layout locks. Then run:
+3. Rewrite the blueprint with `prompts/caption_rewrite.md`, save its structured result to `$TEMP_DIR/rewrite.json`, and save the exact `rewritten_caption` value as UTF-8 text in `$TEMP_DIR/rewritten_caption.txt`. It must declare `target_language`, user-authorized `allowed_foreign_terms`, and exactly one ledger disposition for every source topic ID. General requests to preserve the reference's style or layout never authorize semantic carry-over. Translate every topic-bearing element to the target topic while preserving its structural and stylistic role, region count, proportions, visual rhythm, palette relationships, and layout locks. Then run:
 
    ```bash
-   python "<absolute POLICY path>" \
+   "<absolute PYTHON path>" "<absolute POLICY path>" \
      "$TEMP_DIR/reference_blueprint.json" \
      "$TEMP_DIR/rewrite.json" \
      "$TEMP_DIR/target_content.txt"
@@ -56,8 +56,8 @@ Use the current Agent's visual understanding and writing ability for analysis, r
 4. Attempt 1 uses native U1.5 editing with the original reference and only `rewritten_caption` as the editing instruction:
 
    ```bash
-   python "<absolute RUNNER path>" sn-image-edit \
-     --prompt "$REWRITTEN_CAPTION" \
+   "<absolute PYTHON path>" "<absolute RUNNER path>" sn-image-edit \
+     --prompt-path "$TEMP_DIR/rewritten_caption.txt" \
      --images "$REFERENCE_IMAGE" \
      --image-size auto \
      --no-prompt-extend \
@@ -67,11 +67,11 @@ Use the current Agent's visual understanding and writing ability for analysis, r
 
    Do not fall back to U1 Fast; it cannot accept images.
 5. Review each candidate with `prompts/layout_review.md`, supplying the original reference, candidate, target content, `target_language`, `allowed_foreign_terms`, `rewritten_caption`, and the complete `semantic_replacement_ledger`. Record all fields in its schema. A candidate passes only when layout score reaches `layout_threshold`, target content is accurate, all required text is legible, every ledger entry is valid, and both `semantic_residue` and `language_contamination` are empty.
-6. For attempts 2-8, edit the current best candidate with the original reference as a second input when useful:
+6. For attempts 2-8, save the exact correction prompt as UTF-8 text in `$TEMP_DIR/correction_${ATTEMPT}.txt`, then edit the current best candidate with the original reference as a second input when useful:
 
    ```bash
-   python "<absolute RUNNER path>" sn-image-edit \
-     --prompt "$CORRECTION_PROMPT" \
+   "<absolute PYTHON path>" "<absolute RUNNER path>" sn-image-edit \
+     --prompt-path "$TEMP_DIR/correction_${ATTEMPT}.txt" \
      --images "$BEST_CANDIDATE" "$REFERENCE_IMAGE" \
      --image-size auto \
      --no-prompt-extend \
@@ -128,4 +128,4 @@ Retain original core fields and include model provenance:
 }
 ```
 
-`friendly` shows a short summary and the selected image. `verbose` also shows the blueprint, rewritten prompt, semantic replacement ledger, attempt ranking, scores, violations, model, timing, and output paths. Never expose Base64 image data or credentials.
+`friendly` shows a short summary and the selected image. When `layout_passed=false`, it must also name the unresolved content, text, or layout findings that prevented a pass. `verbose` also shows the blueprint, rewritten prompt, semantic replacement ledger, attempt ranking, scores, violations, model, timing, and output paths. Never expose Base64 image data or credentials.

@@ -72,6 +72,9 @@ class RepositoryScopeTests(unittest.TestCase):
         self.assertNotIn("shuf", selection)
         self.assertIn("sn-image-edit", skill)
         self.assertIn("Rank all completed candidates", skill)
+        self.assertIn("row primary: +5 as a weak default only", selection)
+        self.assertNotIn("matched primary at 100 points", selection)
+        self.assertIn("When `quality_passed=false`", skill)
 
     def test_infographic_confirms_visual_direction_before_generation(self) -> None:
         skill = (SKILLS_ROOT / "sn-infographic/SKILL.md").read_text(encoding="utf-8")
@@ -110,6 +113,11 @@ class RepositoryScopeTests(unittest.TestCase):
         self.assertIn("Fact ledger", resume)
         self.assertIn("sn-image-edit", resume)
         self.assertIn("Factual Integrity Rule (Highest Priority)", resume_prompt)
+        self.assertIn("content-first", resume)
+        self.assertIn("Content-First Mode Rules", resume_prompt)
+        self.assertIn("final deliverable", resume.split("---", 2)[1])
+        self.assertIn("When `quality_passed=false`", resume)
+        self.assertIn("When `layout_passed=false`", imitate)
 
     def test_prompt_contracts_enforce_facts_and_semantic_replacement(self) -> None:
         infographic = (SKILLS_ROOT / "sn-infographic/SKILL.md").read_text(
@@ -181,6 +189,20 @@ class RepositoryScopeTests(unittest.TestCase):
             self.assertTrue(image_commands, name)
             self.assertTrue(
                 all("--model" not in command for command in image_commands), name
+            )
+
+    def test_scene_skills_use_prompt_files_and_the_resolved_python(self) -> None:
+        for name in ("sn-infographic", "sn-image-imitate", "sn-image-resume"):
+            text = (SKILLS_ROOT / name / "SKILL.md").read_text(encoding="utf-8")
+            self.assertIn("<absolute PYTHON path>", text, name)
+            image_commands = [
+                block
+                for block in re.findall(r"```bash\n(.*?)```", text, re.DOTALL)
+                if "sn-image-generate" in block or "sn-image-edit" in block
+            ]
+            self.assertTrue(image_commands, name)
+            self.assertTrue(
+                all("--prompt-path" in command for command in image_commands), name
             )
 
     def test_legacy_host_paths_are_absent(self) -> None:
@@ -340,7 +362,7 @@ class InfographicPolicyTests(unittest.TestCase):
 
 
 class DoctorTests(unittest.TestCase):
-    def test_selected_optional_adapter_must_have_a_complete_valid_runtime(self) -> None:
+    def test_incomplete_optional_adapter_warns_without_blocking_images(self) -> None:
         doctor = load_doctor_module()
         configs = SimpleNamespace(
             SN_TEXT_MODEL="text-model",
@@ -366,8 +388,72 @@ class DoctorTests(unittest.TestCase):
             contextlib.redirect_stdout(output),
         ):
             result = doctor.check_optional_chat_runtime(verbose=False)
+        self.assertTrue(result)
+        self.assertIn("[WARN] text adapter", output.getvalue())
+
+        output = io.StringIO()
+        with (
+            patch.object(
+                doctor,
+                "_load_runtime",
+                return_value=(
+                    configs,
+                    lambda value: value.startswith(("http://", "https://")),
+                    {"anthropic-messages", "openai-completions"},
+                ),
+            ),
+            contextlib.redirect_stdout(output),
+        ):
+            result = doctor.check_optional_chat_runtime(
+                verbose=False, required=frozenset({"text"})
+            )
         self.assertFalse(result)
         self.assertIn("[FAIL] text adapter", output.getvalue())
+
+        configs.SN_TEXT_MODEL = ""
+        output = io.StringIO()
+        with (
+            patch.object(
+                doctor,
+                "_load_runtime",
+                return_value=(
+                    configs,
+                    lambda value: value.startswith(("http://", "https://")),
+                    {"anthropic-messages", "openai-completions"},
+                ),
+            ),
+            contextlib.redirect_stdout(output),
+        ):
+            result = doctor.check_optional_chat_runtime(
+                verbose=False, required=frozenset({"text"})
+            )
+        self.assertFalse(result)
+        self.assertIn("model is not configured", output.getvalue())
+
+    def test_custom_sensenova_models_pass_offline_validation(self) -> None:
+        env = os.environ.copy()
+        env.update(
+            SENSENOVA_API_KEY="diagnostic-placeholder",
+            SN_IMAGE_GEN_MODEL_TYPE="sensenova",
+            SN_IMAGE_GEN_MODEL="custom-u1.5-model",
+            SN_IMAGE_GEN_FALLBACK_MODEL="custom-fast-model",
+            SN_CHAT_MODEL="",
+            SN_TEXT_MODEL="",
+            SN_VISION_MODEL="",
+        )
+        result = subprocess.run(
+            [sys.executable, str(DOCTOR_SCRIPT), "--verbose"],
+            cwd=REPO_ROOT,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 0, output)
+        self.assertIn("custom-u1.5-model", output)
+        self.assertIn(str(Path(sys.executable).resolve()), output)
 
     def test_invalid_base_url_is_reported_without_a_traceback(self) -> None:
         env = os.environ.copy()

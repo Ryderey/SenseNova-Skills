@@ -26,6 +26,8 @@ SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1-fast
 
 默认只需配置 `SENSENOVA_API_KEY`。只有不同能力使用不同凭证时才设置覆盖项：
 
+运行时先使用已有进程环境，再读取 `SN_ENV_FILE` 指定的文件，最后从当前工作目录向上查找最近的 `.env`。Doctor 的详细输出会显示所用 Python 和配置文件路径，但不会显示 Key。
+
 | 变量 | 用途 | 读取优先级 |
 | --- | --- | --- |
 | `SENSENOVA_API_KEY` | 所有能力共用的默认 Key | 共享后备 |
@@ -34,10 +36,14 @@ SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1-fast
 | `SN_TEXT_API_KEY` | 仅文本适配器 | `--api-key` > 本变量 > Chat Key > 共享 Key |
 | `SN_VISION_API_KEY` | 仅视觉适配器 | `--api-key` > 本变量 > Chat Key > 共享 Key |
 
+以下命令假定已按[安装说明](../INSTALL_CN.md)创建并激活虚拟环境，`python` 指向安装依赖时使用的解释器。若未激活，请使用该解释器的绝对路径；Agent 宿主也须使用同一解释器。
+
 ```bash
 python -m pip install -r skills/sn-image-base/requirements.txt
 python skills/sn-image-doctor/scripts/check_environment.py --verbose
 ```
+
+宿主必须使用这里通过检查的同一个 Python。Doctor 是离线配置检查；原生编辑任务可加 `--require-edit`。
 
 ## 文生图
 
@@ -55,6 +61,8 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-generate \
 选择 URL 返回时会立即下载：U1.5 生成/编辑 URL 有效 24 小时，U1 Fast URL 有效 1 小时。默认 Base64 路径不受 URL 时效影响。
 
 可用 `--model`、`--fallback-model`、`--no-fallback` 控制模型。仅 404、429 或同模型重试后仍失败的 5xx 会自动回退。400/安全拦截、401/403、文件错误不会回退。
+
+长提示词可保存为 UTF-8 文件并用 `--prompt-path prompt.txt` 传入；它与 `--prompt` 互斥。信息图、简历和包含大量中文标点的请求优先使用文件方式。
 
 ## 图片编辑
 
@@ -75,7 +83,7 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-edit \
 - `sn-image-doctor`：离线诊断模型、端点、依赖、尺寸、水印和 Key。
 - `sn-infographic`：87 布局、66 风格、用户限定的 1–15 轮、视觉评审和排序；后续按错误范围选择编辑或重新生成。
 - `sn-image-imitate`：参考图解析、内容改写、原生编辑仿制、多轮一致性评审。
-- `sn-image-resume`：固定简历视觉规则、事实防虚构、生成后文字/层级/布局纠错。
+- `sn-image-resume`：正文优先或作品集两种视觉模式、事实防虚构，以及生成后文字/层级/布局纠错。
 
 ## JSON 字段
 

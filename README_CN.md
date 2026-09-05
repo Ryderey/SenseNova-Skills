@@ -14,13 +14,13 @@
 | [`sn-image-doctor`](skills/sn-image-doctor/SKILL.md) | 离线检查安装、依赖、Key、端点、模型、尺寸及无水印默认值 |
 | [`sn-infographic`](skills/sn-infographic/SKILL.md) | 87 种布局、66 种风格、提示词扩写、用户限定的 1–15 轮生成、视觉评审、按问题选择编辑或重新生成，以及质量排序 |
 | [`sn-image-imitate`](skills/sn-image-imitate/SKILL.md) | 参考图解析、内容改写、U1.5 原生仿制、一致性评审与多轮排序 |
-| [`sn-image-resume`](skills/sn-image-resume/SKILL.md) | 事实不虚构、固定视觉规则、生成后编辑纠错的可视化简历 |
+| [`sn-image-resume`](skills/sn-image-resume/SKILL.md) | 事实不虚构、正文优先/作品集双版式、生成后编辑纠错的可视化简历 |
 
 完整的信息图中英文案例库仍保留：[中文](docs/sn-infographic-examples_CN.md) / [English](docs/sn-infographic-examples.md)。
 
 ## 自然语言使用（推荐）
 
-无需记忆三个用户技能名，只需用“用 SenseNova 技能……”表达需求。信息图、参考图改版、简历或多图融合等意图词会帮助兼容的 Agent Skills 宿主自动选择相应技能。
+无需记忆三个用户技能名，只需用“用 SenseNova 技能……”表达需求。信息图、参考图改版、简历海报或多图融合等意图词会帮助兼容的 Agent Skills 宿主自动选择相应技能。
 
 ```text
 用 SenseNova 技能做一张新能源信息图
@@ -47,8 +47,23 @@
 
 ```bash
 python -m venv .venv
-# Windows: .venv\Scripts\activate
-# macOS/Linux: source .venv/bin/activate
+```
+
+安装依赖前，必须按当前终端激活虚拟环境。Windows PowerShell 执行：
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+macOS/Linux 执行：
+
+```bash
+source .venv/bin/activate
+```
+
+后续命令假定已激活该虚拟环境，`python` 指向其中的解释器。若未激活，请使用该解释器的绝对路径；Agent 宿主也须使用同一解释器。
+
+```bash
 python -m pip install -r skills/sn-image-base/requirements.txt
 ```
 
@@ -59,6 +74,8 @@ SENSENOVA_API_KEY=your-key
 ```
 
 通常只需这一个共享 Key。仅当某项能力使用不同凭证时，才设置可选的 `SN_IMAGE_GEN_API_KEY`、`SN_CHAT_API_KEY`、`SN_TEXT_API_KEY` 或 `SN_VISION_API_KEY`。图片能力的读取顺序为命令行参数 > `SN_IMAGE_GEN_API_KEY` > `SENSENOVA_API_KEY`；文本与视觉能力为命令行参数 > 对应能力专用 Key > `SN_CHAT_API_KEY` > `SENSENOVA_API_KEY`。详见[安装说明](INSTALL_CN.md#配置)。
+
+运行时从当前任务目录向上查找 `.env`；宿主从其他目录运行时，可用 `SN_ENV_FILE` 指定绝对路径。Doctor 会显示实际 Python 与配置文件路径，便于确认宿主使用了正确环境。
 
 检查环境：
 

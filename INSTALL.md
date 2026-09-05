@@ -31,13 +31,17 @@ source .venv/bin/activate
 
 Install the only runtime dependency set:
 
+The following commands assume the virtual environment above is activated and `python` refers to its interpreter. If it is not activated, use the interpreter's absolute path instead.
+
 ```bash
 python -m pip install -r skills/sn-image-base/requirements.txt
 ```
 
+The host must use this same Python interpreter. If it does not inherit the activated shell, configure it with the absolute path to `.venv\Scripts\python.exe` on Windows or `.venv/bin/python` on macOS/Linux. Doctor reports the interpreter it actually checks.
+
 ## Configure
 
-Copy `.env.example` to `.env` and set the key. `.env` is ignored by Git.
+Copy `.env.example` to `.env` and set the key. `.env` is ignored by Git. The runtime first uses process values, then the file selected by `SN_ENV_FILE`, then the nearest `.env` found from the current task directory upward. Set `SN_ENV_FILE` to the absolute `.env` path when the host runs from another directory.
 
 ```dotenv
 SENSENOVA_API_KEY=your-key
@@ -68,6 +72,8 @@ Do not set `SN_CHAT_MODEL` unless you explicitly want the low-level external tex
 python skills/sn-image-doctor/scripts/check_environment.py --verbose
 ```
 
+The reported Python path must match the interpreter used by the host. This is an offline configuration check; add `--require-edit` when native image editing is required.
+
 Then run one local generation command or ask the host Agent to create an infographic.
 
 ## Install into an Agent Skills host
@@ -81,6 +87,8 @@ Copy or symlink exactly the five directories under `skills/` into the host's ski
 - `sn-image-resume`
 
 Restart or reload the host so it discovers updated `SKILL.md` files. No PPT, search, research, data-analysis, or Workbench runtime is required by this branch.
+
+If the host can only use its own Python, install the requirements with that interpreter and run Doctor with the same interpreter.
 
 ## Optional external adapters
 

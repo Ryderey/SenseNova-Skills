@@ -1,6 +1,6 @@
 ---
 name: sn-image-resume
-description: Turn supplied career facts into a fact-preserving visual resume with SenseNova. Use for “SenseNova 技能” requests involving 简历、个人简历、求职简历、简历图、简历海报、求职海报、视觉简历、履历、CV 或作品集简历. Resume or career intent takes precedence over generic poster terms.
+description: Render supplied career facts as a fact-preserving resume image with SenseNova. Use for “SenseNova 技能” requests whose final deliverable is 简历图、简历海报、求职海报、视觉简历、作品集简历, resume poster, visual resume, or portfolio resume. Text-only resume writing and conventional document formatting use a document workflow.
 metadata:
   project: SenseNova-Skills
   tier: 1
@@ -11,11 +11,11 @@ metadata:
 
 # sn-image-resume
 
-This skill preserves the complete resume-to-layout mapping and fixed visual rules in `prompts/resume.md`. It must never invent credentials, dates, employers, degrees, metrics, contacts, awards, or projects.
+This skill preserves the complete resume-to-layout mapping and the two visual modes in `prompts/resume.md`. It must never invent credentials, dates, employers, degrees, metrics, contacts, awards, or projects.
 
 ## Runtime dependency
 
-Before rendering, read the sibling [`sn-image-base`](../sn-image-base/SKILL.md) skill and use its absolute `RUNNER`, model defaults, fallback policy, and output contract in the commands below.
+Before rendering, read the sibling [`sn-image-base`](../sn-image-base/SKILL.md) skill and use its absolute `PYTHON`, `RUNNER`, model defaults, fallback policy, and output contract in the commands below.
 
 ## Inputs
 
@@ -24,7 +24,8 @@ Before rendering, read the sibling [`sn-image-base`](../sn-image-base/SKILL.md) 
 | `resume_content` | required | User-provided resume facts |
 | `portrait_image` | none | Optional supplied portrait; never synthesize an identifiable face when absent |
 | `style` | inferred professional direction | Palette, tone, profession aesthetic |
-| `aspect_ratio` | `9:16` | Tall portfolio layout; all base-supported ratios remain valid |
+| `layout_mode` | inferred, fallback `content-first` | `content-first` for readable resume information; `portfolio` for explicitly creative/editorial portfolio requests |
+| `aspect_ratio` | `9:16` | Tall resume layout; dense content may use `9:21`; all base-supported ratios remain valid |
 | `image_size` | `2k` | `2k`, `4k`, or valid explicit dimensions |
 | `output_mode` | `friendly` | `friendly` or `verbose` |
 | `max_corrections` | `2` | Additive option, 0-3 native-edit correction rounds |
@@ -42,13 +43,13 @@ Condensation is allowed only to fit the visual hierarchy. Preserve names, dates,
 ## Workflow
 
 1. Validate that enough resume content exists for a meaningful page.
-2. Read all of `prompts/resume.md`. Apply its fixed three-zone portfolio structure, language detection, content mapping, typography hierarchy, panel system, proportions, and style-translation rules.
-3. Use the fact ledger to compose a complete generation prompt. Explicitly instruct U1.5 to reproduce exact supplied strings, avoid pseudo-text, leave absent facts out, use large legible typography, omit QR codes, and render without a watermark. When `portrait_image` is absent, use an abstract typographic or profession-related visual anchor instead of inventing a human face.
+2. Read all of `prompts/resume.md`. Resolve `layout_mode` from the requested deliverable and content density: use `portfolio` only for an explicitly creative, editorial, or portfolio-style request; otherwise use `content-first`. Apply the selected mode's structure plus the shared language, fact, typography, and style rules.
+3. Use the fact ledger to compose a complete generation prompt and save it as UTF-8 text in `$TEMP_DIR/resume_prompt.txt`. Explicitly instruct U1.5 to reproduce exact supplied strings, avoid pseudo-text, leave absent facts out, use large legible typography, omit QR codes, and render without a watermark. When `portrait_image` is absent, use an abstract typographic or profession-related visual anchor instead of inventing a human face.
 4. When `portrait_image` is absent, generate with U1.5:
 
    ```bash
-   python "<absolute RUNNER path>" sn-image-generate \
-     --prompt "$GENERATION_PROMPT" \
+   "<absolute PYTHON path>" "<absolute RUNNER path>" sn-image-generate \
+     --prompt-path "$TEMP_DIR/resume_prompt.txt" \
      --image-size "$IMAGE_SIZE" \
      --aspect-ratio "$ASPECT_RATIO" \
      --save-path "$TEMP_DIR/resume.png" \
@@ -58,8 +59,8 @@ Condensation is allowed only to fit the visual hierarchy. Preserve names, dates,
    When `portrait_image` is supplied, use native editing so the provided identity reference participates directly:
 
    ```bash
-   python "<absolute RUNNER path>" sn-image-edit \
-     --prompt "$GENERATION_PROMPT" \
+   "<absolute PYTHON path>" "<absolute RUNNER path>" sn-image-edit \
+     --prompt-path "$TEMP_DIR/resume_prompt.txt" \
      --images "$PORTRAIT_IMAGE" \
      --image-size "$IMAGE_SIZE" \
      --aspect-ratio "$ASPECT_RATIO" \
@@ -67,12 +68,12 @@ Condensation is allowed only to fit the visual hierarchy. Preserve names, dates,
      --output-format json
    ```
 
-5. If the Agent supports visual input, inspect the image against the fact ledger and layout rules. Check exact text, missing/invented facts, spelling, hierarchy, clipping, alignment, and legibility.
-6. For each bounded correction, edit the previous image with U1.5 instead of regenerating the whole page:
+5. If the Agent supports visual input, inspect the image against the fact ledger and selected layout rules. Check exact text, missing/invented facts, spelling, hierarchy, clipping, alignment, and legibility. Set `quality_passed=true` only when no fact or required-text issue remains and the page is readable.
+6. For each bounded correction, save the exact correction prompt as UTF-8 text in `$TEMP_DIR/resume_correction_${ROUND}.txt`, then edit the previous image with U1.5:
 
    ```bash
-   python "<absolute RUNNER path>" sn-image-edit \
-     --prompt "$CORRECTION_PROMPT" \
+   "<absolute PYTHON path>" "<absolute RUNNER path>" sn-image-edit \
+     --prompt-path "$TEMP_DIR/resume_correction_${ROUND}.txt" \
      --images "$CURRENT_IMAGE" \
      --image-size auto \
      --save-path "$TEMP_DIR/resume_revision_${ROUND}.png" \
@@ -91,11 +92,13 @@ Preserve the original core fields; model and review fields are additive:
   "status": "ok",
   "need_main_agent_send": true,
   "output_mode": "friendly",
+  "layout_mode": "content-first",
   "image": "/absolute/path/resume_revision_1.png",
   "generation_prompt": "included in verbose mode",
   "model": "sensenova-u1.5-lite",
   "fallback_used": false,
   "visual_review_performed": true,
+  "quality_passed": true,
   "corrections": [
     {"round": 1, "issues": ["..."], "image": "/absolute/path/resume_revision_1.png"}
   ],
@@ -106,4 +109,4 @@ Preserve the original core fields; model and review fields are additive:
 }
 ```
 
-`friendly` returns a short summary and the single final image. `verbose` also returns the fact ledger, applied style, prompt, size/ratio, generation and correction provenance, review findings, timings, and final path.
+`friendly` returns a short summary and the single final image. When `quality_passed=false`, it must name the unresolved fact, text, or legibility findings. `verbose` also returns the fact ledger, selected layout mode, applied style, prompt, size/ratio, generation and correction provenance, review findings, timings, and final path.

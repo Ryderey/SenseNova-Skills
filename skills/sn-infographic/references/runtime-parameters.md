@@ -68,7 +68,7 @@ Otherwise, use the first matching rule:
 
 ## Notes
 
-- The skill should pass `expanded_prompt` (from `prompts-expand`) as `--prompt`, not the raw user request.
+- The skill should save `expanded_prompt` (from `prompts-expand`) as UTF-8 and pass it with `--prompt-path`, not send the raw user request.
 - `image_size`: the Main Agent takes an explicit `2k` / `4k`; otherwise the Worker infers it in Step 0 — currently a single option, `2k`. Never ask the user about it.
 - `aspect_ratio` is inferred from the **original `user_prompt`** (before expansion), not from `expanded_prompt`.
 - Prefer inference over interruption when there is one clearly reasonable choice.

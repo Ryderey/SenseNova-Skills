@@ -26,6 +26,8 @@ SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1-fast
 
 The default setup needs only `SENSENOVA_API_KEY`. Set an override only when a capability uses a different credential:
 
+The runtime uses existing process values first, then the file selected by `SN_ENV_FILE`, then the nearest `.env` found from the current working directory upward. Verbose Doctor output reports the Python executable and environment-file path without exposing the key.
+
 | Variable | Purpose | Resolution order |
 | --- | --- | --- |
 | `SENSENOVA_API_KEY` | Default shared key for every capability | Shared fallback |
@@ -34,10 +36,14 @@ The default setup needs only `SENSENOVA_API_KEY`. Set an override only when a ca
 | `SN_TEXT_API_KEY` | Text adapter only | `--api-key` > this variable > chat key > shared key |
 | `SN_VISION_API_KEY` | Vision adapter only | `--api-key` > this variable > chat key > shared key |
 
+The following commands assume you have created and activated a virtual environment using the [installation guide](../INSTALL.md), and `python` refers to the interpreter used to install dependencies. If it is not activated, use that interpreter's absolute path instead. The Agent host must use the same interpreter.
+
 ```bash
 python -m pip install -r skills/sn-image-base/requirements.txt
 python skills/sn-image-doctor/scripts/check_environment.py --verbose
 ```
+
+The host must use the same Python interpreter that passes this check. Doctor validates offline configuration; add `--require-edit` for native editing workflows.
 
 ## Generate
 
@@ -55,6 +61,8 @@ Sizes: official `2k` / `4k`, repository compatibility preset `1k`, or `WIDTHxHEI
 URL responses are downloaded immediately: U1.5 generation/edit URLs expire after 24 hours and U1 Fast URLs after 1 hour. The default Base64 path has no URL-expiry risk.
 
 Use `--model`, `--fallback-model`, and `--no-fallback` for control. Only 404, 429, and retry-exhausted 5xx may fall back. Bad/safety requests, 401/403, and file errors never do.
+
+For a long prompt, save UTF-8 text and pass `--prompt-path prompt.txt`; it is mutually exclusive with `--prompt`. Prefer the file form for infographics, resumes, and punctuation-heavy copy.
 
 ## Edit
 

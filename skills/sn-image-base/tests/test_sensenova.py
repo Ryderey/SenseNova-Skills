@@ -17,6 +17,7 @@ SCRIPT_DIR = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import sn_agent_runner
+import sn_image_base.configs as configs_module
 from sn_image_base.configs import Configs, is_valid_base_url
 from sn_image_base.generation import OpenAIImageGenerationClient
 from sn_image_base.generation.core import unique_output_path
@@ -57,6 +58,33 @@ def data_url(raw: bytes, mime: str = "image/png") -> str:
 
 
 class ConfigurationTests(unittest.TestCase):
+    def test_prepare_env_prefers_explicit_file_then_working_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            cwd_env = root / ".env"
+            cwd_env.write_text("SENSENOVA_API_KEY=cwd-key\n", encoding="utf-8")
+            explicit_env = root / "custom.env"
+            explicit_env.write_text("SENSENOVA_API_KEY=explicit-key\n", encoding="utf-8")
+
+            previous_cwd = Path.cwd()
+            try:
+                os.chdir(root)
+                with patch.dict(os.environ, {}, clear=True):
+                    loaded = configs_module.prepare_env()
+                    self.assertEqual(loaded, cwd_env.resolve())
+                    self.assertEqual(os.environ["SENSENOVA_API_KEY"], "cwd-key")
+
+                with patch.dict(
+                    os.environ, {"SN_ENV_FILE": str(explicit_env)}, clear=True
+                ):
+                    loaded = configs_module.prepare_env()
+                    self.assertEqual(loaded, explicit_env.resolve())
+                    self.assertEqual(
+                        os.environ["SENSENOVA_API_KEY"], "explicit-key"
+                    )
+            finally:
+                os.chdir(previous_cwd)
+
     def test_image_defaults_and_no_chat_model_default(self) -> None:
         keys = [
             "SN_IMAGE_GEN_MODEL",
@@ -530,6 +558,33 @@ class SensenovaRequestTests(unittest.IsolatedAsyncioTestCase):
 
 
 class FallbackMatrixTests(unittest.TestCase):
+    def test_image_commands_accept_utf8_prompt_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            prompt_path = Path(temp_dir) / "prompt.txt"
+            prompt_path.write_text("精确中文提示词", encoding="utf-8")
+            parser = sn_agent_runner.build_parser()
+
+            generate = parser.parse_args(
+                ["sn-image-generate", "--prompt-path", str(prompt_path)]
+            )
+            edit = parser.parse_args(
+                [
+                    "sn-image-edit",
+                    "--prompt-path",
+                    str(prompt_path),
+                    "--images",
+                    "reference.png",
+                ]
+            )
+
+            for args in (generate, edit):
+                self.assertEqual(
+                    sn_agent_runner._resolve_prompt(
+                        args.prompt, args.prompt_path, required=True, name="prompt"
+                    ),
+                    "精确中文提示词",
+                )
+
     def eligible(self, code: int, operation: str = "generate") -> dict:
         return {
             "status": "failed",

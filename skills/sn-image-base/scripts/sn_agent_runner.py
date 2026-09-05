@@ -86,7 +86,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     # sn-image-generate
     gen_parser = subparsers.add_parser("sn-image-generate", help="Generate image from text prompt")
-    gen_parser.add_argument("--prompt", required=True, help="Text prompt for image generation")
+    gen_prompt = gen_parser.add_mutually_exclusive_group(required=True)
+    gen_prompt.add_argument("--prompt", help="Text prompt for image generation")
+    gen_prompt.add_argument(
+        "--prompt-path",
+        help="UTF-8 file containing the image-generation prompt",
+    )
     gen_parser.add_argument("--negative-prompt", default="", help="Negative prompt")
     gen_parser.add_argument(
         "--image-size",
@@ -170,7 +175,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     # sn-image-edit (U1.5 native image-to-image)
     edit_parser = subparsers.add_parser("sn-image-edit", help="Edit image(s) with SenseNova U1.5")
-    edit_parser.add_argument("--prompt", required=True, help="Editing instruction")
+    edit_prompt = edit_parser.add_mutually_exclusive_group(required=True)
+    edit_prompt.add_argument("--prompt", help="Editing instruction")
+    edit_prompt.add_argument(
+        "--prompt-path",
+        help="UTF-8 file containing the editing instruction",
+    )
     edit_parser.add_argument(
         "--images", required=True, nargs="+", help="Local paths, public URLs, or image Data URLs"
     )
@@ -323,7 +333,7 @@ def _reject_unsupported_generation_options(args: argparse.Namespace) -> None:
     if unsupported:
         raise ValueError(
             f"Unsupported by the selected image backend: {', '.join(unsupported)}. "
-            "Move required constraints into --prompt."
+            "Move required constraints into --prompt or --prompt-path."
         )
 
 
@@ -349,6 +359,7 @@ async def run_image_generate(args: argparse.Namespace) -> tuple[dict, int]:
             status, error_type, and error. exit_code is 0 on success and 1 on
             failure.
     """
+    prompt = _resolve_prompt(args.prompt, args.prompt_path, required=True, name="prompt")
     args.image_size = _normalize_image_size(args.image_size)
     _reject_unsupported_generation_options(args)
 
@@ -418,7 +429,7 @@ async def run_image_generate(args: argparse.Namespace) -> tuple[dict, int]:
         )
     try:
         generation_options = {
-            "prompt": args.prompt,
+            "prompt": prompt,
             "negative_prompt": args.negative_prompt,
             "image_size": args.image_size,
             "aspect_ratio": args.aspect_ratio,
@@ -456,7 +467,7 @@ async def run_image_generate(args: argparse.Namespace) -> tuple[dict, int]:
             )
             result = _normalize_image_result(
                 await client.generate(
-                    prompt=args.prompt,
+                    prompt=prompt,
                     negative_prompt=args.negative_prompt,
                     model=fallback_model,
                     image_size=args.image_size,
@@ -482,10 +493,10 @@ async def run_image_generate(args: argparse.Namespace) -> tuple[dict, int]:
 
 async def run_image_edit(args: argparse.Namespace) -> tuple[dict, int]:
     """Run U1.5 native editing; edits never fall back to a text-only model."""
+    prompt = _resolve_prompt(args.prompt, args.prompt_path, required=True, name="prompt")
     if global_configs.SN_IMAGE_GEN_MODEL_TYPE != "sensenova":
         raise BadConfigurationError(
-            "Image editing requires the SenseNova backend; "
-            "set SN_IMAGE_GEN_MODEL_TYPE=sensenova."
+            "Image editing requires the SenseNova backend; set SN_IMAGE_GEN_MODEL_TYPE=sensenova."
         )
     api_key = args.api_key or global_configs.SN_IMAGE_GEN_API_KEY
     if not api_key:
@@ -504,7 +515,7 @@ async def run_image_edit(args: argparse.Namespace) -> tuple[dict, int]:
     try:
         result = _normalize_image_result(
             await client.edit(
-                prompt=args.prompt,
+                prompt=prompt,
                 images=args.images,
                 model=model,
                 image_size=_normalize_image_size(args.image_size, allow_auto=True),

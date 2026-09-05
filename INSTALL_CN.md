@@ -31,13 +31,17 @@ source .venv/bin/activate
 
 安装本分支唯一一套运行依赖：
 
+后续命令假定已激活上述虚拟环境，`python` 指向其中的解释器。若未激活，请使用该解释器的绝对路径。
+
 ```bash
 python -m pip install -r skills/sn-image-base/requirements.txt
 ```
 
+宿主必须使用同一个 Python 解释器。若宿主不会继承终端里的虚拟环境，请把 `.venv\Scripts\python.exe`（Windows）或 `.venv/bin/python`（macOS/Linux）的绝对路径配置给宿主；Doctor 会显示它实际检查的解释器路径。
+
 ## 配置
 
-复制 `.env.example` 为 `.env` 并填写 Key；`.env` 已被 Git 忽略。
+复制 `.env.example` 为 `.env` 并填写 Key；`.env` 已被 Git 忽略。运行时先使用进程环境；否则读取 `SN_ENV_FILE` 指定的文件，再从当前任务目录向上查找最近的 `.env`。若宿主的工作目录不在项目中，请在宿主环境中把 `SN_ENV_FILE` 设置为 `.env` 的绝对路径。
 
 ```dotenv
 SENSENOVA_API_KEY=your-key
@@ -68,6 +72,8 @@ SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1-fast
 python skills/sn-image-doctor/scripts/check_environment.py --verbose
 ```
 
+输出中的 Python 路径应与宿主实际执行图片任务的解释器一致。该检查只验证本地配置；需要原生图片编辑时加 `--require-edit`。
+
 随后可运行一次文生图命令，或直接让宿主 Agent 创建信息图。
 
 ## 安装到 Agent Skills 宿主
@@ -81,6 +87,8 @@ python skills/sn-image-doctor/scripts/check_environment.py --verbose
 - `sn-image-resume`
 
 重启或刷新宿主，使其重新发现 `SKILL.md`。本分支不需要 PPT、搜索、研究、数据分析或 Workbench 运行时。
+
+如果宿主只能使用自己的 Python，请使用该解释器重新执行依赖安装命令，再用同一个解释器运行 Doctor。
 
 ## 可选外部适配器
 
