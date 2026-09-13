@@ -24,6 +24,7 @@ Resolve `BASE_SKILL_DIR` as the absolute directory containing this `SKILL.md`. R
 - Never select a chat/text/vision model implicitly. The host Agent should plan prompts, inspect images, and judge quality with its own capabilities.
 - Use `sn-text-optimize` or `sn-image-recognize` only when the caller explicitly passes `--model`, or configures `SN_TEXT_MODEL` / `SN_VISION_MODEL` (or shared `SN_CHAT_MODEL`). Missing models are errors with configuration guidance.
 - Keep `nano-banana` and `openai-image` backends available only through explicit `SN_IMAGE_GEN_MODEL_TYPE` and model configuration.
+- Keep task intermediates — assembled prompt files, analysis or blueprint JSON, and non-final candidates — in a per-task directory under the system temporary directory (for example `tempfile.gettempdir()/sn-tasks/<task-id>`); never write them into the user's project or the skill directories. After the result is delivered, delete the prompt and JSON intermediates and all non-final candidates; keep only the final delivered image, removing it after delivery when the user did not ask to keep the run's files.
 
 Install dependencies once:
 

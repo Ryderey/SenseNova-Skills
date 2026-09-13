@@ -39,7 +39,7 @@ Use the current host Agent to analyze content, expand prompts, inspect generated
 
 ## Workflow
 
-1. Normalize the request and create a task-specific temporary directory.
+1. Normalize the request and create `$TEMP_DIR` as a task-specific directory under the system temporary directory (for example `tempfile.gettempdir()/sn-infographic/<task-id>`); never create it inside the user's project or repository.
 2. Evaluate prompt completeness with `references/evaluation-standard.md`:
    - `disable`: use the original prompt.
    - `force`: expand it.
@@ -85,6 +85,7 @@ Use the current host Agent to analyze content, expand prompts, inspect generated
    Editing never falls back to U1 Fast. If an edit fails, retry the edit once for a transient 5xx; if it still fails and rounds remain, regenerate. If an edit reduces `exact_match_count` or factual accuracy, or introduces a new text violation, abandon that edit branch and regenerate on the next round rather than editing it again. Record every mode as `edit` or `regenerate`.
 9. Stop early when the critic returns `PASS`, `score >= 0.90`, and no factual, text-legibility, or watermark red line. Otherwise track whether each candidate improves `exact_match_count`, factual accuracy, or total score over the best prior candidate; run `"<absolute PYTHON path>" "<absolute POLICY path>" stagnation <non-improving-count>` and stop when it returns `true`. This rule never requires trying an inapplicable correction mode. Return the best candidate and never exceed `max_rounds`.
 10. Rank all completed candidates by: exact required-text matches, factual accuracy, and legibility first, then rubric score, then fewer violations, then later corrected round. Return the highest-quality result even if none passes; mark `quality_passed=false` in that case.
+11. After the result is delivered, delete the prompt and JSON intermediates (`analysis.json`, `final_prompt.txt`, `correction_*.txt`) and all losing round images from `$TEMP_DIR`; keep only the final selected image, removing it after delivery when the user did not ask to keep the run's files.
 
 ## Result contract
 

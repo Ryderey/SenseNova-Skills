@@ -36,7 +36,7 @@ Use the current Agent's visual understanding and writing ability for analysis, r
 ## Workflow
 
 0. Before reference analysis, run `"<absolute PYTHON path>" "<absolute DOCTOR path>" --require-edit`. This check is offline. If the image API key is missing from the process, immediately follow `sn-image-base` Credential discovery, inject a persistent value into the same shell without printing it, and rerun the Doctor. Stop before analysis when the Doctor still fails.
-1. Validate the reference and target content, create `$TEMP_DIR`, and save the user's target request verbatim to `$TEMP_DIR/target_content.txt`. Never fabricate labels, values, logos, or facts.
+1. Validate the reference and target content, create `$TEMP_DIR` under the system temporary directory (for example `tempfile.gettempdir()/sn-image-imitate/<task-id>`; never create it inside the user's project or repository), and save the user's target request verbatim to `$TEMP_DIR/target_content.txt`. Never fabricate labels, values, logos, or facts.
 2. Analyze the reference with `prompts/image_annotate.md`. Save its `LAYOUT_BLUEPRINT_JSON` object to `$TEMP_DIR/reference_blueprint.json`, including a stable-ID `source_topic_elements` inventory. Produce and retain a detailed blueprint covering:
    - canvas and region geometry;
    - reading order, alignment, spacing, hierarchy, connectors, and icon placement;
@@ -81,6 +81,7 @@ Use the current Agent's visual understanding and writing ability for analysis, r
 
 7. Stop on the first fully passing result. If none passes, rank by content accuracy, layout score, style score, legibility, and fewer violations; return the best candidate with `layout_passed=false`.
 8. If native editing is unavailable, return the actual error. Use the legacy analysis → rewritten prompt → `sn-image-generate` path only when the user explicitly requests a fresh reinterpretation rather than direct imitation; pass `--no-prompt-extend` there as well and mark `generation_mode=regenerate`.
+9. After the result is delivered, delete the prompt and JSON intermediates (`target_content.txt`, `reference_blueprint.json`, `rewrite.json`, `rewritten_caption.txt`, `correction_*.txt`) and all non-winning attempt images from `$TEMP_DIR`; keep only the final selected image, removing it after delivery when the user did not ask to keep the run's files.
 
 ## Result contract
 

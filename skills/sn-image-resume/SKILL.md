@@ -42,7 +42,7 @@ Condensation is allowed only to fit the visual hierarchy. Preserve names, dates,
 
 ## Workflow
 
-1. Validate that enough resume content exists for a meaningful page.
+1. Validate that enough resume content exists for a meaningful page, and create `$TEMP_DIR` under the system temporary directory (for example `tempfile.gettempdir()/sn-image-resume/<task-id>`); never create it inside the user's project or repository.
 2. Read all of `prompts/resume.md`. Resolve `layout_mode` from the requested deliverable and content density: use `portfolio` only for an explicitly creative, editorial, or portfolio-style request; otherwise use `content-first`. Apply the selected mode's structure plus the shared language, fact, typography, and style rules.
 3. Use the fact ledger to compose a complete generation prompt and save it as UTF-8 text in `$TEMP_DIR/resume_prompt.txt`. Explicitly instruct U1.5 to reproduce exact supplied strings, avoid pseudo-text, leave absent facts out, use large legible typography, omit QR codes, and render without a watermark. When `portrait_image` is absent, use an abstract typographic or profession-related visual anchor instead of inventing a human face.
 4. When `portrait_image` is absent, generate with U1.5:
@@ -82,6 +82,7 @@ Condensation is allowed only to fit the visual hierarchy. Preserve names, dates,
 
    Each correction must identify the exact text/location and desired final state. Editing never falls back to U1 Fast.
 7. Retain the best verified candidate after every round, ranking exact fact preservation and legibility before layout/style. Return that candidate rather than automatically returning the last edit. If visual inspection is unavailable, return the generated image with `visual_review_performed=false`; do not pretend it was reviewed.
+8. After the result is delivered, delete the prompt intermediates (`resume_prompt.txt`, `resume_correction_*.txt`) and superseded revision images from `$TEMP_DIR`; keep only the final selected image, removing it after delivery when the user did not ask to keep the run's files.
 
 ## Result contract
 

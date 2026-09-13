@@ -205,6 +205,19 @@ class RepositoryScopeTests(unittest.TestCase):
                 all("--prompt-path" in command for command in image_commands), name
             )
 
+    def test_scene_skills_use_system_temp_and_clean_up_intermediates(self) -> None:
+        for name in (
+            "sn-image-base",
+            "sn-infographic",
+            "sn-image-imitate",
+            "sn-image-resume",
+        ):
+            text = (SKILLS_ROOT / name / "SKILL.md").read_text(encoding="utf-8")
+            self.assertIn("under the system temporary directory", text, name)
+        for name in ("sn-infographic", "sn-image-imitate", "sn-image-resume"):
+            text = (SKILLS_ROOT / name / "SKILL.md").read_text(encoding="utf-8")
+            self.assertIn("After the result is delivered, delete", text, name)
+
     def test_legacy_host_paths_are_absent(self) -> None:
         legacy_host = "open" + "claw"
         offenders = []
