@@ -84,7 +84,7 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-edit \
 - `sn-infographic`：87 布局、66 风格、用户限定的 1–15 轮、视觉评审和排序；后续按错误范围选择编辑或重新生成。
 - `sn-image-imitate`：参考图解析、内容改写、原生编辑仿制、多轮一致性评审。
 - `sn-image-resume`：正文优先或作品集两种视觉模式、事实防虚构，以及生成后文字/层级/布局纠错。
-- `sn-motion-html`：把已有或新生成的图片编排成滚动推进的故事网页，默认只交付图片叙事；单图信息图、海报和长图仍走 `sn-infographic`，参考图改版仍走 `sn-image-imitate`。
+- `sn-motion-html`：把已有或新生成的图片编排成滚动推进的故事网页，默认只交付图片叙事；单图信息图、海报和长图仍走 `sn-infographic`，参考图改版仍走 `sn-image-imitate`。详见 [Motion HTML 故事网页指南](sn-motion-html_CN.md)。
 
 ## JSON 字段
 

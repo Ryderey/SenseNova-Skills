@@ -17,7 +17,7 @@
 | [`sn-image-resume`](skills/sn-image-resume/SKILL.md) | 事实不虚构、正文优先/作品集双版式、生成后编辑纠错的可视化简历 |
 | [`sn-motion-html`](skills/sn-motion-html/SKILL.md) | 滚动推进的图片故事网页：章节结构、单一固定媒体舞台、风格一致静帧、网页海报、响应式布局，以及可选且需单独授权的视频片段 |
 
-完整的信息图中英文案例库仍保留：[中文](docs/sn-infographic-examples_CN.md) / [English](docs/sn-infographic-examples.md)。
+完整的信息图中英文案例库仍保留：[中文](docs/sn-infographic-examples_CN.md) / [English](docs/sn-infographic-examples.md)。滚动故事网页的完整说明见 [Motion HTML 故事网页指南](docs/sn-motion-html_CN.md)。
 
 ## 自然语言使用（推荐）
 

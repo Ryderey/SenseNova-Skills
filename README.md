@@ -17,7 +17,7 @@ This branch is intentionally focused: it contains only six complete image and vi
 | [`sn-image-resume`](skills/sn-image-resume/SKILL.md) | Fact-preserving visual resumes with content-first/portfolio layouts and edit-based correction |
 | [`sn-motion-html`](skills/sn-motion-html/SKILL.md) | Scroll-driven image-story web pages: chapter structure, one fixed media stage, consistent stills, web posters, responsive layout, and optional separately authorized video clips |
 
-The full bilingual infographic gallery remains available in [English](docs/sn-infographic-examples.md) and [Chinese](docs/sn-infographic-examples_CN.md).
+The full bilingual infographic gallery remains available in [English](docs/sn-infographic-examples.md) and [Chinese](docs/sn-infographic-examples_CN.md). The motion story workflow is documented in the [Motion HTML story guide](docs/sn-motion-html.md).
 
 ## Natural-language use (recommended)
 
