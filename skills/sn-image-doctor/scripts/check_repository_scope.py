@@ -26,6 +26,9 @@ ALLOWED_ROOT_FILES = {
     "README_CN.md",
 }
 ALLOWED_DOC_FILES = {
+    "sn-motion-html-integration-plan_CN.md",
+    "sn-motion-html.md",
+    "sn-motion-html_CN.md",
     "project-review-2026-09-03-follow-up.md",
     "project-review-2026-09-03.md",
     "sn-image-generate.md",
