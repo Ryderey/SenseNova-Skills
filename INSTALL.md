@@ -78,15 +78,18 @@ Then run one local generation command or ask the host Agent to create an infogra
 
 ## Install into an Agent Skills host
 
-Copy or symlink exactly the five directories under `skills/` into the host's skills directory:
+Copy or symlink exactly the six directories under `skills/` into the host's skills directory:
 
 - `sn-image-base`
 - `sn-image-doctor`
 - `sn-infographic`
 - `sn-image-imitate`
 - `sn-image-resume`
+- `sn-motion-html`
 
 Restart or reload the host so it discovers updated `SKILL.md` files. No PPT, search, research, data-analysis, or Workbench runtime is required by this branch.
+
+`sn-motion-html` adds no Python dependency of its own. Its image-story mode reuses the installed `sn-image-base` runtime plus Pillow, so an image story runs with the same setup as the other skills. FFmpeg, ffprobe, and video-provider credentials are needed only for its optional, separately authorized clip-generation path, and their absence does not affect initializing, building, checking, or delivering an image story.
 
 If the host can only use its own Python, install the requirements with that interpreter and run Doctor with the same interpreter.
 

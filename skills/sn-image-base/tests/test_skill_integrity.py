@@ -22,6 +22,7 @@ EXPECTED_SKILLS = {
     "sn-image-imitate",
     "sn-image-resume",
     "sn-infographic",
+    "sn-motion-html",
 }
 DOCTOR_SCRIPT = SKILLS_ROOT / "sn-image-doctor/scripts/check_environment.py"
 INFOGRAPHIC_POLICY_SCRIPT = (
@@ -50,7 +51,7 @@ def load_infographic_policy_module():
 
 
 class RepositoryScopeTests(unittest.TestCase):
-    def test_exactly_five_skills_remain(self) -> None:
+    def test_exactly_six_skills_remain(self) -> None:
         actual = {path.name for path in SKILLS_ROOT.iterdir() if path.is_dir()}
         self.assertEqual(actual, EXPECTED_SKILLS)
         self.assertFalse((REPO_ROOT / "examples").exists())

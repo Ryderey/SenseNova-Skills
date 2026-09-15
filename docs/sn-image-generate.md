@@ -2,7 +2,7 @@
 
 简体中文 | [English](sn-image-generate_en.md)
 
-本仓库仅包含 `sn-image-base`、`sn-image-doctor`、`sn-infographic`、`sn-image-imitate`、`sn-image-resume`。
+本仓库仅包含 `sn-image-base`、`sn-image-doctor`、`sn-infographic`、`sn-image-imitate`、`sn-image-resume`、`sn-motion-html`。
 
 ## 默认行为
 
@@ -77,13 +77,14 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-edit \
 
 本地图片、公开 URL 与 Data URL 都会经过统一校验，限制为 64 MiB / 4000 万解码像素，必要时规范化为 PNG/JPEG 后再以 Data URL 发送。支持多参考图和把上一轮输出继续编辑；编辑只用 U1.5，绝不回退 U1 Fast。
 
-## 五个技能
+## 六个技能
 
 - `sn-image-base`：生成、编辑，以及显式配置的文本/视觉兼容适配器。
 - `sn-image-doctor`：离线诊断模型、端点、依赖、尺寸、水印和 Key。
 - `sn-infographic`：87 布局、66 风格、用户限定的 1–15 轮、视觉评审和排序；后续按错误范围选择编辑或重新生成。
 - `sn-image-imitate`：参考图解析、内容改写、原生编辑仿制、多轮一致性评审。
 - `sn-image-resume`：正文优先或作品集两种视觉模式、事实防虚构，以及生成后文字/层级/布局纠错。
+- `sn-motion-html`：把已有或新生成的图片编排成滚动推进的故事网页，默认只交付图片叙事；单图信息图、海报和长图仍走 `sn-infographic`，参考图改版仍走 `sn-image-imitate`。
 
 ## JSON 字段
 

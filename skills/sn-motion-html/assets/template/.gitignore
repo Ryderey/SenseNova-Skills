@@ -1,0 +1,9 @@
+.env
+.DS_Store
+node_modules/
+tmp/
+.motion-state/
+__pycache__/
+*.pyc
+
+# Consider Git LFS before committing generated PNG and MP4 assets.

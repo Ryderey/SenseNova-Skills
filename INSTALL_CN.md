@@ -78,15 +78,18 @@ python skills/sn-image-doctor/scripts/check_environment.py --verbose
 
 ## 安装到 Agent Skills 宿主
 
-只需把 `skills/` 下 5 个目录复制或软链接到宿主的技能目录：
+只需把 `skills/` 下 6 个目录复制或软链接到宿主的技能目录：
 
 - `sn-image-base`
 - `sn-image-doctor`
 - `sn-infographic`
 - `sn-image-imitate`
 - `sn-image-resume`
+- `sn-motion-html`
 
 重启或刷新宿主，使其重新发现 `SKILL.md`。本分支不需要 PPT、搜索、研究、数据分析或 Workbench 运行时。
+
+`sn-motion-html` 不新增 Python 依赖。它的图片故事模式复用已安装的 `sn-image-base` 运行层和 Pillow，因此与其他技能使用同一套安装即可运行。FFmpeg、ffprobe 和视频服务凭证只用于其可选且需单独授权的片段生成路径；缺少它们不影响图片故事的初始化、制作、校验和交付。
 
 如果宿主只能使用自己的 Python，请使用该解释器重新执行依赖安装命令，再用同一个解释器运行 Doctor。
 

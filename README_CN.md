@@ -4,7 +4,7 @@
 
 ![SenseNova 图像与可视化案例](docs/images/teasers/teaser_v2.webp)
 
-本分支只维护 5 个完整的“图像与可视化”技能，适用于任何兼容 Agent Skills 的智能体。生图与图片编辑默认使用 `sensenova-u1.5-lite`；模型调用按账号当前套餐及积分规则计费。
+本分支只维护 6 个完整的“图像与可视化”技能，适用于任何兼容 Agent Skills 的智能体。生图与图片编辑默认使用 `sensenova-u1.5-lite`；模型调用按账号当前套餐及积分规则计费。
 
 ## 保留的技能
 
@@ -15,17 +15,19 @@
 | [`sn-infographic`](skills/sn-infographic/SKILL.md) | 87 种布局、66 种风格、提示词扩写、用户限定的 1–15 轮生成、视觉评审、按问题选择编辑或重新生成，以及质量排序 |
 | [`sn-image-imitate`](skills/sn-image-imitate/SKILL.md) | 参考图解析、内容改写、U1.5 原生仿制、一致性评审与多轮排序 |
 | [`sn-image-resume`](skills/sn-image-resume/SKILL.md) | 事实不虚构、正文优先/作品集双版式、生成后编辑纠错的可视化简历 |
+| [`sn-motion-html`](skills/sn-motion-html/SKILL.md) | 滚动推进的图片故事网页：章节结构、单一固定媒体舞台、风格一致静帧、网页海报、响应式布局，以及可选且需单独授权的视频片段 |
 
 完整的信息图中英文案例库仍保留：[中文](docs/sn-infographic-examples_CN.md) / [English](docs/sn-infographic-examples.md)。
 
 ## 自然语言使用（推荐）
 
-无需记忆三个用户技能名，只需用“用 SenseNova 技能……”表达需求。信息图、参考图改版、简历海报或多图融合等意图词会帮助兼容的 Agent Skills 宿主自动选择相应技能。
+无需记忆四个用户技能名，只需用“用 SenseNova 技能……”表达需求。信息图、参考图改版、简历海报、多图融合或滚动故事网页等意图词会帮助兼容的 Agent Skills 宿主自动选择相应技能。
 
 ```text
 用 SenseNova 技能做一张新能源信息图
 用 SenseNova 技能照这张图改版，换成我的产品
 用 SenseNova 技能帮我做简历海报
+用 SenseNova 技能把这些图片做成滚动故事网页
 ```
 
 ## 默认策略

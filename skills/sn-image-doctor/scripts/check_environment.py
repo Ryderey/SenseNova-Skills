@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline environment diagnostics for the five SenseNova image skills."""
+"""Offline environment diagnostics for the six SenseNova image skills."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ EXPECTED_SKILLS = {
     "sn-infographic",
     "sn-image-imitate",
     "sn-image-resume",
+    "sn-motion-html",
 }
 
 

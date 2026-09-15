@@ -4,7 +4,7 @@ English | [简体中文](README_CN.md)
 
 ![SenseNova image and visualization examples](docs/images/teasers/teaser_v2.webp)
 
-This branch is intentionally focused: it contains only five complete image and visualization skills. It is designed for any Agent Skills-compatible host and uses `sensenova-u1.5-lite` as the default model for image generation and editing. Model use follows the account's current plan and credit rules.
+This branch is intentionally focused: it contains only six complete image and visualization skills. It is designed for any Agent Skills-compatible host and uses `sensenova-u1.5-lite` as the default model for image generation and editing. Model use follows the account's current plan and credit rules.
 
 ## Included skills
 
@@ -15,17 +15,19 @@ This branch is intentionally focused: it contains only five complete image and v
 | [`sn-infographic`](skills/sn-infographic/SKILL.md) | 87 layouts, 66 styles, prompt expansion, 1-15 user-bounded rounds, visual review, evidence-based editing/regeneration, and result ranking |
 | [`sn-image-imitate`](skills/sn-image-imitate/SKILL.md) | Reference analysis, content rewrite, U1.5 native imitation, consistency review, and ranked retries |
 | [`sn-image-resume`](skills/sn-image-resume/SKILL.md) | Fact-preserving visual resumes with content-first/portfolio layouts and edit-based correction |
+| [`sn-motion-html`](skills/sn-motion-html/SKILL.md) | Scroll-driven image-story web pages: chapter structure, one fixed media stage, consistent stills, web posters, responsive layout, and optional separately authorized video clips |
 
 The full bilingual infographic gallery remains available in [English](docs/sn-infographic-examples.md) and [Chinese](docs/sn-infographic-examples_CN.md).
 
 ## Natural-language use (recommended)
 
-You do not need to remember the three user-facing skill names. Start with “Use SenseNova skills…” and describe the intent. Terms such as infographic, reference-image redesign, resume poster, or multi-image blending help an Agent Skills-compatible host choose the corresponding skill.
+You do not need to remember the four user-facing skill names. Start with “Use SenseNova skills…” and describe the intent. Terms such as infographic, reference-image redesign, resume poster, multi-image blending, or a scroll story page help an Agent Skills-compatible host choose the corresponding skill.
 
 ```text
 Use SenseNova skills to create a renewable-energy infographic
 Use SenseNova skills to redesign this reference image for my product
 Use SenseNova skills to create a resume poster
+Use SenseNova skills to turn these images into a scroll story page
 ```
 
 ## Defaults

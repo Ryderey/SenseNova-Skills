@@ -2,7 +2,7 @@
 
 English | [简体中文](sn-image-generate.md)
 
-This repository contains only `sn-image-base`, `sn-image-doctor`, `sn-infographic`, `sn-image-imitate`, and `sn-image-resume`.
+This repository contains only `sn-image-base`, `sn-image-doctor`, `sn-infographic`, `sn-image-imitate`, `sn-image-resume`, and `sn-motion-html`.
 
 ## Defaults
 

@@ -13,6 +13,7 @@ ALLOWED_SKILLS = {
     "sn-image-imitate",
     "sn-image-resume",
     "sn-infographic",
+    "sn-motion-html",
 }
 ALLOWED_ROOT_FILES = {
     ".env.example",
@@ -134,7 +135,7 @@ def main() -> int:
         )
         return 1
     print(
-        "[OK] Repository is limited to the five image/visualization skills and allowed assets/docs"
+        "[OK] Repository is limited to the six image/visualization skills and allowed assets/docs"
     )
     return 0
 

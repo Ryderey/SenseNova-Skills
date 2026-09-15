@@ -1,0 +1,5 @@
+interface:
+  display_name: "sn-motion-html"
+  short_description: "把图片编排成滚动推进的故事网页，视频片段为可选项"
+  brand_color: "#B85C3C"
+  default_prompt: "Use $sn-motion-html to turn my images into a scroll-driven story page."
