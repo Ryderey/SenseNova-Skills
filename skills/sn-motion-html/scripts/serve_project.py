@@ -2,10 +2,11 @@
 """Serve a generated project for local preview.
 
 Only the files the page actually requests are reachable: the HTML entry point,
-its stylesheet, src/ JavaScript, content/ JSON, and final media under assets/.
-Configuration, prompts, scripts, private state, temporary files, dotfiles, and
-directory listings are all refused. This is a local preview server, not a
-production deployment target.
+its stylesheet, src/ JavaScript, content/ JSON, final media under assets/, and
+the two exported deliverables (the storyboard HTML and the story poster).
+Configuration, prompts, scripts, the Markdown storyboard, private state,
+temporary files, dotfiles, and directory listings are all refused. This is a
+local preview server, not a production deployment target.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from urllib.parse import unquote, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from project_model import web_visible  # noqa: E402
+from project_model import SERVED_EXPORTS, web_visible  # noqa: E402
 
 CHUNK = 64 * 1024
 
@@ -162,7 +163,10 @@ def main() -> int:
     handler = partial(PreviewHandler, directory=str(root))
     server = ThreadingHTTPServer((args.host, args.port), handler)
     print(f"Serving {root} at http://{args.host}:{args.port}/")
-    print("Local preview only. Serves index.html, styles.css, src/, content/, and assets/.")
+    print("Local preview only. Serves index.html, styles.css, src/, content/, assets/, and the exported deliverables.")
+    for relative in SERVED_EXPORTS:
+        if (root / relative).is_file():
+            print(f"Export: http://{args.host}:{args.port}/{relative}")
     print("Press Ctrl+C to stop.")
     try:
         server.serve_forever()

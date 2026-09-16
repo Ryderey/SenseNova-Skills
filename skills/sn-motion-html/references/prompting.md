@@ -1,6 +1,6 @@
 # Prompting patterns
 
-Start from one of the coordinated presets in [style-presets.md](style-presets.md), or replace it with a user-defined art direction. The initializer writes the chosen image block to `prompts/style-preamble.txt` and the motion block to `prompts/style-motion.txt`.
+Start from one of the coordinated presets in [style-presets.md](style-presets.md), or replace it with a user-defined art direction. The initializer writes the chosen image block to `prompts/style-preamble.txt`; a video project additionally writes the motion block to `prompts/style-motion.txt`, which an image story never uses.
 
 ## Generating stills
 
@@ -71,27 +71,23 @@ Static frozen moment; no motion blur; no embedded text.
 
 One still communicates one dominant event. A montage is acceptable only when the art direction explicitly calls for a miniature world or a multi-event tableau.
 
-## Dive motion (video mode)
+## Framing the still against the copy
 
-Describe restrained movement that preserves the source image:
+The page lays a copy block over part of every still, so compose for the space the words will use. Decide the copy position and the composition together rather than after the fact:
 
-```text
-Use image 1 as the sole visual reference. Preserve identities, layout, palette, and materials.
-Four-second continuous shot. [Small environmental motion]. [One subtle character action].
-Camera [locked / slow push / shallow orbit]. No cut, no redesign, no new character,
-no text, no logo, no sudden lighting change. End on a stable readable frame.
-```
+- For `left` or `right`, keep the subject on the opposite side and leave readable negative space on the copy side. Avoid a busy high-frequency background exactly where the block lands.
+- For `bottom`, keep the horizon and the subject's head in the upper two thirds.
+- For `center`, use a sparse frame with a calm area behind the title, and expect only short copy.
+- Keep the subject off the extreme edges: the stage crops with `object-fit: cover`, and portrait phones crop the sides hardest.
 
-## Connector motion (video mode)
+Write the framing you intend into the chapter's optional `shot.framing`, and check it against the still you actually accepted. A framing note that describes a picture nobody has is worse than no note: the storyboard would then state something false. The storyboard renders `intent`, `framing`, and `motionNote` verbatim, so keep each one short and true to the accepted image.
 
-With two reference images, assign the semantic order explicitly even when both use `reference_image`:
+## Describing movement without producing it
 
-```text
-Image 1 is the departure boundary; image 2 is the destination boundary.
-Create a continuous journey from [departure] to [destination]. Begin with the visual
-language of image 1, travel via [sea / sky / tunnel / map / material transformation],
-and settle into image 2. Preserve recurring identities and palette. No cut, no text,
-no extra subject, no violent morph, no camera roll. Stable first and last moments.
-```
+`shot.motionNote` records the movement a future filming or animation pass would use — a slow push, a lateral drift, a hold on the hands. Write it as an intention:
 
-Video prompts should describe changes over time, not repeat the entire still-image description.
+- Describe what would move and roughly how, not a finished shot.
+- Never phrase it as though footage exists, and never let it appear in a delivery summary as a produced result.
+- It is also useful input later: it is the sentence a future video pass would start from, and it costs nothing now.
+
+Video prompts for the frozen later phase are kept in [seedance.md](seedance.md).

@@ -31,9 +31,10 @@ ALWAYS_SCRIPTS = (
     "make_posters.py",
     "verify_media.py",
     "contact_sheet.py",
+    "export_storyboard.py",
     "serve_project.py",
 )
-VIDEO_SCRIPTS = ("seedance_pipeline.py",)
+VIDEO_SCRIPTS = ("agnes_video.py", "seedance_pipeline.py")
 
 HTML_LANG = {"zh": "zh-CN", "en": "en"}
 
@@ -223,10 +224,14 @@ def main() -> int:
         print("No video manifest, video credentials, or video directories were created.")
         print("Next: replace the example chapters in content/story.json and add scene images.")
     else:
-        print("Next: replace content/story.json and prompts/video-manifest.json, then add scene images.")
+        print("Next: replace content/story.json and prompts/video-manifest.json, write the clip and anchor prompts, then run scripts/agnes_video.py.")
     print(
         'Check the project with: "<PYTHON>" '
         f'"{output / "scripts" / "verify_media.py"}" "{output}"'
+    )
+    print(
+        'Export the storyboard with: "<PYTHON>" '
+        f'"{output / "scripts" / "export_storyboard.py"}" "{output}"'
     )
     print(
         'Preview safely with: "<PYTHON>" '

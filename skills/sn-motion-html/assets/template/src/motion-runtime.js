@@ -31,6 +31,11 @@
     const connectorUrls = Array.isArray(config.connectors) ? config.connectors : [];
     const strings = STRINGS[config.lang] || STRINGS.en;
     const reduced = resolveReducedMotion();
+    // The stylesheet must follow this one decision rather than re-asking the OS:
+    // a plain media query would override the ?motion=full review override with
+    // !important and make the drift impossible to inspect on a machine whose
+    // operating system has animations switched off.
+    document.documentElement.dataset.motion = reduced ? 'reduce' : 'full';
     // Image mode never requests a clip: no fetch, no <video>, no seek loop.
     const videoEnabled = config.mediaMode === 'video' && !reduced;
     // A video seam is frame-matched, so a short fade only has to hide the join.
@@ -179,7 +184,10 @@
       button.innerHTML = `<span>${pad(index + 1)}</span><i>${escapeHtml(chapter.label || chapter.title || '')}</i>`;
       button.setAttribute('aria-label', `Go to ${chapter.label || chapter.title || `${strings.chapter} ${index + 1}`}`);
       button.addEventListener('click', () => {
-        const target = sceneSegments[index]?.start || 0;
+        // Not the raw segment start: a chapter's copy fades in over the first part
+        // of its own range, so landing on the boundary would show the image with no
+        // words at all. Land where the copy has settled instead.
+        const target = sceneSegments[index]?.copySettled ?? 0;
         scrollTo({ top: target, behavior: reduced ? 'auto' : 'smooth' });
       });
       navigation.appendChild(button);
@@ -203,6 +211,17 @@
         segment.end = offset * viewportHeight;
       });
       totalUnits = offset;
+      // The copy of a chapter fades in over the first part of its own range, so the
+      // distance where it has settled is also where a chapter jump should land.
+      // One formula serves both, so navigation cannot drift from the copy timing.
+      sceneSegments.forEach((scene, index) => {
+        const span = Math.max(1, scene.end - scene.start);
+        const fadePx = Math.max(span * 0.09, Math.max(1, viewportHeight * dissolveVh) * 0.5);
+        scene.fadePx = fadePx;
+        scene.copySettled = index === 0
+          ? scene.start
+          : Math.min(scene.start + fadePx, Math.max(scene.start, scene.end - 1));
+      });
       track.style.height = `${(totalUnits + 1) * viewportHeight}px`;
       read();
     }
@@ -324,12 +343,11 @@
 
       chapters.forEach((chapter, index) => {
         const scene = sceneSegments[index];
-        const span = Math.max(1, scene.end - scene.start);
-        const local = clamp((y - scene.start) / span);
         const inside = y >= scene.start && y <= scene.end;
         // Clear the copy before the image settles so the words never fight the
-        // dissolve, and bring the next scene's copy in only after its own segment starts.
-        const fadePx = Math.max(span * 0.09, dissolve * 0.5);
+        // dissolve, and bring the next scene's copy in only after its own segment
+        // starts. The window is shared with the chapter-jump target in layout().
+        const fadePx = scene.fadePx;
         const enter = index === 0 ? 1 : smooth((y - scene.start) / fadePx);
         const leave = index === chapters.length - 1 ? 1 : smooth((scene.end - y) / fadePx);
         const opacity = inside ? Math.min(enter, leave) : (index === chapters.length - 1 && y > scene.end ? 1 : 0);

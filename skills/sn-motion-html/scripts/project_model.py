@@ -18,6 +18,25 @@ UI_PRESETS = ("folio", "caption", "graphic")
 COPY_POSITIONS = ("left", "right", "bottom", "center")
 LANGS = ("zh", "en")
 
+# Optional per-chapter shot direction. These describe the still and the intended
+# movement; none of them triggers or claims a generated clip.
+SHOT_FIELDS = ("intent", "framing", "motionNote")
+
+# Storyboard and poster export locations. Only these exact paths are reachable
+# from the preview server; nothing else under exports/ is.
+STORYBOARD_DIR = "exports"
+STORYBOARD_MD = "exports/storyboard.md"
+STORYBOARD_HTML = "exports/storyboard.html"
+STORY_POSTER = "exports/story-poster.png"
+# Alternative poster directions, delivered beside the selected poster so the
+# reader can compare them. A renamed poster stays a deliverable; it is simply
+# not previewed over HTTP.
+STORY_POSTER_VARIANTS = (
+    "exports/story-poster-clarity.png",
+    "exports/story-poster-photo.png",
+)
+SERVED_EXPORTS = (STORYBOARD_HTML, STORY_POSTER, *STORY_POSTER_VARIANTS)
+
 SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 # Media the page itself may request. Nothing else belongs in a public directory.
@@ -210,6 +229,18 @@ def validate_story(root: Path, story: dict[str, Any], mode: str) -> list[str]:
         if paragraphs is not None and not isinstance(paragraphs, list):
             problems.append(f"{label}.paragraphs must be a list")
 
+        shot = chapter.get("shot")
+        if shot is not None:
+            if not isinstance(shot, dict):
+                problems.append(f"{label}.shot must be an object")
+            else:
+                for key in SHOT_FIELDS:
+                    value = shot.get(key)
+                    if value is None:
+                        continue
+                    if not isinstance(value, str) or not value.strip():
+                        problems.append(f"{label}.shot.{key} must be a non-empty string")
+
         if mode == "video" and not chapter.get("clip"):
             problems.append(f"{label}.clip is required in video mode")
 
@@ -234,12 +265,33 @@ def validate_story(root: Path, story: dict[str, Any], mode: str) -> list[str]:
     return problems
 
 
+def shot_of(chapter: dict[str, Any]) -> dict[str, str]:
+    """Return the chapter's declared shot direction, dropping empty values.
+
+    Unknown keys are ignored so a project written for a later version still
+    exports instead of failing. A shot block is entirely optional: a chapter
+    without one is a complete, valid chapter.
+    """
+    shot = chapter.get("shot")
+    if not isinstance(shot, dict):
+        return {}
+    found: dict[str, str] = {}
+    for key in SHOT_FIELDS:
+        value = shot.get(key)
+        if isinstance(value, str) and value.strip():
+            found[key] = value.strip()
+    return found
+
+
 def web_visible(relative: str, mode: str) -> bool:
     """Whether a project-relative path may be served to the browser."""
     path = Path(relative.replace("\\", "/"))
     parts = path.parts
     if not parts or any(part.startswith(".") for part in parts):
         return False
+    # Exactly the exported deliverables: the rest of exports/ stays private.
+    if path.as_posix() in SERVED_EXPORTS:
+        return True
     if path.suffix.lower() in WEB_VIDEO_SUFFIXES:
         return mode == "video" and parts[0] == "assets"
     if path.name in {"index.html", "favicon.ico"}:

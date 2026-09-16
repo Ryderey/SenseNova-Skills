@@ -1,8 +1,35 @@
-# Seedance integration (optional Ark video path)
+# Seedance integration (later-phase Ark video path)
 
-This describes the Ark/Seedance request contract used by `scripts/seedance_pipeline.py`. It applies only when the user explicitly asks for generated clips; an image story never calls it, and no image-mode check requires its tooling or credentials.
+**Frozen: not part of the current phase.** This is a reference for a future change, not a current capability of the skill. No first-phase deliverable reads this file, and nothing here may be presented as an already delivered or already verified video result. An image story never calls it, and no image-mode check requires its tooling or credentials.
 
-Use the current official model documentation when model IDs or supported parameters may have changed. The reusable script targets the Ark asynchronous content-generation API.
+Reopen it only when a real need for subject motion or generated transitions is established, and then as a separate change with its own model choice, cost basis, and authorization.
+
+This describes the Ark/Seedance request contract used by `scripts/seedance_pipeline.py`. Use the current official model documentation when model IDs or supported parameters may have changed. The script targets the Ark asynchronous content-generation API.
+
+## Motion prompt patterns
+
+These are the prompt shapes a future pass would start from. They exist so the work is not re-derived later; they are not a current step.
+
+Dive motion — restrained movement that preserves the source image:
+
+```text
+Use image 1 as the sole visual reference. Preserve identities, layout, palette, and materials.
+Four-second continuous shot. [Small environmental motion]. [One subtle character action].
+Camera [locked / slow push / shallow orbit]. No cut, no redesign, no new character,
+no text, no logo, no sudden lighting change. End on a stable readable frame.
+```
+
+Connector motion — with two reference images, assign the semantic order explicitly even when both use `reference_image`:
+
+```text
+Image 1 is the departure boundary; image 2 is the destination boundary.
+Create a continuous journey from [departure] to [destination]. Begin with the visual
+language of image 1, travel via [sea / sky / tunnel / map / material transformation],
+and settle into image 2. Preserve recurring identities and palette. No cut, no text,
+no extra subject, no violent morph, no camera roll. Stable first and last moments.
+```
+
+A video prompt describes change over time; it does not repeat the still's description. The chapter's `shot.motionNote` is the natural first draft of it.
 
 ## Request flow
 
@@ -39,6 +66,8 @@ SEEDANCE_MODEL=
 Use a bounded thread pool. Run dives first; a connector cannot begin until both adjacent dive boundary frames exist. Within each phase, clips are independent and can run concurrently. Start with four workers unless the account's documented quota suggests another value.
 
 Skip non-empty final outputs unless `--force` is explicit. Save task IDs and sanitized request metadata so interrupted runs can be audited. Do not record the Authorization header, data URLs, or secrets.
+
+Known defect to fix before this path is ever enabled: the current full-cycle retry can create duplicate billable tasks. See the integration plan's frozen-work note; do not enable the path without addressing it.
 
 Retry transient task or network failures at most once by default. Do not retry `ModelNotOpen`, authentication, access, billing, or invalid-parameter failures without a configuration change.
 

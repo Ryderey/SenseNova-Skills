@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Convert scene PNG masters to compact WebP posters for the web page.
+"""Build the page's compressed web images from the scene PNG masters.
 
-Lossless masters stay untouched: each poster is written next to its master with
-a .webp suffix, and the script refuses to write over any input file.
+This is a size reduction step, not a design step: each output is the same
+picture as its master, only smaller. A display poster — a composed image with
+its own title, key information, and dimensions — is a separate deliverable and
+belongs to the infographic workflow, never to this script.
+
+Lossless masters stay untouched: each web image is written next to its master
+with a .webp suffix, and the script refuses to write over any input file.
 """
 
 from __future__ import annotations
@@ -27,7 +32,7 @@ def main() -> int:
     try:
         from PIL import Image
     except ImportError:
-        raise SystemExit("Pillow is required to build web posters")
+        raise SystemExit("Pillow is required to build the compressed web images")
 
     root = args.project_root.expanduser().resolve()
     scenes = root / "assets" / "images" / "scenes"
@@ -39,6 +44,7 @@ def main() -> int:
             f"no PNG scene masters found in {scenes}; stills are already web-ready or missing"
         )
 
+    print("Compressing scene masters into web images (same pictures, smaller files).")
     failures: list[str] = []
     for source in inputs:
         target = source.with_suffix(".webp")
@@ -48,7 +54,7 @@ def main() -> int:
         try:
             target.relative_to(scenes.resolve())
         except ValueError:
-            failures.append(f"{source.name}: poster would land outside the scene directory")
+            failures.append(f"{source.name}: the web image would land outside the scene directory")
             continue
         with Image.open(source) as image:
             image = image.convert("RGB")
