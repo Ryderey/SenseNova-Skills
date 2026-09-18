@@ -84,9 +84,18 @@
     if (bootLabel) bootLabel.textContent = strings.loading;
 
     const declaredMode = meta.mediaMode;
-    const mediaMode = MEDIA_MODES.includes(declaredMode) ? declaredMode : 'images';
+    // Match the CLI's inference: a story that declares clips or connectors is a
+    // video project even when the field is missing, so the page and the checker
+    // never disagree about what a project is.
+    const declaresVideo = story.chapters.some((chapter) => chapter && chapter.clip) ||
+      (Array.isArray(story.connectors) && story.connectors.some(Boolean));
+    const inferredMode = declaresVideo ? 'video' : 'images';
+    const mediaMode = MEDIA_MODES.includes(declaredMode) ? declaredMode : inferredMode;
+    if (declaredMode === undefined && inferredMode === 'video') {
+      console.info('meta.mediaMode is missing; treating this project as video because it declares clips.');
+    }
     if (declaredMode !== undefined && !MEDIA_MODES.includes(declaredMode)) {
-      console.warn(`Unknown meta.mediaMode ${JSON.stringify(declaredMode)}; falling back to images.`);
+      console.warn(`Unknown meta.mediaMode ${JSON.stringify(declaredMode)}; falling back to ${inferredMode}.`);
     }
 
     document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';

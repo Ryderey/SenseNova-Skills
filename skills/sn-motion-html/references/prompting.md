@@ -4,21 +4,24 @@ Start from one of the coordinated presets in [style-presets.md](style-presets.md
 
 ## Generating stills
 
-Still generation reuses the existing SenseNova runtime instead of a second client. Resolve the sibling skill and pass absolute paths:
+Still generation and image editing use the existing SenseNova runtime. Set the child process environment `SN_IMAGE_GEN_MODEL_TYPE=sensenova`, resolve the sibling skill, and pass absolute paths:
 
 ```bash
 "<absolute PYTHON path>" "<absolute BASE_SKILL_DIR>/scripts/sn_agent_runner.py" sn-image-generate \
   --prompt-path "<absolute task temporary directory>/chapter-03.txt" \
-  --image-size 2k \
+  --image-size 4k \
+  --model sensenova-u1.5-lite --no-fallback --image-format png \
   --aspect-ratio 16:9 \
   --save-path "<absolute PROJECT_ROOT>/assets/images/scenes/03-chapter.png" \
   --output-format json
 ```
 
+- Generate stills at `--image-size 4k` by default: the page shows them full-viewport, where a 2K master looks soft on a 1080p or larger screen. 4K costs more per image (measured: 56s against 31-34s for 2K) and yields a roughly 14 MB master, so drop to `2k` only for a draft pass. The master never ships: the page loads the compressed web image beside it.
 - Prefer `--prompt-path` over `--prompt` for anything long or multilingual, so shell quoting cannot alter the text.
 - Keep the assembled prompt file in the per-task system temporary directory, not in the project.
 - Use native editing (`sn-image-edit`) with a reference image for recurring subjects rather than re-describing them from scratch; editing never falls back to a model without image input.
 - Record the model actually used, whether a fallback occurred, and which candidate was accepted. After a fallback, re-check style consistency instead of assuming it held.
+- A required 4K delivery uses `--no-fallback`: the Fast model's smaller bucket does not satisfy that requirement. Preserve the PNG master, run `make_posters.py` for the intended web width (2560 by default, `--max-width 4096` for 4K), and verify the browser's loaded image dimensions and visible detail.
 
 ## Text belongs to the page
 
@@ -90,4 +93,4 @@ Write the framing you intend into the chapter's optional `shot.framing`, and che
 - Never phrase it as though footage exists, and never let it appear in a delivery summary as a produced result.
 - It is also useful input later: it is the sentence a future video pass would start from, and it costs nothing now.
 
-Video prompts for the frozen later phase are kept in [seedance.md](seedance.md).
+For requested video generation, use [agnes-video.md](agnes-video.md). Agnes receives SenseNova images as anchors; image work continues to use SenseNova.

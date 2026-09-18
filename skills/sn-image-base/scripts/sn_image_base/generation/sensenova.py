@@ -211,7 +211,7 @@ class SensenovaText2ImageClient(T2IBaseClient):
                 "retry_count": attempt,
                 "fallback_eligible": False,
             }
-        return {
+        result = {
             "status": "ok",
             "output": str(saved),
             "message": "Image edited successfully"
@@ -222,6 +222,12 @@ class SensenovaText2ImageClient(T2IBaseClient):
             "retry_count": attempt,
             "fallback_used": False,
         }
+        # When the provider answered with a URL, report it as well. A caller that
+        # needs a public address for the image (handing a frame to a video model,
+        # for example) can use it instead of guessing or re-uploading the file.
+        if data.get("images_urls"):
+            result["provider_url"] = data["images_urls"][-1]
+        return result
 
     @staticmethod
     def _error_result(exc: U1HttpErrorBase, model: str, operation: str, retries: int) -> dict:

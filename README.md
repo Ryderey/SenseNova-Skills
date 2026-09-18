@@ -15,7 +15,7 @@ This branch is intentionally focused: it contains only six complete image and vi
 | [`sn-infographic`](skills/sn-infographic/SKILL.md) | 87 layouts, 66 styles, prompt expansion, 1-15 user-bounded rounds, visual review, evidence-based editing/regeneration, and result ranking |
 | [`sn-image-imitate`](skills/sn-image-imitate/SKILL.md) | Reference analysis, content rewrite, U1.5 native imitation, consistency review, and ranked retries |
 | [`sn-image-resume`](skills/sn-image-resume/SKILL.md) | Fact-preserving visual resumes with content-first/portfolio layouts and edit-based correction |
-| [`sn-motion-html`](skills/sn-motion-html/SKILL.md) | Scroll-driven image-story web pages: chapter structure, one fixed media stage, consistent stills, compressed web images, responsive layout, a Markdown/HTML storyboard exported from the same story data, and on request scroll-scrubbed video clips generated with Agnes Video 2.5 Flash. Display posters go to `sn-infographic` |
+| [`sn-motion-html`](skills/sn-motion-html/SKILL.md) | Scroll-driven image-story web pages: chapter structure, one fixed media stage, consistent stills, compressed web images, responsive layout, a Markdown/HTML storyboard exported from the same story data, and on request high-definition scroll-scrubbed video clips generated with Agnes video (v2.0 by default, 2.5 Flash when references are needed). Display posters go to `sn-infographic` |
 
 The full bilingual infographic gallery remains available in [English](docs/sn-infographic-examples.md) and [Chinese](docs/sn-infographic-examples_CN.md). The motion story and storyboard workflow is documented in the [Motion HTML story guide](docs/sn-motion-html.md).
 

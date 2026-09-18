@@ -81,6 +81,15 @@ class PreviewHandler(SimpleHTTPRequestHandler):
         target = self._resolve(relative)
         if target is None or not target.is_file():
             return None
+        # The URL suffix is not enough: a project may contain a symlink from a
+        # public-looking asset to .env or another private file.
+        root = Path(self.directory).resolve()
+        try:
+            real_relative = target.relative_to(root).as_posix()
+        except ValueError:
+            return None
+        if not web_visible(real_relative, "video"):
+            return None
         return target
 
     def list_directory(self, path):  # noqa: D102 - directory listings stay off

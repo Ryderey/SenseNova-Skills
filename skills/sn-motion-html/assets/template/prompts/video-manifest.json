@@ -1,11 +1,11 @@
 {
   "provider": "agnes",
-  "model": "agnes-video-2.5-flash",
+  "model": "agnes-video-v2.0",
   "duration": 4,
-  "resolution": "720P",
+  "resolution": "1080p",
   "ratio": "16:9",
-  "target_width": 1280,
-  "target_height": 720,
+  "target_width": 1920,
+  "target_height": 1080,
   "fps": 24,
   "dives": [
     {

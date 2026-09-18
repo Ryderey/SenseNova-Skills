@@ -150,23 +150,27 @@ Open the page over HTTP. The page reads `content/story.json` with `fetch`, so op
 - **The page has no motion at all.** When the operating system has animations switched off, the browser reports `prefers-reduced-motion: reduce` and the skill correctly disables the still drift. That is intended behaviour, not a fault. To review the designed motion, append `?motion=full` to the preview URL, or `?motion=reduce` to force the reduced path; with no parameter the system preference always wins.
 - **The dissolve is too fast or too slow, or the zoom is too strong.** Tune `meta.crossfade` (viewport heights; image mode defaults to 0.8) and `meta.drift` (zoom range per chapter; image mode defaults to 0.16).
 
-## Video clips (Agnes Video 2.5 Flash)
+## Video clips (Agnes video)
 
-On request only. Clip generation uses Agnes Video 2.5 Flash through the sibling `agnes-media` skill's bundled CLI, driven by `scripts/agnes_video.py`. The request contract, constraints, and measured provider behaviour are in [references/agnes-video.md](../skills/sn-motion-html/references/agnes-video.md); the workflow is section 10 of [references/workflow.md](../skills/sn-motion-html/references/workflow.md).
+On request only. Clip generation uses Agnes video through the sibling `agnes-media` skill's bundled CLI, driven by `scripts/agnes_video.py`. The default model is `agnes-video-v2.0`, which renders high-definition clips (`1080p` by default, target 1920×1080); `agnes-video-2.5-flash` is the alternative when you need reference images or a last-frame-only anchor, and it is capped at 720P. The request contract, constraints, and measured provider behaviour are in [references/agnes-video.md](../skills/sn-motion-html/references/agnes-video.md); the workflow is section 10 of [references/workflow.md](../skills/sn-motion-html/references/workflow.md).
 
 ```bash
 # See every call the pipeline would make, without spending anything
 "<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/agnes_video.py" "<absolute PROJECT_ROOT>" --dry-run
 
 # Generate, normalize, and write each clip's first frame as the page still
-"<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/agnes_video.py" "<absolute PROJECT_ROOT>" --write-stills
+"<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/agnes_video.py" "<absolute PROJECT_ROOT>" \
+  --image-cli "<absolute BASE_SKILL_DIR>/scripts/sn_agent_runner.py" \
+  --agnes-cli "<absolute AGNES_SKILL_DIR>/scripts/agnes_media.py" --write-stills
 ```
 
-Requirements: `AGNES_API_KEY` in the environment, `AGNES_SKILL_DIR` pointing at the Agnes media skill, and FFmpeg plus ffprobe for normalization and validation. An image story needs none of them.
+Requirements: `AGNES_API_KEY` in the process environment or project's ignored `.env`, FFmpeg and ffprobe, and the client paths shown above (alternatively `AGNES_SKILL_DIR` and `SN_IMAGE_BASE_DIR`). The pipeline loads only provider settings from `.env`, with process values taking precedence and no variable interpolation. Its `python-dotenv` dependency is included in the SenseNova runtime requirements. SenseNova-generated anchors also need the configured SenseNova credential. A pure image project needs no Agnes or video tooling.
 
 Two things are worth knowing before you ask for clips:
 
-- **Flash accepts no local media.** Every first frame, last frame, or reference must be a public HTTPS URL, so each clip declares how it gets one: generated through Agnes (`generate`), published by you (`url`), or composed from the prompt alone (`text`). This skill never publishes your images to a host on its own.
-- **Provider output is not the deliverable.** A requested 4-second 720P clip came back as 1280×704 and 4.46 seconds, so the pipeline always normalizes locally; `verify_media.py` then requires the exact manifest dimensions, frame rate, and duration.
+- **Image generation, editing, repair, enhancement, and compositing use SenseNova; Agnes generates video.** Each clip explicitly declares `generate` (SenseNova creates the anchor), `reference` (explicit images or neighbouring chapters' anchors), or `url` (hosted first/last frames). Missing modes and `text` are rejected. The generated-anchor path pins the SenseNova backend and U1.5 model with fallback disabled. This skill never publishes your images to a host on its own.
+- **Provider output is not the deliverable.** A requested 1920×1080 clip came back as 1920×1088, and a 720P one as 1280×704 with a 4.46-second length, so the pipeline always normalizes locally; `verify_media.py` then requires the exact manifest dimensions, frame rate, and duration.
 
-A transition between two chapters is anchored on their boundary frames, which are local extracts — anchoring one therefore needs hosted frame URLs. Until you provide them, a transition runs in `text` mode or the seam is declared an accepted visible cut.
+A transition can borrow the chapters' public anchor URLs; v2.0 treats the pair as first/last keyframes. These are not necessarily the previous clip's actual last frame, so inspect the seam. Missing URLs block generation. An accepted visible cut can be declared with `null` in the story's connectors, with the corresponding generation record removed from the manifest.
+
+Image mode preserves SenseNova 4K PNG masters and serves WebP copies at 2560px by default; pass `make_posters.py --max-width 4096` for 4K page assets and verify the actual browser-loaded dimensions. Video `--write-stills` instead extracts a still at the video target, normally 1080p. Local compression, saving, and video frame extraction do not invoke image models.

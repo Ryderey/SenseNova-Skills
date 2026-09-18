@@ -20,7 +20,10 @@ from project_model import (  # noqa: E402
     LANGS,
     MEDIA_MODES,
     PROTECTED_TEMPLATE_PATHS,
+    ProjectError,
     VIDEO_ONLY_TEMPLATE_PATHS,
+    VIDEO_ONLY_TEMPLATE_DIRS,
+    resolve_media_mode,
 )
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
@@ -78,6 +81,37 @@ def copy_scripts(output: Path, media: str) -> None:
         target.chmod(0o755)
 
 
+def backup_video_configuration(output: Path) -> Path | None:
+    """Keep a recoverable copy before an explicit video-to-image conversion."""
+    sources = [Path(relative) for relative in VIDEO_ONLY_TEMPLATE_PATHS + VIDEO_ONLY_TEMPLATE_DIRS]
+    story = output / "content" / "story.json"
+    if not any((output / relative).exists() for relative in sources) and not story.is_file():
+        return None
+    backup_root = output / ".motion-state" / "init-backup"
+    backup_root.mkdir(parents=True, exist_ok=True)
+    backup = backup_root / "video"
+    index = 2
+    while backup.exists():
+        backup = backup_root / f"video-{index}"
+        index += 1
+    backup.mkdir()
+    if story.is_file():
+        target = backup / "content" / "story.json"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(story, target)
+    for relative in sources:
+        source = output / relative
+        if not source.exists():
+            continue
+        target = backup / relative
+        if source.is_dir():
+            shutil.copytree(source, target)
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+    return backup
+
+
 def strip_video_scaffolding(output: Path, story: dict) -> list[str]:
     """Remove video-only files and fields from an image project.
 
@@ -85,7 +119,7 @@ def strip_video_scaffolding(output: Path, story: dict) -> list[str]:
     than deleting a manifest silently.
     """
     removed: list[str] = []
-    for relative in VIDEO_ONLY_TEMPLATE_PATHS:
+    for relative in VIDEO_ONLY_TEMPLATE_PATHS + VIDEO_ONLY_TEMPLATE_DIRS:
         candidate = output / relative
         if candidate.is_dir():
             shutil.rmtree(candidate, ignore_errors=True)
@@ -93,6 +127,10 @@ def strip_video_scaffolding(output: Path, story: dict) -> list[str]:
         elif candidate.exists():
             candidate.unlink()
             removed.append(relative)
+    video_root = output / "assets" / "video"
+    if video_root.is_dir() and not any(video_root.iterdir()):
+        video_root.rmdir()
+        removed.append("assets/video")
     if "connectors" in story:
         removed.append("story.json: connectors")
         story.pop("connectors")
@@ -127,16 +165,19 @@ def write_index(output: Path, title: str, lang: str) -> None:
     )
 
 
-def write_style_prompts(output: Path, style: str) -> None:
+def write_style_prompts(output: Path, style: str, *, preserve_existing: bool) -> None:
     preset = json.loads(
         (SKILL_ROOT / "assets" / "style-presets" / f"{style}.json").read_text(encoding="utf-8")
     )
-    (output / "prompts" / "style-preamble.txt").write_text(
-        preset["image_prompt"].strip() + "\n", encoding="utf-8"
+    targets = (
+        ("style-preamble.txt", preset["image_prompt"]),
+        ("style-motion.txt", preset["video_prompt"]),
     )
-    (output / "prompts" / "style-motion.txt").write_text(
-        preset["video_prompt"].strip() + "\n", encoding="utf-8"
-    )
+    for name, prompt in targets:
+        target = output / "prompts" / name
+        if preserve_existing and target.exists():
+            continue
+        target.write_text(prompt.strip() + "\n", encoding="utf-8")
 
 
 def main() -> int:
@@ -148,10 +189,10 @@ def main() -> int:
     parser.add_argument(
         "--media",
         choices=list(MEDIA_MODES),
-        default="images",
+        default=None,
         help=(
-            "images (default) ships no video tooling, manifest, or credentials; "
-            "video adds clips, FFmpeg, and provider credentials"
+            "on a new project, images is the default; with --force, omit this "
+            "option to preserve the existing media mode"
         ),
     )
     parser.add_argument("--lang", choices=list(LANGS), default="zh", help="project content language")
@@ -172,17 +213,39 @@ def main() -> int:
     if merge and not args.force:
         parser.error(f"output directory is not empty: {output}; pass --force to merge")
 
+    story_path = output / "content" / "story.json"
+    existing_mode = None
+    if merge and story_path.is_file():
+        try:
+            existing_mode = resolve_media_mode(json.loads(story_path.read_text(encoding="utf-8")))
+        except (json.JSONDecodeError, ProjectError) as exc:
+            parser.error(f"cannot determine existing media mode: {exc}")
+    requested_media = args.media
+    args.media = requested_media or existing_mode or "images"
+    mode_changed = bool(existing_mode and requested_media and requested_media != existing_mode)
+    backup = None
+    if mode_changed and existing_mode == "video" and args.media == "images":
+        backup = backup_video_configuration(output)
+
     output.mkdir(parents=True, exist_ok=True)
     skipped = copy_template(TEMPLATE, output, merge)
     copy_scripts(output, args.media)
 
-    story_path = output / "content" / "story.json"
     story = json.loads(story_path.read_text(encoding="utf-8"))
     preserved_story = merge and is_protected(Path("content/story.json")) and story_path.exists()
 
     stripped: list[str] = []
     if args.media == "images":
         stripped = strip_video_scaffolding(output, story)
+        if stripped:
+            skipped = [
+                relative for relative in skipped
+                if not any(
+                    Path(relative) == Path(removed)
+                    or Path(removed) in Path(relative).parents
+                    for removed in stripped
+                )
+            ]
 
     if preserved_story:
         story.setdefault("meta", {})["mediaMode"] = args.media
@@ -193,7 +256,7 @@ def main() -> int:
         write_story(output, story, args)
 
     write_index(output, args.title, args.lang)
-    write_style_prompts(output, args.style)
+    write_style_prompts(output, args.style, preserve_existing=merge)
 
     for relative in IMAGE_DIRS + (VIDEO_DIRS if args.media == "video" else ()):
         directory = output / relative
@@ -220,6 +283,8 @@ def main() -> int:
         print("Removed video-only scaffolding for image mode:")
         for relative in stripped:
             print(f"- {relative}")
+    if backup:
+        print(f"Backed up the previous video configuration to: {backup}")
     if args.media == "images":
         print("No video manifest, video credentials, or video directories were created.")
         print("Next: replace the example chapters in content/story.json and add scene images.")

@@ -47,6 +47,7 @@ VIDEO_ONLY_TEMPLATE_PATHS = (
     "prompts/video-manifest.json",
     "prompts/video",
     ".env.example",
+    ".env",
 )
 VIDEO_ONLY_TEMPLATE_DIRS = (
     "assets/video/dives",
@@ -54,7 +55,17 @@ VIDEO_ONLY_TEMPLATE_DIRS = (
     "assets/video/frames",
 )
 # Refreshing a project with --force must never touch these.
-PROTECTED_TEMPLATE_PATHS = ("content/story.json", "assets", ".env", "tmp", ".motion-state")
+PROTECTED_TEMPLATE_PATHS = (
+    "content/story.json",
+    "assets",
+    ".env",
+    "tmp",
+    ".motion-state",
+    "prompts/video-manifest.json",
+    "prompts/video",
+    "prompts/style-preamble.txt",
+    "prompts/style-motion.txt",
+)
 
 
 class ProjectError(RuntimeError):
@@ -184,6 +195,13 @@ def validate_story(root: Path, story: dict[str, Any], mode: str) -> list[str]:
     chapters = chapters_of(story)
     if not chapters:
         problems.append("at least one chapter is required")
+    raw_chapters = story.get("chapters")
+    if isinstance(raw_chapters, list):
+        for index, entry in enumerate(raw_chapters):
+            if not isinstance(entry, dict):
+                # chapters_of() drops these, so validate_story has to name them:
+                # the page would otherwise fail while the CLI reported success.
+                problems.append(f"chapters[{index}] must be an object, got {type(entry).__name__}")
 
     seen: set[str] = set()
     for index, chapter in enumerate(chapters):
@@ -228,6 +246,10 @@ def validate_story(root: Path, story: dict[str, Any], mode: str) -> list[str]:
         paragraphs = chapter.get("paragraphs")
         if paragraphs is not None and not isinstance(paragraphs, list):
             problems.append(f"{label}.paragraphs must be a list")
+
+        tags = chapter.get("tags")
+        if tags is not None and not isinstance(tags, list):
+            problems.append(f"{label}.tags must be a list")
 
         shot = chapter.get("shot")
         if shot is not None:

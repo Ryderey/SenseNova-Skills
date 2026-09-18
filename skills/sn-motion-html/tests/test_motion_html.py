@@ -18,6 +18,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -71,10 +72,20 @@ class ProjectFixture(unittest.TestCase):
         )
 
     def run_script(self, script: Path, *args: str, env: dict | None = None) -> subprocess.CompletedProcess:
-        return subprocess.run(
+        # Force UTF-8 on the child's own streams. Without this the child writes in
+        # the host console encoding (GBK on a default Chinese Windows) while the
+        # parent decodes UTF-8, and the suite fails on the machine, not the code.
+        child_env = dict(env if env is not None else os.environ)
+        child_env["PYTHONIOENCODING"] = "utf-8"
+        child_env["PYTHONUTF8"] = "1"
+        result = subprocess.run(
             [sys.executable, str(script), *args],
-            capture_output=True, text=True, encoding="utf-8", env=env, timeout=180,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            env=child_env, timeout=180,
         )
+        self.assertIsNotNone(result.stdout, f"{script.name} produced no decodable stdout")
+        self.assertIsNotNone(result.stderr, f"{script.name} produced no decodable stderr")
+        return result
 
 
 class InitProjectTests(ProjectFixture):
@@ -108,8 +119,11 @@ class InitProjectTests(ProjectFixture):
         # for compatibility but is not the current contract.
         self.assertTrue((project / "scripts/agnes_video.py").is_file())
         manifest = json.loads((project / "prompts/video-manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["model"], "agnes-video-2.5-flash")
-        self.assertEqual(manifest["resolution"], "720P")
+        # The template ships the high-definition default: v2.0 renders 1080p, while
+        # Flash is capped at 720P and is selected only explicitly.
+        self.assertEqual(manifest["model"], "agnes-video-v2.0")
+        self.assertEqual(manifest["resolution"], "1080p")
+        self.assertEqual((manifest["target_width"], manifest["target_height"]), (1920, 1080))
         self.assertTrue(all("anchor_mode" in dive for dive in manifest["dives"]))
         for record in manifest["dives"]:
             for key in ("anchor_prompt", "prompt"):
@@ -143,6 +157,33 @@ class InitProjectTests(ProjectFixture):
         self.assertIn("mine", story_path.read_text(encoding="utf-8"))
         self.assertTrue((project / "assets/images/scenes/keep.webp").is_file())
         self.assertIn("Preserved existing files", forced.stdout)
+
+    def test_force_refresh_preserves_video_manifest_and_prompts(self) -> None:
+        project = self.tmp / "video story"
+        self.init("--media", "video", project=project)
+        manifest = project / "prompts/video-manifest.json"
+        prompt = project / "prompts/video/dives/01-opening.txt"
+        manifest.write_text('{"custom": true}', encoding="utf-8")
+        prompt.write_text("user motion prompt", encoding="utf-8")
+
+        result = self.run_script(INIT, str(project), "--force")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(manifest.read_text(encoding="utf-8")), {"custom": True})
+        self.assertEqual(prompt.read_text(encoding="utf-8"), "user motion prompt")
+        story = json.loads((project / "content/story.json").read_text(encoding="utf-8"))
+        self.assertEqual(story["meta"]["mediaMode"], "video")
+
+    def test_explicit_video_to_images_keeps_a_recoverable_backup(self) -> None:
+        project = self.tmp / "video story"
+        self.init("--media", "video", project=project)
+        result = self.run_script(INIT, str(project), "--force", "--media", "images")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((project / "prompts/video-manifest.json").exists())
+        self.assertFalse((project / ".env").exists())
+        self.assertTrue((project / ".motion-state/init-backup/video/content/story.json").is_file())
+        story = json.loads((project / "content/story.json").read_text(encoding="utf-8"))
+        self.assertEqual(story["meta"]["mediaMode"], "images")
+        self.assertTrue(all("clip" not in chapter for chapter in story["chapters"]))
 
     def test_file_output_path_is_refused(self) -> None:
         target = self.tmp / "afile"
@@ -204,6 +245,10 @@ class StoryValidationTests(unittest.TestCase):
             ]},
             "bad style": {"meta": {"title": "T", "style": "watercolor"}},
             "bad lang": {"meta": {"title": "T", "lang": "fr"}},
+            "null chapter": {"chapters": [
+                {"id": "a", "label": "A", "still": "assets/images/scenes/a.webp"}, None]},
+            "tags not a list": {"chapters": [
+                {"id": "a", "label": "A", "still": "assets/images/scenes/a.webp", "tags": "one, two"}]},
         }
         for name, override in cases.items():
             with self.subTest(case=name):
@@ -323,6 +368,42 @@ class ImageModeToolingTests(ProjectFixture):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue((scenes / "03-c.webp").is_file())
         self.assertEqual((scenes / "03-c.png").read_bytes(), master_bytes)
+
+    def test_posters_reject_an_external_symlink_target(self) -> None:
+        project = self.build_project()
+        scenes = project / "assets/images/scenes"
+        external = self.tmp / "outside.png"
+        make_still(external, "#336633")
+        external_bytes = external.read_bytes()
+        make_still(scenes / "03-c.png", "#225522")
+        try:
+            (scenes / "03-c.webp").symlink_to(external)
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks are unavailable on this Windows host")
+        result = self.run_script(project / "scripts" / "make_posters.py", str(project))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(external.read_bytes(), external_bytes)
+
+
+class HighDefinitionDefaultsTests(unittest.TestCase):
+    """The web preview is full-viewport, so the shipped defaults must stay HD."""
+
+    def test_stills_are_documented_at_4k(self) -> None:
+        prompting = (SKILL_ROOT / "references/prompting.md").read_text(encoding="utf-8")
+        self.assertIn("--image-size 4k", prompting)
+        self.assertNotIn("--image-size 2k", prompting)
+
+    def test_web_image_default_covers_a_1080p_screen(self) -> None:
+        # The parser default is the shipped behaviour; assert it directly.
+        module = load_module(SCRIPTS / "make_posters.py", "make_posters_module")
+        help_text = module.build_parser().format_help() if hasattr(module, "build_parser") else ""
+        source = (SCRIPTS / "make_posters.py").read_text(encoding="utf-8")
+        default = None
+        for line in source.splitlines():
+            if "--max-width" in line and "default=" in line:
+                default = int(line.split("default=")[1].split(",")[0])
+        self.assertIsNotNone(default, "the max-width default must stay explicit")
+        self.assertGreaterEqual(default, 1920, "a full-viewport stage needs at least a 1080p-wide web image")
 
 
 class StoryboardExportTests(ProjectFixture):
@@ -683,6 +764,18 @@ class RuntimeSourceTests(unittest.TestCase):
         self.assertIn("const fadePx = scene.fadePx;", self.runtime)
         self.assertNotIn("sceneSegments[index]?.start || 0", self.runtime)
 
+    def test_page_infers_the_media_mode_like_the_cli(self) -> None:
+        # A story that declares clips without meta.mediaMode must render as video;
+        # the CLI treats it that way, and the page used to pick images and load no
+        # clip at all.
+        self.assertIn("declaresVideo", self.app)
+        self.assertIn("story.connectors.some(Boolean)", self.app)
+        self.assertIn("const mediaMode = MEDIA_MODES.includes(declaredMode) ? declaredMode : inferredMode;",
+                      self.app)
+        model = load_project_model()
+        story = {"meta": {"title": "T"}, "chapters": [{"id": "a", "label": "A", "clip": "assets/video/dives/a.mp4"}]}
+        self.assertEqual(model.resolve_media_mode(story), "video")
+
     def test_app_validates_structure_and_source_protocols(self) -> None:
         self.assertIn("SAFE_PROTOCOLS", self.app)
         self.assertIn("must contain at least one chapter", self.app)
@@ -746,9 +839,15 @@ class AgnesVideoPlannerTests(ProjectFixture):
 
     VIDEO = SCRIPTS / "agnes_video.py"
 
-    def build_video_project(self, *, mutate=None) -> Path:
-        project = self.tmp / "video story"
-        self.init("--media", "video", "--lang", "en", project=project)
+    def build_video_project(self, *, mutate=None, name: str = "video story") -> Path:
+        project = self.tmp / name
+        # A shared directory made the initializer fail silently on the second and
+        # later builds, so each case inherited the previous case's manifest and the
+        # assertions passed without exercising their own parameter.
+        if project.exists():
+            shutil.rmtree(project)
+        result = self.init("--media", "video", "--lang", "en", project=project)
+        self.assertEqual(result.returncode, 0, f"setup failed: {result.stdout}{result.stderr}")
         manifest_path = project / "prompts" / "video-manifest.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         if mutate:
@@ -759,7 +858,7 @@ class AgnesVideoPlannerTests(ProjectFixture):
     def plan(self, project: Path, *args: str) -> subprocess.CompletedProcess:
         # A dry run must never need credentials or the Agnes CLI.
         return self.run_script(self.VIDEO, str(project), "--dry-run", *args,
-                               env={"PATH": os.environ.get("PATH", "")})
+                               env=dict(os.environ, PYTHONUTF8="1"))
 
     def test_image_project_has_no_video_manifest_to_plan(self) -> None:
         project = self.tmp / "image story"
@@ -772,7 +871,12 @@ class AgnesVideoPlannerTests(ProjectFixture):
         project = self.build_video_project()
         result = self.plan(project, "--write-stills")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("agnes-video-2.5-flash", result.stdout)
+        self.assertIn("agnes-video-v2.0", result.stdout)
+        self.assertIn("provider resolution 1080p", result.stdout)
+        # v2.0 takes a single image for image-to-video and a first/last pair for a
+        # transition, instead of Flash's named frames.
+        self.assertIn("--mode ti2vid --image <anchor-url-created-by-image-generate>", result.stdout)
+        self.assertIn("--mode keyframes --extra-body", result.stdout)
         self.assertIn("Clips: 3", result.stdout)
         for name in ("01-opening", "02-destination", "01-opening-to-destination"):
             self.assertIn(name, result.stdout)
@@ -786,23 +890,59 @@ class AgnesVideoPlannerTests(ProjectFixture):
         self.assertFalse((project / ".motion-state").exists(), "a dry run must not write run state")
 
     def test_planner_rejects_provider_and_parameter_mismatches(self) -> None:
+        # Each case runs against its own project and must fail for its own reason;
+        # asserting the message is what stops a poisoned manifest from standing in.
         cases = {
-            "wrong model": lambda m: m.update(model="doubao-seedance-2-5-260628"),
-            "duration out of range": lambda m: m.update(duration=3),
-            "duration not whole": lambda m: m.update(duration=4.5),
-            "resolution not 720P": lambda m: m.update(resolution="1080p"),
-            "bad anchor mode": lambda m: m["dives"][0].update(anchor_mode="magic"),
-            "url anchor without https": lambda m: m["dives"][0].update(anchor_mode="url", first_frame="assets/x.png"),
-            "anchored connector": lambda m: m["connectors"][0].update(anchor_mode="generate",
-                                                                     anchor_prompt="prompts/video/anchors/01-opening.txt"),
-            "text anchor with keyframes": lambda m: m["dives"][0].update(anchor_mode="text"),
+            "wrong model": (
+                lambda m: m.update(model="doubao-seedance-2-5-260628"), "known video model"),
+            "duration too short": (
+                lambda m: m.update(duration=0.2), "needs a longer clip"),
+            "duration beyond the frame budget": (
+                lambda m: m.update(duration=30), "at most 441 frames"),
+            "duration not positive": (
+                lambda m: m.update(duration=0), "positive number of seconds"),
+            "missing resolution on v2.0": (
+                lambda m: m.pop("resolution", None), "explicit resolution"),
+            "Flash asked for 1080p": (
+                lambda m: m.update(model="agnes-video-2.5-flash", resolution="1080p"),
+                "requires resolution 720P"),
+            "unknown model": (
+                lambda m: m.update(model="agnes-video-9.9"), "known video model"),
+            "Flash duration out of range": (
+                lambda m: m.update(model="agnes-video-2.5-flash", duration=13), "whole-second durations"),
+            "bad anchor mode": (
+                lambda m: m["dives"][0].update(anchor_mode="magic"), "anchor_mode must be one of"),
+            "missing anchor mode": (
+                lambda m: m["dives"][0].pop("anchor_mode"), "anchor_mode must be one of"),
+            "empty anchor mode": (
+                lambda m: m["dives"][0].update(anchor_mode=""), "anchor_mode must be one of"),
+            "text only dive": (
+                lambda m: m["dives"][0].update(anchor_mode="text"), "anchor_mode must be one of"),
+            "text only connector": (
+                lambda m: m["connectors"][0].update(anchor_mode="text"), "anchor_mode must be one of"),
+            "url anchor without https": (
+                lambda m: m["dives"][0].update(anchor_mode="url", first_frame="assets/x.png"),
+                "public HTTPS URL"),
+            "generate anchor on a connector": (
+                lambda m: m["connectors"][0].update(anchor_mode="generate",
+                                                    anchor_prompt="prompts/video/anchors/01-opening.txt"),
+                "would not be either boundary"),
+            "reference connector without from/to": (
+                lambda m: m["connectors"][0].update(anchor_mode="reference", reference_images=None,
+                                                    **{"from": None, "to": None}),
+                "needs both 'from' and 'to'"),
+            "too many reference images": (
+                lambda m: m["connectors"][0].update(
+                    anchor_mode="reference",
+                    reference_images=[f"https://example.com/{index}.png" for index in range(3)]),
+                "accepts at most"),
         }
-        for name, mutate in cases.items():
+        for name, (mutate, expected) in cases.items():
             with self.subTest(case=name):
-                project = self.build_video_project(mutate=mutate)
+                project = self.build_video_project(mutate=mutate, name=f"case {name}")
                 result = self.plan(project)
                 self.assertEqual(result.returncode, 1, f"{name} should be refused: {result.stdout}")
-                self.assertTrue(result.stdout.startswith("FAIL"), result.stdout)
+                self.assertIn(expected, result.stdout, f"{name} failed for the wrong reason")
 
     def test_missing_prompt_file_is_refused_before_any_call(self) -> None:
         project = self.build_video_project()
@@ -811,20 +951,53 @@ class AgnesVideoPlannerTests(ProjectFixture):
         self.assertEqual(result.returncode, 1)
         self.assertIn("prompt is missing", result.stdout)
 
+    def test_manifest_paths_cannot_escape_prompt_or_video_directories(self) -> None:
+        module = load_module(self.VIDEO, "agnes_path_module")
+        project = self.build_video_project()
+        manifest = json.loads((project / "prompts/video-manifest.json").read_text(encoding="utf-8"))
+        manifest["dives"][0]["prompt"] = "../outside.txt"
+        with self.assertRaises(module.PipelineError):
+            module.plan_records(project, manifest)
+        manifest["dives"][0]["prompt"] = "prompts/video/dives/01-opening.txt"
+        manifest["dives"][0]["output"] = "../outside.mp4"
+        with self.assertRaises(module.PipelineError):
+            module.plan_records(project, manifest)
+
+    def test_short_provider_clip_is_padded_and_verified(self) -> None:
+        if shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None:
+            self.skipTest("FFmpeg is unavailable")
+        module = load_module(self.VIDEO, "agnes_normalize_module")
+        source = self.tmp / "short.mp4"
+        target = self.tmp / "normalized.mp4"
+        subprocess.run(
+            ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=red:s=640x360:r=24",
+             "-t", "1", str(source)],
+            check=True,
+        )
+        module.normalize(source, target, seconds=4, width=320, height=180, fps=24, crf=23)
+        module.validate_normalized(target, seconds=4, width=320, height=180, fps=24)
+        self.assertFalse(list(self.tmp.glob(".normalized.*")))
+
+        # The manifest's crf is a real quality/size knob: a high value must shrink
+        # the delivered file, which is what a web payload cares about.
+        coarse = self.tmp / "coarse.mp4"
+        module.normalize(source, coarse, seconds=4, width=320, height=180, fps=24, crf=45)
+        self.assertLess(coarse.stat().st_size, target.stat().st_size)
+
     def test_unknown_only_id_is_refused(self) -> None:
         project = self.build_video_project()
         result = self.plan(project, "--only", "99-nope")
         self.assertEqual(result.returncode, 1)
         self.assertIn("unknown dive ids", result.stdout)
 
-    def test_existing_clip_is_skipped_without_force(self) -> None:
+    def test_invalid_existing_clip_is_not_treated_as_success(self) -> None:
         project = self.build_video_project()
         clip = project / "assets/video/dives/01-opening.mp4"
         clip.parent.mkdir(parents=True, exist_ok=True)
         clip.write_bytes(b"placeholder")
         result = self.plan(project)
         self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertIn("already exists (pass --force to replace)", result.stdout)
+        self.assertIn("existing clip is invalid; regenerating", result.stdout)
 
     def test_only_limits_the_plan(self) -> None:
         project = self.build_video_project()
@@ -850,11 +1023,11 @@ class AgnesVideoPlannerTests(ProjectFixture):
                 manifest["connectors"][0].update(anchor_mode="reference", reference_images=values)
             return mutate
 
-        good = "https://cos-platform-outputs.agnes-ai.cn/images/t2i/task_x/output.png"
+        good = "https://example.com/sensenova-anchor.png"
         project = self.build_video_project(mutate=with_references([good, good]))
         result = self.plan(project)
         self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertIn(f"would use reference image {good}", result.stdout)
+        self.assertIn(f"would use boundary image {good}", result.stdout)
 
         for name, values in {
             "local path": ["assets/images/scenes/01-opening.png"],
@@ -866,17 +1039,43 @@ class AgnesVideoPlannerTests(ProjectFixture):
                 self.assertEqual(result.returncode, 1, result.stdout)
                 self.assertTrue(result.stdout.startswith("FAIL"), result.stdout)
 
-    def test_url_connector_can_anchor_its_destination_frame_only(self) -> None:
-        # Hosting only the destination frame is the zero-render option for a seam:
-        # the connector lands exactly on the next chapter's opening frame.
-        def mutate(manifest):
+    def test_last_frame_only_anchoring_is_a_flash_capability(self) -> None:
+        # Pinning only the destination frame is the zero-render option for a seam.
+        # v2.0 takes a first frame or a first/last pair, so this is where the two
+        # models differ: the default reports it at plan time, Flash accepts it.
+        def pinned_to_flash(manifest):
+            manifest.update(model="agnes-video-2.5-flash", resolution="720P",
+                            target_width=1280, target_height=720)
             manifest["connectors"][0].update(
                 anchor_mode="url", last_frame="https://example.com/next-chapter-first-frame.png")
-        project = self.build_video_project(mutate=mutate)
+
+        project = self.build_video_project(mutate=pinned_to_flash, name="flash story")
         result = self.plan(project)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("would use last_frame https://example.com/next-chapter-first-frame.png", result.stdout)
         self.assertIn("--mode keyframe", result.stdout)
+        self.assertIn("--last-frame https://example.com/next-chapter-first-frame.png", result.stdout)
+
+        def last_frame_only(manifest):
+            manifest["connectors"][0].update(
+                anchor_mode="url", last_frame="https://example.com/next-chapter-first-frame.png")
+
+        project = self.build_video_project(mutate=last_frame_only)
+        result = self.plan(project)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("cannot anchor on the last frame alone", result.stdout)
+        self.assertIn("would fail:", result.stdout)
+
+    def test_v2_frame_budget_is_aligned_and_capped(self) -> None:
+        # v2.0 renders 8n+1 frames up to 441 (about 18s at 24fps); the pipeline
+        # normalizes back to the manifest's exact duration afterwards.
+        module = load_module(SCRIPTS / "agnes_video.py", "agnes_video_module")
+        for seconds, fps in ((4, 24), (5, 24), (18, 24)):
+            frames = module.frame_count(seconds, fps)
+            self.assertEqual(frames % 8, 1, f"{seconds}s at {fps}fps -> {frames}")
+            self.assertGreaterEqual(frames, 9)
+            self.assertLessEqual(frames, 441)
+        self.assertEqual(module.frame_count(18, 24), 433)
+        self.assertEqual(module.frame_count(60, 24), 441, "the budget is capped, not exceeded")
 
     def test_reference_resolution_reads_recorded_anchors(self) -> None:
         project = self.build_video_project()
@@ -902,6 +1101,296 @@ class AgnesVideoPlannerTests(ProjectFixture):
         state.write_text('{"clips": {"01-opening": {"anchor_url": "http://insecure/a.png"}}}', encoding="utf-8")
         with self.assertRaises(module.PipelineError):
             module.resolve_references(project, record)
+
+    def test_url_anchor_state_is_recorded_and_can_be_cleared(self) -> None:
+        project = self.build_video_project()
+        module = load_module(self.VIDEO, "agnes_anchor_module")
+        module.record_anchor(project, "01-opening", "https://example.com/opening.png", "url")
+        state = module.load_state(project)
+        self.assertEqual(state["clips"]["01-opening"]["anchor_url"], "https://example.com/opening.png")
+        self.assertEqual(state["clips"]["01-opening"]["anchor_mode"], "url")
+        module.clear_anchor(project, "01-opening")
+        self.assertNotIn("01-opening", module.load_state(project)["clips"])
+
+
+
+STUB_PROVIDER = '''"""Offline stand-in for the Agnes CLI: no network, deterministic output."""
+import argparse, json, os, subprocess, sys
+from pathlib import Path
+
+parser = argparse.ArgumentParser()
+sub = parser.add_subparsers(dest="command", required=True)
+
+image = sub.add_parser("image-generate")
+for flag in ("--prompt", "--model", "--size", "--ratio", "--image-url"):
+    image.add_argument(flag)
+
+video = sub.add_parser("video-generate")
+for flag in ("--prompt", "--model", "--mode", "--duration", "--resolution", "--aspect-ratio",
+             "--frame-rate", "--image", "--first-frame", "--last-frame", "--extra-body",
+             "--timeout-seconds", "--poll-interval-seconds", "--seed"):
+    video.add_argument(flag)
+video.add_argument("--reference-image", action="append")
+
+args = parser.parse_args()
+work = Path(os.environ["AGNES_OUTPUT_DIR"])
+work.mkdir(parents=True, exist_ok=True)
+record = {key: value for key, value in vars(args).items() if value is not None}
+# The pipeline sets AGNES_OUTPUT_DIR to its own work directory, so the record goes
+# to a variable the pipeline passes through untouched.
+log = os.environ.get("STUB_CALL_LOG")
+if log:
+    with open(log, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False) + "\\n")
+
+if args.command == "image-generate":
+    print(json.dumps({"ok": True, "model": args.model,
+                      "image_urls": ["https://example.com/anchor.png"], "local_paths": []}))
+else:
+    # Deliberately wrong canvas and length so normalization has to fix it.
+    target = work / "provider.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi",
+                    "-i", "color=c=blue:s=640x480:r=30", "-t", "1", str(target)], check=True)
+    print(json.dumps({"ok": True, "status": "completed", "model": args.model,
+                      "local_path": str(target), "video_url": "https://example.com/v.mp4"}))
+'''
+
+
+STUB_IMAGE_RUNNER = '''"""Offline stand-in for the SenseNova image runner."""
+import argparse, json, os
+
+parser = argparse.ArgumentParser()
+parser.add_argument("command")
+for flag in ("--prompt-path", "--prompt", "--image-size", "--aspect-ratio", "--save-path",
+             "--output-format", "--response-format", "--model", "--image-format"):
+    parser.add_argument(flag)
+parser.add_argument("--no-fallback", action="store_true")
+parser.add_argument("--no-watermark", action="store_true")
+args = parser.parse_args()
+assert args.command == "sn-image-generate"
+assert args.model == "sensenova-u1.5-lite"
+assert args.no_fallback and args.no_watermark
+assert os.environ["SN_IMAGE_GEN_MODEL_TYPE"] == "sensenova"
+print(json.dumps({
+    "status": "ok",
+    "output": args.save_path,
+    "message": "Image generated successfully",
+    "model": "sensenova-u1.5-lite",
+    "operation": "generate",
+    "retry_count": 0,
+    "fallback_used": False,
+    # Exactly what the real runner reports when the endpoint answers with a URL.
+    "provider_url": "https://example.com/sense-nova-anchor.png",
+}))
+'''
+
+
+class VideoExecutionTests(ProjectFixture):
+    """Drive the whole pipeline against a stub provider: no network, no spending."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.stub = self.tmp / "fake_agnes.py"
+        self.stub.write_text(STUB_PROVIDER, encoding="utf-8")
+        self.image_stub = self.tmp / "fake_image_runner.py"
+        self.image_stub.write_text(STUB_IMAGE_RUNNER, encoding="utf-8")
+        self.work = self.tmp / "provider output"
+        self.work.mkdir()
+
+    def build(self, *, media: str = "video", name: str = "project") -> Path:
+        project = self.tmp / name
+        result = self.init("--media", media, "--lang", "en", project=project)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return project
+
+    def run_pipeline(self, project: Path, *args: str,
+                     script: Path | None = None) -> subprocess.CompletedProcess:
+        self.call_log = self.tmp / "calls.jsonl"
+        return self.run_script(script or (project / "scripts" / "agnes_video.py"),
+                               str(project), "--agnes-cli", str(self.stub),
+                               "--image-cli", str(self.image_stub), *args,
+                               env={**os.environ, "AGNES_OUTPUT_DIR": str(self.work),
+                                    "AGNES_API_KEY": "stub-key",
+                                    "STUB_CALL_LOG": str(self.call_log)})
+
+    def calls(self) -> list[dict]:
+        if not self.call_log.is_file():
+            return []
+        return [json.loads(line) for line in self.call_log.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+    def test_offline_run_normalizes_records_anchors_and_is_idempotent(self) -> None:
+        project = self.build()
+        result = self.run_pipeline(project, "--write-stills")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        # Every clip is normalized to the manifest target, not the provider's output.
+        manifest = json.loads((project / "prompts/video-manifest.json").read_text(encoding="utf-8"))
+        for record in manifest["dives"]:
+            clip = project / record["output"]
+            self.assertTrue(clip.is_file(), record["output"])
+            probe = subprocess.run(
+                ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                 "stream=width,height", "-of", "csv=p=0", str(clip)],
+                capture_output=True, text=True, encoding="utf-8", check=True)
+            self.assertEqual(probe.stdout.strip(),
+                             f"{manifest['target_width']},{manifest['target_height']}", record["output"])
+            still = project / "assets/images/scenes" / f"{record['id']}.webp"
+            self.assertTrue(still.is_file(), still.name)
+
+        state = json.loads((project / ".motion-state/video-anchors.json").read_text(encoding="utf-8"))
+        for record in manifest["dives"]:
+            entry = state["clips"][record["id"]]
+            # Anchors come from the project's SenseNova skill, never from the
+            # video provider's image model.
+            self.assertEqual(entry["anchor_url"], "https://example.com/sense-nova-anchor.png")
+            self.assertEqual(entry["anchor_model"], "sensenova-u1.5-lite")
+            self.assertTrue(entry["saved_at"], "the anchor's age decides whether it can be reused")
+
+        # The connector borrowed those anchors instead of needing hosted frames.
+        connector_call = self.calls()[-1]
+        self.assertEqual(connector_call["mode"], "keyframes")
+        self.assertIn("sense-nova-anchor.png", connector_call["extra_body"])
+        # The video provider is never asked for an image: anchors come from SenseNova.
+        self.assertNotIn("image-generate", [call.get("command") for call in self.calls()])
+        self.assertTrue(all(call.get("command") == "video-generate" for call in self.calls()))
+
+        again = self.run_pipeline(project, "--write-stills")
+        self.assertEqual(again.returncode, 0, again.stdout + again.stderr)
+        self.assertEqual(again.stdout.count("skip:"), len(manifest["dives"]) + len(manifest["connectors"]))
+
+    def test_failed_normalization_does_not_look_like_success(self) -> None:
+        project = self.build()
+        # A provider clip that cannot satisfy the target must fail loudly and leave
+        # no deliverable behind, so a rerun retries instead of skipping a stub file.
+        broken = project / "assets/video/dives/01-opening.mp4"
+        broken.parent.mkdir(parents=True, exist_ok=True)
+        broken.write_bytes(b"not a video")
+        result = self.run_pipeline(project, "--only", "01-opening")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("existing clip is invalid; regenerating", result.stdout)
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
+             "-of", "csv=p=0", str(broken)],
+            capture_output=True, text=True, encoding="utf-8", check=True)
+        self.assertEqual(probe.stdout.strip(), "1920,1080")
+
+    def test_url_only_run_uses_project_env_without_an_image_runner(self) -> None:
+        project = self.build()
+        manifest_path = project / "prompts/video-manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["dives"][0].update(anchor_mode="url", first_frame="https://example.com/anchor.png")
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        (project / ".env").write_text('AGNES_API_KEY="offline-project-key"\n', encoding="utf-8")
+        env = dict(os.environ, SN_IMAGE_BASE_DIR=str(self.tmp / "missing-image-runner"))
+        env.pop("AGNES_API_KEY", None)
+        result = self.run_script(project / "scripts/agnes_video.py", str(project),
+                                 "--agnes-cli", str(self.stub), "--only", "01-opening", env=env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("offline-project-key", result.stdout + result.stderr)
+        state = json.loads((project / ".motion-state/video-anchors.json").read_text(encoding="utf-8"))
+        self.assertIsNone(state["clips"]["01-opening"]["anchor_model"])
+
+    def test_dry_run_does_not_extract_a_missing_still(self) -> None:
+        project = self.build()
+        module = load_module(SCRIPTS / "agnes_video.py", "agnes_dry_run_module")
+        clip = project / "assets/video/dives/01-opening.mp4"
+        clip.write_bytes(b"existing clip")
+        with patch.object(module, "valid_normalized", return_value=True), \
+                patch.object(module, "write_still") as extract, \
+                patch.object(sys, "argv", ["agnes_video.py", str(project), "--dry-run",
+                                          "--write-stills", "--only", "01-opening"]):
+            self.assertEqual(module.main(), 0)
+        extract.assert_not_called()
+        self.assertFalse((project / ".motion-state").exists())
+
+    def test_missing_video_key_stops_before_image_generation(self) -> None:
+        project = self.build()
+        module = load_module(SCRIPTS / "agnes_video.py", "agnes_missing_key_module")
+        with patch.dict(os.environ, {}, clear=True), \
+                patch.object(module, "sense_nova_generate") as generate, \
+                patch.object(sys, "argv", ["agnes_video.py", str(project),
+                                          "--agnes-cli", str(self.stub),
+                                          "--image-cli", str(self.image_stub)]):
+            self.assertEqual(module.main(), 1)
+        generate.assert_not_called()
+
+    def test_image_project_has_no_video_pipeline_and_is_refused(self) -> None:
+        project = self.build(media="images", name="image project")
+        # An image project ships no video pipeline at all, and the skill's copy
+        # refuses it for the right reason.
+        self.assertFalse((project / "scripts/agnes_video.py").exists())
+        result = self.run_pipeline(project, script=SCRIPTS / "agnes_video.py")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("video mode needs a manifest", result.stdout)
+
+
+class ProviderBoundaryTests(ProjectFixture):
+    def setUp(self) -> None:
+        super().setUp()
+        self.module = load_module(SCRIPTS / "agnes_video.py", "agnes_provider_boundary")
+
+    def test_repository_image_runner_is_discovered_and_explicit_path_wins(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            expected = REPO_ROOT / "skills/sn-image-base/scripts/sn_agent_runner.py"
+            self.assertEqual(self.module.image_cli(None), expected)
+            supplied = self.tmp / "runner.py"
+            supplied.write_text("# test runner", encoding="utf-8")
+            self.assertEqual(self.module.image_cli(str(supplied)), supplied)
+
+    def test_project_env_is_scoped_literal_and_process_values_win(self) -> None:
+        (self.tmp / ".env").write_text(
+            'AGNES_API_KEY="file-secret"\nSENSENOVA_API_KEY="${LITERAL_SECRET}"\n'
+            'AGNES_BASE_URL=https://example.com/v1\nPATH=untrusted\n', encoding="utf-8")
+        with patch.dict(os.environ, {"AGNES_API_KEY": "process-secret", "PATH": "original"}, clear=True):
+            self.module.load_project_env(self.tmp)
+            self.assertEqual(os.environ["AGNES_API_KEY"], "process-secret")
+            self.assertEqual(os.environ["SENSENOVA_API_KEY"], "${LITERAL_SECRET}")
+            self.assertEqual(os.environ["AGNES_BASE_URL"], "https://example.com/v1")
+            self.assertEqual(os.environ["PATH"], "original")
+
+    def test_agnes_image_commands_are_rejected_before_subprocess(self) -> None:
+        with patch.object(self.module.subprocess, "run") as run:
+            with self.assertRaisesRegex(self.module.PipelineError, "video-only"):
+                self.module.run_agnes(Path("unused.py"), ["image-generate"], self.tmp)
+        run.assert_not_called()
+
+    def test_sensenova_backend_is_pinned_and_wrong_results_are_refused(self) -> None:
+        payload = {"status": "ok", "model": "sensenova-u1.5-lite", "fallback_used": False,
+                   "provider_url": "https://example.com/anchor.png"}
+        def generate():
+            return self.module.sense_nova_generate(
+                Path("runner.py"), prompt_path=self.tmp / "prompt.txt", size="4k", ratio="16:9",
+                save_path=self.tmp / "anchor.png")
+        with patch.dict(os.environ, {"SN_IMAGE_GEN_MODEL_TYPE": "openai-image"}), \
+                patch.object(self.module.subprocess, "run", return_value=subprocess.CompletedProcess(
+                    [], 0, json.dumps(payload), "")) as run:
+            self.assertEqual(generate(), payload["provider_url"])
+            self.assertEqual(run.call_args.kwargs["env"]["SN_IMAGE_GEN_MODEL_TYPE"], "sensenova")
+            command = run.call_args.args[0]
+            self.assertEqual(command[command.index("--model") + 1], "sensenova-u1.5-lite")
+            self.assertIn("--no-fallback", command)
+        for change in ({"model": "other-model"}, {"fallback_used": True}, {"status": "failed"},
+                       {"provider_url": ""}):
+            with self.subTest(change=change), patch.object(
+                    self.module.subprocess, "run", return_value=subprocess.CompletedProcess(
+                        [], 0, json.dumps({**payload, **change}), "")):
+                with self.assertRaises(self.module.PipelineError):
+                    generate()
+
+    def test_4k_master_and_web_delivery_have_independent_dimensions(self) -> None:
+        from PIL import Image
+
+        project = self.tmp / "images"
+        self.assertEqual(self.init("--media", "images", project=project).returncode, 0)
+        master = project / "assets/images/scenes/01-opening.png"
+        make_still(master, size=(4096, 2304))
+        original = master.read_bytes()
+        for args, expected in (((), (2560, 1440)), (("--max-width", "4096"), (4096, 2304))):
+            result = self.run_script(project / "scripts/make_posters.py", str(project), *args)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            with Image.open(master.with_suffix(".webp")) as image:
+                self.assertEqual(image.size, expected)
+            self.assertEqual(master.read_bytes(), original)
 
 
 class RepositoryScopeTests(unittest.TestCase):

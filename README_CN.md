@@ -15,7 +15,7 @@
 | [`sn-infographic`](skills/sn-infographic/SKILL.md) | 87 种布局、66 种风格、提示词扩写、用户限定的 1–15 轮生成、视觉评审、按问题选择编辑或重新生成，以及质量排序 |
 | [`sn-image-imitate`](skills/sn-image-imitate/SKILL.md) | 参考图解析、内容改写、U1.5 原生仿制、一致性评审与多轮排序 |
 | [`sn-image-resume`](skills/sn-image-resume/SKILL.md) | 事实不虚构、正文优先/作品集双版式、生成后编辑纠错的可视化简历 |
-| [`sn-motion-html`](skills/sn-motion-html/SKILL.md) | 滚动推进的图片故事网页：章节结构、单一固定媒体舞台、风格一致静帧、网页压缩图、响应式布局，由同一份故事数据导出的 Markdown／HTML 分镜稿，以及按需使用 Agnes Video 2.5 Flash 生成的滚动驱动视频片段；展示海报由 `sn-infographic` 承接 |
+| [`sn-motion-html`](skills/sn-motion-html/SKILL.md) | 滚动推进的图片故事网页：章节结构、单一固定媒体舞台、风格一致静帧、网页压缩图、响应式布局，由同一份故事数据导出的 Markdown／HTML 分镜稿，以及按需使用 Agnes video 生成的高清滚动驱动视频片段（默认 v2.0，需要参考图时用 2.5 Flash）；展示海报由 `sn-infographic` 承接 |
 
 完整的信息图中英文案例库仍保留：[中文](docs/sn-infographic-examples_CN.md) / [English](docs/sn-infographic-examples.md)。滚动故事网页与分镜稿的完整说明见 [Motion HTML 故事网页指南](docs/sn-motion-html_CN.md)。
 

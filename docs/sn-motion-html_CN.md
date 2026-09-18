@@ -149,23 +149,27 @@ scripts/                 项目自带的校验、压缩、分镜、联系表和�
 - **页面完全没有动效。** 系统关闭了动画（Windows 的「在 Windows 中显示动画」等）时浏览器会上报 `prefers-reduced-motion: reduce`，技能会据此关闭图片缩放——这是正确行为，不是故障。审阅时可在地址后加 `?motion=full` 强制完整动效，加 `?motion=reduce` 强制减弱；不带参数时始终以系统偏好为准。
 - **淡化太快或太慢、缩放幅度不合适。** 用 `meta.crossfade`（单位：视口高度，图片模式默认 0.8）和 `meta.drift`（单章缩放幅度，图片模式默认 0.16）调整。
 
-## 视频片段（Agnes Video 2.5 Flash）
+## 视频片段（Agnes video）
 
-仅在明确要求时使用。片段由 Agnes Video 2.5 Flash 生成，经由兄弟技能 `agnes-media` 自带的 CLI，由 `scripts/agnes_video.py` 驱动。请求契约、约束与实测表现见 [references/agnes-video.md](../skills/sn-motion-html/references/agnes-video.md)，流程见 [references/workflow.md](../skills/sn-motion-html/references/workflow.md) 第 10 节。
+仅在明确要求时使用。片段由 Agnes video 生成，经由兄弟技能 `agnes-media` 自带的 CLI，由 `scripts/agnes_video.py` 驱动。默认模型是 `agnes-video-v2.0`，输出高清片段（默认 `1080p`，交付目标 1920×1080）；`agnes-video-2.5-flash` 是备选，用于需要参考图或只能锚定尾帧的场合，它上限为 720P。请求契约、约束与实测表现见 [references/agnes-video.md](../skills/sn-motion-html/references/agnes-video.md)，流程见 [references/workflow.md](../skills/sn-motion-html/references/workflow.md) 第 10 节。
 
 ```bash
 # 只打印将要发起的调用，不消耗任何额度
 "<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/agnes_video.py" "<absolute PROJECT_ROOT>" --dry-run
 
 # 生成、归一化，并把每个片段的首帧写成页面静帧
-"<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/agnes_video.py" "<absolute PROJECT_ROOT>" --write-stills
+"<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/agnes_video.py" "<absolute PROJECT_ROOT>" \
+  --image-cli "<absolute BASE_SKILL_DIR>/scripts/sn_agent_runner.py" \
+  --agnes-cli "<absolute AGNES_SKILL_DIR>/scripts/agnes_media.py" --write-stills
 ```
 
-前置条件：环境中要有 `AGNES_API_KEY`，`AGNES_SKILL_DIR` 指向 Agnes 媒体技能，以及用于归一化和校验的 FFmpeg 与 ffprobe。图片故事完全不需要这些。
+前置条件：进程环境或项目被忽略的 `.env` 中配置 `AGNES_API_KEY`，准备 FFmpeg、ffprobe，并传入上面的客户端绝对路径（或配置 `AGNES_SKILL_DIR`、`SN_IMAGE_BASE_DIR`）。流水线只从项目 `.env` 读取相关提供方设置，进程变量优先，不展开变量或执行脚本；`python-dotenv` 已包含在 SenseNova 运行时依赖中。生成锚图还需要 SenseNova 凭据。纯图片项目无需 Agnes 或视频工具。PowerShell 中在引号包围的 Python 路径前加 `&`。
 
 要片段之前，有两点值得先知道：
 
-- **Flash 不接受本地素材。** 首帧、尾帧、参考图都必须是公网 HTTPS URL，因此每个片段要声明用哪种方式取得：由 Agnes 生成（`generate`）、由你发布（`url`）、或完全按提示词组句（`text`）。本技能绝不会自行把你的图片发布到任何主机。
-- **提供方输出不是成品。** 实测请求 4 秒 720P，返回的是 1280×704、4.46 秒，所以流水线一律本地归一化；随后 `verify_media.py` 要求严格等于清单声明的尺寸、帧率与时长。
+- **图片生成、编辑、修复、增强和合成都使用 SenseNova，Agnes 只生成视频。** 每个片段必须显式选择 `generate`（SenseNova 生成锚图）、`reference`（显式参考图或相邻章节锚图）、`url`（已托管的首末帧）。缺失模式和 `text` 均会被拒绝。自动锚图路径固定使用 SenseNova 后端及 U1.5 模型，并禁用回退。本技能不会自行公开发布你的图片。
+- **提供方输出不是成品。** 实测请求 1920×1080 返回 1920×1088，请求 720P 返回 1280×704 且时长 4.46 秒，所以流水线一律本地归一化；随后 `verify_media.py` 要求严格等于清单声明的尺寸、帧率与时长。
 
-章节之间的过渡片段以相邻片段的边界帧为锚点，而边界帧是本地抽帧，因此锚定过渡片段需要你把帧发布到公网。在你提供之前，过渡片段用 `text` 模式，或把该接缝声明为可接受的硬切。
+过渡片段可借用两章的公开锚图 URL；v2.0 将其作为首末关键帧。它们不一定等于上一段视频的实际尾帧，因此需要目视检查接缝。URL 缺失会阻止生成；若已接受硬切，可在故事的连接项写 `null`，并从生成清单中移除对应连接片段。
+
+图片模式保留 SenseNova 4K PNG 母版，默认压缩为 2560px WebP；要求网页本身加载 4K 时使用 `make_posters.py --max-width 4096`，并核验浏览器实际加载尺寸。视频模式的 `--write-stills` 则按视频交付尺寸抽取静帧，通常为 1080p。本地压缩、保存和视频抽帧不调用图片模型。

@@ -22,7 +22,7 @@ This phase delivers three things, in this order of priority:
 | Image story page, default | A responsive, previewable story with real stills and complete copy | The project template in this skill |
 | Storyboard | The same shots in reading order with stills, copy, and shot direction, as Markdown and as a static HTML document | `scripts/export_storyboard.py` |
 | Display poster, on request | A composed image with its own theme, main visual, and a few key facts | The infographic workflow (`sn-infographic`), given a brief derived from the story |
-| Video clips, on request | Scroll-scrubbed scene clips, and optionally transitions between chapters | `scripts/agnes_video.py`, with Agnes Video 2.5 Flash |
+| Video clips, on request | Scroll-scrubbed scene clips, and optionally transitions between chapters | `scripts/agnes_video.py`, with Agnes video (v2.0 by default) |
 
 Generate only what was asked for. Do not add a poster or extra stills to a delivery that did not request them.
 
@@ -32,7 +32,7 @@ Resolve `MOTION_SKILL_DIR` as the absolute directory containing this `SKILL.md`.
 
 Use absolute paths regardless of the current working directory, and never assume the host inherited a previously activated shell environment. On PowerShell, invoke a quoted executable path with the call operator (`& "<absolute PYTHON path>" ...`); on POSIX shells, execute the quoted path directly. These are logical path names, not environment variables; never ask the user to configure them.
 
-New scene images reuse the existing SenseNova runtime through `RUNNER`; do not introduce a second image client. Credentials follow the `sn-image-base` contract: `SENSENOVA_API_KEY`, capability-specific overrides, and `SN_ENV_FILE`.
+All image generation, editing, repair, enhancement, and compositing use the SenseNova backend through `RUNNER`. Set `SN_IMAGE_GEN_MODEL_TYPE=sensenova` for these calls and explicitly select `sensenova-u1.5-lite`; use `--no-fallback` when resolution or anchor identity must be preserved. Agnes is used only for video generation. Local file copying, lossless saving, WebP compression, video encoding, and frame extraction remain deterministic project-tool operations. Credentials follow the `sn-image-base` contract: `SENSENOVA_API_KEY`, capability-specific overrides, and `SN_ENV_FILE`.
 
 ## What an image story needs
 
@@ -59,7 +59,7 @@ Read [references/workflow.md](references/workflow.md) for the full sequence, and
 - [references/prompting.md](references/prompting.md) when generating stills or recording shot direction.
 - [references/style-presets.md](references/style-presets.md) when choosing or adapting a visual preset.
 - [references/frontend.md](references/frontend.md) before selecting or adapting the interface treatment or the storyboard layout.
-- [references/seedance.md](references/seedance.md) only if a later phase actually reopens the video path; it is a frozen reference, not current capability.
+- [references/agnes-video.md](references/agnes-video.md) before producing video clips. [references/seedance.md](references/seedance.md) is historical only and is not an executable route for this workflow.
 
 ## Start from the template
 
@@ -89,10 +89,11 @@ From the initialized project, the common commands are:
 - Keep narrative data in `content/story.json`; never hardcode chapter copy into the runtime. The page and the storyboard are both generated from it, so it stays the single source of truth.
 - Keep one complete, static, transparent copy block per chapter, visible together. Do not rotate paragraphs within a scene.
 - Maintain a single style preamble and immutable identity blocks for recurring subjects.
-- The page must not request video, probe `ffprobe`, or load a clip. Prove it from the network panel and the CLI checks, not from inspection alone.
+- An **image** project must not request video, probe `ffprobe`, or load a clip. A video project loads only its own clips. Prove it from the network panel and the CLI checks, not from inspection alone.
 - Use project-relative media paths. Reject absolute paths, drive-letter paths, and `..` escapes; after resolving symlinks the path must still be inside the allowed directory. Import user-supplied images as project assets first so the delivered page never depends on the user's machine layout.
 - Copy articles have no solid card fill. Use edge-free localized gradients, text shadow, or fine rules for contrast.
 - Keep stills and their compressed web images separate; compression must never overwrite the lossless original.
+- Distinguish 4K masters from page assets: the default compression width is 2560; use `make_posters.py --max-width 4096` when the page itself must serve 4K. Verify the browser-loaded dimensions, not only the master.
 - Never hand-edit an export. `exports/storyboard.md` and `exports/storyboard.html` are generated; edit the story data and export again.
 - Keep editable story JSON in the project. Keep assembled prompts, analysis drafts, rejected candidates, and temporary frames in a per-task directory under the system temporary directory, and clean them up after delivery.
 - Never print secrets or embed them in frontend files. Use a project-local `.env` excluded from version control, and make sure a static server cannot expose it.
@@ -117,15 +118,14 @@ Before delivery:
 5. Inspect a labeled contact sheet. Prioritize correct identities, key objects, and scene meaning over incidental generative detail. Check for baked-in watermarks, brand marks, and stray text, because those live in the pixels and no stylesheet can remove them.
 6. Report the preview URL, the project path, which deliverables exist, the media directories, the model configuration, the check results, and any remaining external blocker.
 
-## Video clips (Agnes Video 2.5 Flash)
+## Video clips (Agnes video)
 
-On request only. The selected model is Agnes Video 2.5 Flash; its request contract, constraints, and measured behaviour are in [references/agnes-video.md](references/agnes-video.md), and the workflow is section 10 of [references/workflow.md](references/workflow.md).
+On request only. The default model is Agnes Video v2.0, which renders high-definition clips; Agnes Video 2.5 Flash is the alternative when reference images or a last-frame anchor are needed, since it is capped at 720P. Both contracts, their constraints, and the measured behaviour are in [references/agnes-video.md](references/agnes-video.md), and the workflow is section 10 of [references/workflow.md](references/workflow.md).
 
 `scripts/agnes_video.py` is the executor: it reads `prompts/video-manifest.json`, resolves each clip's anchor, calls the Agnes CLI, and normalizes every downloaded clip with FFmpeg so `verify_media.py` passes. Run it with `--dry-run` first to see every call before spending anything. The script does not author content — clip prompts and anchor prompts are written into the project first, which is where the reasoning belongs.
 
-The constraint that shapes the whole design: **Flash takes no local media, so every frame or reference it receives must be a public HTTPS URL.** A project's own stills are not, so each clip declares an `anchor_mode` — `generate` (create the anchor through Agnes and use its own public URL, the default for a dive), `reference` (public images that guide the clip; a connector borrows the two chapters' recorded anchors, which needs no host), `url` (public URLs the user controls, to pin a boundary exactly), or `text` (no media, composed from the prompt). Never publish a user's images to a host without asking.
+Image work stays with SenseNova. Every video clip must explicitly declare `anchor_mode`: `generate` (SenseNova generates an anchor and returns its public HTTPS URL), `reference` (supplied URLs or the neighbouring chapters' recorded anchors), or `url` (explicit first/last frame URLs). The template selects `generate` for dives and `reference` for connectors. Missing modes and `text` are rejected before generation. If an anchor URL is unavailable, report the failure rather than submitting unanchored video. Never publish a user's images to a host without asking.
 
 A dive that ran records the anchor URL it started from in `.motion-state/video-anchors.json`, and that is what its neighbouring connectors reference.
 
 An image story and its storyboard remain complete without any of this, and the image path must never depend on video tooling, credentials, or the Agnes skill. Never describe a project as having generated motion unless the clips exist and are in the project.
-

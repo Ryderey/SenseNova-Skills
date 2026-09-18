@@ -21,7 +21,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("project_root", type=Path)
     parser.add_argument("--quality", type=int, default=84, help="WebP quality, 1-100")
-    parser.add_argument("--max-width", type=int, default=1800, help="downscale wider masters to this width")
+    parser.add_argument("--max-width", type=int, default=2560,
+        help="downscale wider masters to this width; the stage is full-viewport, so the "
+             "web image has to cover at least a 1080p screen",
+    )
     args = parser.parse_args()
 
     if not 1 <= args.quality <= 100:
@@ -46,13 +49,16 @@ def main() -> int:
 
     print("Compressing scene masters into web images (same pictures, smaller files).")
     failures: list[str] = []
+    scene_root = scenes.resolve()
+    input_masters = {source.resolve() for source in inputs}
     for source in inputs:
         target = source.with_suffix(".webp")
-        if target.resolve() == source.resolve():
+        resolved_target = target.resolve()
+        if resolved_target == source.resolve() or resolved_target in input_masters:
             failures.append(f"{source.name}: refusing to overwrite a master")
             continue
         try:
-            target.relative_to(scenes.resolve())
+            resolved_target.relative_to(scene_root)
         except ValueError:
             failures.append(f"{source.name}: the web image would land outside the scene directory")
             continue
