@@ -2,63 +2,56 @@
 
 The default deliverable is an image story. Export its storyboard when requested, and produce a display poster only when requested. The image route needs no video tooling, video credentials, or public image host; section 10 adds the optional video route.
 
-## 1. Frame the experience
+## 0. Establish the task and mode
 
-Record these decisions in `docs/production-spec.md`:
+Read the user's requirements, existing project files, supplied images, and any production records before making a plan. Record the following in `docs/production-spec.md` when a project is being created or materially revised:
 
-- purpose and audience;
-- factual, adapted, or fictional treatment;
+- purpose, audience, language, device targets, and chapter scale;
+- factual, adapted, or fictional treatment, with source notes kept separate from display copy;
 - chronological, thematic, geographic, or process-based structure;
-- chapter count and approximate reading density;
-- visual medium, palette, lighting, camera grammar, and prohibited elements;
-- recurring characters/products and required identity fidelity;
-- desktop/mobile targets, interface treatment, copy positions, and language;
-- available images, required new stills, and any explicit user decisions;
-- generation model, budget authority, and attempt limits when new stills are needed.
+- visual medium, palette, lighting, camera grammar, prohibited elements, and recurring identities;
+- available images, required new stills, generation model, budget authority, and attempt limits;
+- interaction mode: `collaborative` by default, or `direct-completion` when the user explicitly delegates the remaining creative decisions or says not to wait.
 
-Preserve the continuous-stage skeleton: one fixed media stage and one ordered route. Decide how header, navigation, typography, and copy placement express the subject without covering scene focal points. Treat these as proposals until the review package in section 4 is accepted.
+Preserve the continuous-stage skeleton: one fixed media stage and one ordered route. Use the user's already-stated decisions as decisions, not questions. When resuming, trust actual files and records only after checking that the referenced files still exist.
 
-## 2. Research and outline
+## 1. Draft the story and confirmation A
 
-For factual work, use primary or authoritative sources. Separate research notes from the concise display copy. Build:
+For factual work, use primary or authoritative sources. For adapted or fictional work, state the major adaptation choices, especially the ending when multiple versions exist. Build a chapter sequence with one dominant visual event per chapter and stable, filename-safe IDs. Each chapter needs the actual display copy, a navigation label, title, optional subtitle, tags, expected still path, and, when useful, a `shot` block (`intent`, `framing`, `motionNote`). See [schemas.md](schemas.md).
 
-1. a source-backed event or concept list;
-2. a chapter sequence with one dominant visual event per chapter;
-3. a source appendix rather than inline citations unless requested.
+Write the intended copy to `content/story.json` as early as possible. During drafting, a still may point to an expected path that does not exist yet; use `verify_media.py --allow-missing` only for offline assembly checks. Do not create placeholder images, run the formal storyboard export, or generate new stills to make an incomplete draft look finished.
 
-Each chapter needs a stable ID, a short navigation label, eyebrow, title, optional subtitle, two or three compact paragraphs, tags, and its still. When the plan is worth stating per chapter, add the optional `shot` block (`intent`, `framing`, `motionNote`); see [schemas.md](schemas.md). It is optional, and a story without it exports a complete storyboard.
+In collaborative mode, show:
 
-## 3. Establish visual continuity
+1. a short proposal covering audience, adaptation, ending, chapter count, visual direction, and recurring identities;
+2. every chapter's actual text and dominant visual event, with current display number and stable ID available for internal mapping;
+3. the still plan, expected image count, and the next representative scenes to be generated.
 
-Create a single style preamble with medium, palette, materials, camera, light, composition, and negative constraints. For every recurring identity, create an immutable block describing face or form, silhouette, colors, clothing or packaging, the signature object, and the allowed changes.
+Ask one focused question: accept this draft and direction, or name the chapter and change. This is confirmation A. A progress message, a file write, silence, timeout, or a question about status is not confirmation. If the user edits the draft, revise only the affected proposal and show it again without generating new images.
 
-## 4. Present the review package
+Explicit final copy or a direct-completion instruction can cover A. A complete supplied image set covers only the image-production stages; if the user has not also supplied final copy/order or explicitly delegated the remaining creative decisions, still wait for A. Do not ask the user to re-confirm a decision already made; record whether it was accepted, explicitly delegated, or merely proposed.
 
-Present the visual direction and the chapter arrangement together, and record the user's decisions. When the user already specified these, present the package as a confirmation rather than a fresh question. If the user requests changes, revise the affected proposal and present it again.
+## 2. Generate representative stills and confirmation B
 
-The package contains:
+Check that the image-generation capability is available before submitting. Use supplied images directly when they meet the requirement. A complete usable image set plus explicit final copy can cover the image stages with zero new image-model calls. Otherwise generate only the smallest useful consistency gate: usually one image for a simple story, or two or three when characters, settings, or emotional range create separate risks. Choose scenes that test identity, composition, and the most important visual decision; do not mechanically pad the set to opening/middle/ending.
 
-1. the style preamble and identity blocks;
-2. the chapter sequence: display copy, dominant visual event, and copy position per chapter;
-3. when new stills are needed, a small consistency gate (normally opening, middle, and ending) for the user to inspect.
+Display the actual image files, their chapter numbers, and a few concrete checks. The accepted representative stills become the final assets; never generate a preview set and then regenerate the same scenes unconditionally. In collaborative mode, ask one focused question: keep this visual direction and continue, or name the visual change. This is confirmation B. A request such as “change the coat, then continue” authorizes that explicit change and continuation; a new open-ended visual choice requires another focused confirmation for the affected scope.
 
-Record the authorized model budget and attempt limit before generation; reuse decisions the user already made. A free-only request requires evidence that the selected account and operation are free or covered by a free quota. If that cannot be verified, complete offline preparation and report the blocker before submitting. A successful response or a dry run does not prove zero cost.
+Direct-completion mode still shows the draft summary and representative images, but continues after the Agent's checks without manufacturing a wait. When existing images or an already accepted visual baseline are sufficient, skip new sample generation and record why.
 
-## 5. Build the image set
+Record the authorized model budget and attempt limit before generation. A free-only request requires evidence that the selected account and operation are free or covered by a free quota. If that cannot be verified, complete offline preparation and report the blocker before submitting. A successful response or dry run does not prove zero cost.
 
-Use supplied images directly when they meet the requirement. When new stills are needed:
+## 3. Complete the still set and show the overview
 
-1. Confirm an image-generation capability is available in the current environment; it may be a callable tool, an installed skill that provides the image workflow, or both. In this repository that capability is `sn-image-base`.
-2. Complete the still set only after the direction is accepted, treating the accepted gate images as the consistency baseline.
-3. Prefer editing from the reference images for recurring subjects. Keep key subjects inside the safe central crop, and keep text, logos, and watermarks out unless explicitly required.
-4. Put the copy in HTML, not in the pixels: body text, buttons, and source labels belong to the page, so they stay editable and translatable.
-5. Generate stills with SenseNova at `--image-size 4k --model sensenova-u1.5-lite --no-fallback --image-format png` (see [prompting.md](prompting.md)) and preserve the PNG masters under `assets/images/scenes/`. Run `scripts/make_posters.py` for 2560-wide web images, or pass `--max-width 4096` when 4K page assets are required. Neither setting increases source detail. Record master dimensions, delivered web dimensions, compression settings, accepted variants, and visual checks in `docs/image-qa.md`.
+Complete only the missing stills after A and B are accepted or explicitly delegated. Keep accepted samples, prefer editing from accepted references for recurring subjects, and keep key subjects inside the safe central crop. Put copy in HTML, not in pixels. Generate with SenseNova at `--image-size 4k --model sensenova-u1.5-lite --no-fallback --image-format png`; preserve PNG masters under `assets/images/scenes/`. Run `scripts/make_posters.py` only when PNG masters exist and their WebP page copies need to be created or refreshed. If the project already uses WebP assets without PNG masters, skip compression. When compression is needed, reuse the recorded `--max-width` (for example, `4096`) instead of silently applying the default and overwriting an established page width. Record master dimensions, delivered web dimensions, parameters, references, accepted variants, and visual checks in `docs/image-qa.md`.
 
-Report the number of new stills and the correction rounds before starting a batch. Keep intermediates — assembled prompts, analysis drafts, rejected candidates — in a per-task directory under the system temporary directory, and clean them up after delivery.
+Before a batch, report the number of new stills and correction rounds. Keep assembled prompts, analysis drafts, rejected candidates, and temporary frames in a per-task system-temporary directory. Once a candidate is adopted, retain its full prompt and generation basis in the production record; clean rejected experiments after replacement is verified.
 
-## 6. Assemble the site
+When every still exists, generate and display the labeled full contact sheet. It is a required overview artifact, but it is not a third forced confirmation by default. If the user explicitly asks to inspect all images before assembly, mark the workflow as waiting for that request and do not continue until it is answered.
 
-Use `content/story.json` as the source of truth and stack one ordered scene per chapter inside one fixed stage. Select a UI treatment from [frontend.md](frontend.md) or customize it: header geometry, copy material, type hierarchy, navigation, and per-scene copy position may all change, while the single continuous media stage stays.
+## 4. Assemble, verify, and deliver
+
+Use `content/story.json` as the only story source of truth and stack one ordered scene per chapter inside one fixed stage. Select a UI treatment from [frontend.md](frontend.md) or customize it while preserving the continuous media stage. Compress without overwriting masters.
 
 Run the project checks from the initialized project:
 
@@ -68,21 +61,57 @@ Run the project checks from the initialized project:
 "<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/serve_project.py" "<absolute PROJECT_ROOT>" --port 8080
 ```
 
-## 7. Export the storyboard
+Run `make_posters.py` separately only when PNG masters need WebP creation or refresh, and pass the width already recorded for the project, such as `--max-width 4096`. Skip it for WebP-only projects or when the current WebP copies are already valid; media validation does not require PNG masters.
 
-Export whenever the user wants the whole story reviewed at once, or wants an artifact they can annotate, print, or hand to someone who is not going to scroll a page:
+Export whenever the user wants the whole story reviewed at once, or wants an artifact to annotate or print:
 
 ```bash
 "<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/export_storyboard.py" "<absolute PROJECT_ROOT>"
 ```
 
-This writes `exports/storyboard.md` and `exports/storyboard.html` from the same story data the page reads. Both list every shot in chapter order with its still, copy, tags, and declared shot direction, so the two can never drift apart.
+The export requires every declared still to exist. Re-export after every content change; never hand-edit it. A draft marked "待配图" is a review artifact, not an `exports/` deliverable.
 
-- Re-export after every content change; never hand-edit an export, and tell the user that `content/story.json` is the editing entry point.
-- The export requires every declared still to exist, so run it after the image set is complete rather than around missing files. A draft marked "待配图" is an internal review step, not an `exports/` deliverable.
-- The static HTML is itself a readable page: a user who only wants a storyboard never has to build or scroll the story page. Only that HTML is served by the preview; the Markdown stays in the project.
+Before delivery, validate JSON, JavaScript, shell, and Python syntax; inspect the labeled overview; and use a fresh browser session at desktop, tablet, and phone widths with forward/reverse progress, navigation, missing-media fallback, reduced motion, and no copy overflow. Hand off the project path, preview URL, media locations, actual media mode, visible stage artifacts, deliverables, checks, and the current production state.
 
-## 8. Optional display poster
+## 5. Production records and review artifacts
+
+`docs/production-spec.md` is a compact human/Agent record, not a second story database. Keep a current state block with:
+
+- interaction mode and its evidence;
+- current stage (`story-draft`, `representative-stills`, `complete-stills`, `assembly`, `delivered`, or `local-revision`);
+- revision number, waiting point, next action, chapter IDs involved;
+- new-still plan: total, adopted, remaining, and extra identity images;
+- generation limits and the location of the authorization record.
+
+Also record the current display-number-to-stable-ID mapping and distinguish `user accepted`, `user delegated`, `Agent checked`, and `unreviewed`. `docs/image-qa.md` records accepted image sources, model/parameters, reference paths, and checks without inventing provider fields. An optional `docs/review/story-draft.md` is a read-only review copy derived from `story.json`; edit `story.json` first. Do not put workflow state in the frontend runtime.
+
+## 6. Resume and local revision
+
+When resuming, read the state block, the relevant story chapters, image QA, and actual files before continuing. A generated but not-yet-shown representative still is shown first rather than regenerated. A missing file invalidates the stale record and is reported; it does not silently trigger a full restart. An old project without a state block gets the minimum record needed for the current task, never a fabricated acceptance.
+
+For a local revision, map the user's current display number or title to the stable chapter ID. State the affected scope in one sentence, retain unrelated accepted assets, update the source artifact first, then regenerate only required derivatives: WebP, contact sheet, and storyboard when applicable. A clear request to fix copy or replace one image is authorization for that scope and does not restart the two confirmation points. Reconfirm only when the change introduces a new creative choice, such as an open-ended scene change or a global visual direction.
+
+## 7. Change matrix
+
+| User change | Update | Usually retain | Confirmation |
+|---|---|---|---|
+| Typo, shorter copy, same event | Chapter copy, exports, browser check | Images, identities, style, other chapters | Direct when explicitly requested |
+| Chapter event or key object | Copy, shot, image and affected follow-on scenes | Unrelated chapters | Confirm only the new choice |
+| One image's expression, composition, or detail | That image, its basis, WebP, overview, relevant export | Other accepted images and copy | Direct when clear |
+| Recurring character appearance | Identity record and every affected image | Images without that identity | Show affected chapter IDs and follow scope |
+| Global visual style | Style basis, representative samples, affected stills | Accepted copy and chapter structure | New visual confirmation |
+| Reorder/add/remove chapters | Order, number mapping, affected transitions, assets, exports | Stable IDs that still apply | Show changed structure/copy |
+| Layout or responsive issue | Layout, copy position/crop, browser check | Story meaning and usable images | Direct when clear; replace images only if necessary |
+
+Do not claim that a local change touches one file when real dependencies extend further. Conversely, do not regenerate unrelated scenes merely to make them look consistent. `make_posters.py` may recompress the whole PNG directory deterministically; that is not a reason for new image-model calls.
+
+## 8. Cost and waiting discipline
+
+Two confirmations add a little text and waiting cost but expose story and visual errors before the most expensive work. Do not promise a fixed token or image-cost saving. If usage is available, record text input/output, image calls, local processing time, user replies, and total wait separately. Word count is not token usage, and image cost is not text cost.
+
+Keep the first review complete, show only changed chapters for local revisions, reuse accepted references, and do not generate unrequested character boards, posters, videos, or alternate full style sets. Host rules may require a different wait behavior; preserve visible stage artifacts and report the deviation honestly.
+
+## 8.1 Optional display poster
 
 Only when the user asks for a poster as a separate deliverable. It is a designed image with its own title, key information, and dimensions — not a resized still. `scripts/make_posters.py` produces compressed web images and is never the poster path.
 

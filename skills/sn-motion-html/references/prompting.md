@@ -18,10 +18,10 @@ Still generation and image editing use the existing SenseNova runtime. Set the c
 
 - Generate stills at `--image-size 4k` by default: the page shows them full-viewport, where a 2K master looks soft on a 1080p or larger screen. 4K costs more per image (measured: 56s against 31-34s for 2K) and yields a roughly 14 MB master, so drop to `2k` only for a draft pass. The master never ships: the page loads the compressed web image beside it.
 - Prefer `--prompt-path` over `--prompt` for anything long or multilingual, so shell quoting cannot alter the text.
-- Keep the assembled prompt file in the per-task system temporary directory, not in the project.
+- Keep candidate assembled prompt files in the per-task system temporary directory, not in the project. For every adopted generated still, retain the full prompt, model/parameter response, reference paths, and accepted-candidate path in `docs/image-qa.md` or `docs/production-spec.md`; clean rejected experiments after the replacement is verified.
 - Use native editing (`sn-image-edit`) with a reference image for recurring subjects rather than re-describing them from scratch; editing never falls back to a model without image input.
 - Record the model actually used, whether a fallback occurred, and which candidate was accepted. After a fallback, re-check style consistency instead of assuming it held.
-- A required 4K delivery uses `--no-fallback`: the Fast model's smaller bucket does not satisfy that requirement. Preserve the PNG master, run `make_posters.py` for the intended web width (2560 by default, `--max-width 4096` for 4K), and verify the browser's loaded image dimensions and visible detail.
+- A required 4K delivery uses `--no-fallback`: the Fast model's smaller bucket does not satisfy that requirement. Preserve the PNG master; when its WebP page copy must be created or refreshed, run `make_posters.py` with the project's recorded web width (2560 for a new default asset, `--max-width 4096` for an established 4K asset). Skip the command for valid WebP-only projects, and verify the browser's loaded image dimensions and visible detail.
 
 ## Text belongs to the page
 
@@ -55,7 +55,7 @@ For every recurring person, creature, product, or vehicle, lock:
 - allowed scene-specific wear or state changes;
 - features that must never change.
 
-Generate a neutral reference sheet before narrative scenes. In scene prompts, name only the references that actually appear; too many unrelated references dilute identity control.
+Generate a neutral reference sheet only when the story has a real identity-control risk that the supplied images or accepted representative stills cannot cover. Explain its purpose and count it in the new-image plan. In scene prompts, name only the references that actually appear; too many unrelated references dilute identity control. An accepted representative still is a final asset and should be reused rather than regenerated as a separate preview.
 
 ## Scene still
 

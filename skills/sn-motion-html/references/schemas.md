@@ -61,13 +61,21 @@ Requirements:
 - `clip` is required in video mode, and is absent or ignored in image mode.
 - In video mode, `connectors.length` is `chapters.length - 1`. Use `null`, or omit a connector the user explicitly accepted as a visible cut.
 
+### Drafts, stable IDs, and review state
+
+During the story-draft stage, `still` may name the expected project-relative image path before that file exists. This keeps the final story shape and chapter-to-asset mapping visible without inventing a placeholder. `verify_media.py --allow-missing` may be used for assembly checks at this stage only; formal media validation and `export_storyboard.py` remain strict and require every declared still to exist.
+
+The displayed chapter number comes from the current array order. The chapter `id` is the stable identity used for production records, prompts, image files, and local revisions, and must not be renamed just because chapters are reordered. A user's “chapter 3” therefore maps to the third current chapter first, then to its stable ID before any file is changed.
+
+Workflow state, confirmation decisions, revision numbers, authorization notes, and accepted-image provenance belong in the human-readable `docs/production-spec.md` and `docs/image-qa.md` records when those files exist. They are not part of the frontend runtime contract and do not require a second state JSON. A long-story review copy may be saved as `docs/review/story-draft.md`, but it is a read-only derivative of `content/story.json`, never a second editing source.
+
 ### Path rules
 
 Media paths are project-relative. Reject absolute paths, drive-letter paths, UNC paths, and `..` traversal; after resolving symlinks the target must still be inside the project. Import a user-supplied image into `assets/images/` before referencing it, so the delivered page never depends on the user's machine layout.
 
 ### Stills and web images
 
-`assets/images/scenes/*.png` holds the lossless SenseNova master, generated at `--image-size 4k` (4096×2304 for 16:9). The page loads the `.webp` web image that `scripts/make_posters.py` writes beside it, downscaled to its 2560-wide default. Pass `--max-width 4096` for a 4K page asset. Compression never overwrites a master. Record and verify both dimensions; a 4K master alone does not prove the browser displays a 4K resource. An image project may reference an existing web image when no master exists; converting a lossy WebP to PNG does not recover the original master.
+`assets/images/scenes/*.png` holds the lossless SenseNova master, generated at `--image-size 4k` (4096×2304 for 16:9). When a WebP page image must be created or refreshed from that master, `scripts/make_posters.py` uses the project's recorded width: 2560 is the default for a new asset, while `--max-width 4096` preserves an established 4K page asset. Do not rerun the default against an existing project whose page width is already recorded as 4096. Compression never overwrites a master. Record and verify both dimensions; a 4K master alone does not prove the browser displays a 4K resource. An image project may reference an existing WebP when no master exists, and should skip compression rather than fail; converting a lossy WebP to PNG does not recover the original master.
 
 A display poster is a different artifact with its own section below. Never point `make_posters.py` at a poster request.
 

@@ -42,16 +42,16 @@ A story is readable without any generated motion: the stills, the copy, the navi
 
 ## Route the work
 
-1. Collect the subject, audience, language, device targets, chapter scale, supplied images, reference images, factual requirements, and any explicit user decisions. Already-stated requirements count as decisions; do not re-ask them.
-2. When stills are missing, inspect the environment for an available image-generation capability before promising output. Reuse the existing SenseNova runtime rather than substituting placeholders.
-3. For factual or source-based stories, research first and keep source notes separate from the display copy.
-4. Build the chapter blueprint and the shot plan: per chapter, the dominant visual event, the still, the copy, the copy position, and — when it is worth stating — the optional `shot` direction (`intent`, `framing`, `motionNote`).
-5. Present one review package covering the visual direction and the chapter arrangement. Record the user's decisions; when the user already specified these, present the package as a confirmation rather than a fresh question.
-6. When new stills are needed, generate a small consistency gate first (normally opening, middle, and ending; do not pad a short story to three). Complete the still set only after the direction is accepted.
-7. Assemble the project from `content/story.json`, then verify media and browser behavior.
-8. Export the storyboard when the user wants the whole story readable at once, or an artifact to annotate or print.
-9. When the user asks for a poster, derive the brief from the confirmed story and hand it to `sn-infographic`; never present a compressed still as a designed poster.
-10. Deliver the project path, the preview URL, which deliverables exist, the check results, and any remaining blocker.
+1. Collect the subject, audience, language, device targets, chapter scale, supplied images, reference images, factual requirements, and explicit user decisions. Already-stated requirements count as decisions; do not re-ask them. Use collaborative mode by default. Use direct-completion mode only when the user explicitly says to finish without waiting, to decide for them, or equivalent.
+2. Inspect existing projects, images, production notes, and available image-generation capability before promising new stills. Resume from real files and recorded decisions; do not reinitialize an old project or replace missing assets silently.
+3. For factual or source-based stories, research first and keep source notes separate from the display copy. Build the chapter blueprint and shot plan with stable chapter IDs, actual display copy, the dominant visual event, the still path, copy position, and optional `shot` direction.
+4. In collaborative mode, write the complete draft copy to `content/story.json` with expected still paths, show every chapter's actual text and visual event, and stop at confirmation A. Do not generate new stills before A. A reply accepts only the material actually shown at that point.
+5. After A, generate only the representative stills needed to check identity and visual direction (usually one for a simple story, two or three when risks differ). If the user supplied a complete usable image set or an already accepted visual baseline, skip new image calls and record that decision. Otherwise display the actual samples with chapter numbers and checks, then stop at confirmation B. Reuse accepted samples as final assets; do not generate a separate preview set.
+6. After B, or immediately in direct-completion mode, complete the remaining stills, show a labeled full contact sheet, and continue to assembly. The contact sheet is normally a visible stage artifact, not a third forced approval; wait after it only when the user explicitly asks to review all images first.
+7. Assemble the project from `content/story.json`, compress without overwriting masters, export the storyboard only after every declared still exists, and verify media and browser behavior.
+8. For a clear user request to change one chapter, one image, a recurring identity, the global style, chapter structure, or layout, map the current chapter number to its stable ID and update only the affected artifacts. Preserve unrelated accepted work and re-run only the required derived checks.
+9. When the user asks for a poster, derive the brief from the accepted story and hand it to `sn-infographic`; never present a compressed still as a designed poster.
+10. Deliver the project path, preview URL, visible stage artifacts, which deliverables exist, the check results, current production state, and any remaining blocker.
 
 Read [references/workflow.md](references/workflow.md) for the full sequence, and only the additional references the current stage needs:
 
@@ -93,9 +93,9 @@ From the initialized project, the common commands are:
 - Use project-relative media paths. Reject absolute paths, drive-letter paths, and `..` escapes; after resolving symlinks the path must still be inside the allowed directory. Import user-supplied images as project assets first so the delivered page never depends on the user's machine layout.
 - Copy articles have no solid card fill. Use edge-free localized gradients, text shadow, or fine rules for contrast.
 - Keep stills and their compressed web images separate; compression must never overwrite the lossless original.
-- Distinguish 4K masters from page assets: the default compression width is 2560; use `make_posters.py --max-width 4096` when the page itself must serve 4K. Verify the browser-loaded dimensions, not only the master.
+- Distinguish 4K masters from page assets: for newly generated PNG masters, the default compression width is 2560; use the project's recorded `--max-width` (such as `4096`) when refreshing an established 4K page asset. Skip compression for valid WebP-only projects, and verify the browser-loaded dimensions, not only the master.
 - Never hand-edit an export. `exports/storyboard.md` and `exports/storyboard.html` are generated; edit the story data and export again.
-- Keep editable story JSON in the project. Keep assembled prompts, analysis drafts, rejected candidates, and temporary frames in a per-task directory under the system temporary directory, and clean them up after delivery.
+- Keep editable story JSON in the project. Keep assembled prompts, analysis drafts, rejected candidates, and temporary frames in a per-task directory under the system temporary directory. After delivery, clean up rejected or experimental material, but retain the full prompt, model/parameter record, reference paths, and accepted candidate for every adopted generated still in the production record.
 - Never print secrets or embed them in frontend files. Use a project-local `.env` excluded from version control, and make sure a static server cannot expose it.
 - Bound automated retries. Treat authentication, permission, billing, and model-activation errors as non-retryable.
 

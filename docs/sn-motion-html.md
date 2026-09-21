@@ -64,15 +64,24 @@ An image project deliberately ships no video manifest, no video credentials file
 
 ## Production flow
 
-1. Collect the subject, audience, language, device targets, chapter scale, supplied images, reference images, and factual requirements. Already-stated requirements count as decisions; do not re-ask them.
-2. For factual stories, research first and keep source notes separate from the display copy.
-3. Build the chapter blueprint: one dominant visual event per chapter, its still, its copy, and its copy position. State the shot direction (`intent`, `framing`, `motionNote`) when it is worth recording.
-4. Present one review package covering the visual direction and the chapter arrangement, and record the user's decisions.
-5. When new stills are needed, generate a small consistency gate first (normally opening, middle, and ending), then complete the still set after the direction is accepted. Reuse the existing SenseNova runtime; see [`sn-image-base`](../skills/sn-image-base/SKILL.md).
-6. Put the words in HTML, not in the pixels. Body copy, titles, navigation labels, and sources stay in `content/story.json` so they remain editable and translatable.
-7. Save lossless masters under `assets/images/scenes/`, then generate the compressed web images.
-8. Export the storyboard when the whole story has to be reviewable at once.
-9. Validate, review a contact sheet, exercise a fresh browser session at desktop, tablet, and phone widths, and hand off.
+1. Collect the subject, audience, language, device targets, chapter scale, supplied images, reference images, and factual requirements. Already-stated requirements count as decisions; do not re-ask them. Use collaborative mode by default; use direct-completion mode only when the user explicitly says not to wait or delegates the remaining decisions.
+2. Read existing projects, images, and production records before planning. For factual stories, research first and keep source notes separate from display copy. Resume from actual files rather than reinitializing an old project.
+3. Build the chapter blueprint with complete display copy, one dominant visual event per chapter, an expected still path, copy position, and a stable chapter ID. State shot direction (`intent`, `framing`, `motionNote`) when it is worth recording.
+4. In collaborative mode, write the full draft to `content/story.json`, show every chapter's actual copy and visual event, and wait at confirmation A. Do not call image generation before A. “Continue” accepts only the material shown at that point.
+5. After A, generate the smallest useful representative set (usually one still for a simple story, two or three when risks differ), show the actual images with chapter numbers and checks, and wait at confirmation B. A complete usable supplied image set plus final copy skips new image calls. An accepted sample becomes a final asset; do not regenerate it as a separate preview.
+6. After B, complete the remaining stills; direct-completion mode shows the draft and representative images but continues after the Agent's checks. Show a labeled full contact sheet when all images exist. This is not a third forced approval unless the user explicitly asks to review everything first.
+7. Keep copy in HTML, not pixels. Store copy, titles, navigation labels, and sources in `content/story.json`; save lossless masters under `assets/images/scenes/`, then generate compressed web images.
+8. Export the storyboard when the whole story needs review at once, and run media, contact-sheet, and browser checks before handoff.
+
+### Resuming and chapter-level edits
+
+`docs/production-spec.md` records the mode, stage, revision, waiting point, stable-ID mapping, and whether a decision was user-accepted, explicitly delegated, Agent-checked, or unreviewed. `docs/image-qa.md` retains the source, parameters, reference paths, and full generation basis for adopted images. Rejected experiments and temporary assembled prompts stay in the system temporary directory and are cleaned after delivery; adopted evidence is retained.
+
+When resuming, verify the record against real files. Show a generated but not-yet-shown representative still before regenerating it. If an old project has no state block, add only the minimum record needed for the current task and never fabricate approval.
+
+For an explicit copy, single-image, recurring-identity, global-style, chapter-structure, or layout change, map the current chapter number to its stable ID and update only affected artifacts. Copy-only edits make zero image calls; replacing one image does not regenerate unrelated images. Rebuild WebP, the contact sheet, and the storyboard only when applicable. Reconfirm only when the change introduces a new open-ended creative choice.
+
+“Change chapter 3, then continue” authorizes that explicit revision and continuation. Progress messages, file writes, silence, and timeout are not approval. The staged workflow adds some review cost; it does not promise a fixed token or image-cost saving.
 
 ## Common commands
 
@@ -82,8 +91,8 @@ Run these from anywhere; every path is absolute.
 # Validate the story data and the stills (never invokes ffprobe)
 "<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/verify_media.py" "<absolute PROJECT_ROOT>"
 
-# Compress the scene masters into the web images the page loads
-"<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/make_posters.py" "<absolute PROJECT_ROOT>"
+# Only when PNG masters need WebP creation or refresh; reuse the recorded width
+"<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/make_posters.py" "<absolute PROJECT_ROOT>" --max-width <recorded-width>
 
 # Export the storyboard as Markdown and as a static HTML document
 "<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/export_storyboard.py" "<absolute PROJECT_ROOT>"
@@ -96,6 +105,8 @@ Run these from anywhere; every path is absolute.
 ```
 
 `verify_media.py` exits `0` when everything checks out, `1` on a failed check, and `2` when declared media is missing. `--allow-missing` turns the missing-media exit into `0`, which is useful while a project is still being assembled.
+
+`make_posters.py` is conditional, not part of the unconditional validation path: run it only when PNG masters exist and their WebP page copies must be created or refreshed. Reuse the project's recorded `--max-width` (including `4096` when that is the established width); skip it for WebP-only projects or already-valid WebP copies.
 
 `export_storyboard.py` exits `0` on success, `1` when the story data is invalid, and `2` when a declared still is missing. It has no allow-missing option: an exported storyboard that points at absent images would be a broken deliverable. It writes nothing unless every shot checks out.
 
