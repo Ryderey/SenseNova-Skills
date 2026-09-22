@@ -69,6 +69,44 @@ The displayed chapter number comes from the current array order. The chapter `id
 
 Workflow state, confirmation decisions, revision numbers, authorization notes, and accepted-image provenance belong in the human-readable `docs/production-spec.md` and `docs/image-qa.md` records when those files exist. They are not part of the frontend runtime contract and do not require a second state JSON. A long-story review copy may be saved as `docs/review/story-draft.md`, but it is a read-only derivative of `content/story.json`, never a second editing source.
 
+### `.motion-state/review.json` (stage executor state)
+
+When the project carries `scripts/motion_stage.py`, this private file records the minimum machine state for the staged gates (`schema_version: 3`, `workflow_protocol: 2`). It never copies story content; `content/story.json` stays the only source of chapters and copy. A missing file never means "already accepted". The preview server never serves `.motion-state/`, and `init_project.py --force` preserves it.
+
+| Field | Purpose |
+|---|---|
+| `schema_version` / `workflow_protocol` | State format and workflow protocol versions |
+| `project_id` | Distinguishes stories; another project's acceptance never transfers |
+| `binding` | The project root this state belongs to; a copied state cannot authorize another project |
+| `interaction_mode` / `delegation` | Collaborative or explicit delegation, and the delegated stage scope |
+| `phase` | Current execution phase |
+| `story_review` | The shown story package: id, content baseline, sample list, display record |
+| `visual_review` | The shown sample package: id, per-sample file digests, content baseline, display record |
+| `revision` | The currently authorized local change, its chapters, and where the run must return to |
+| `approvals` | Scope, linked package, real message or event reference, record source, and trust level; the **newest** record for a scope is the one that stands |
+| `operations` | Every image attempt: committed, completed, failed, unknown, skipped, reconciled, plus the bytes it placed and the revision it belonged to |
+| `generation_limits` / `total_provider_calls` | The authorized call ceiling and what has actually been spent |
+
+Each package records its baseline by **dimension** — chapter order, per-chapter copy, the style basis, and the story metadata are stored separately — so a refusal names what moved and an authorized change cannot hide a different kind of change. Chapter order, a new style basis, and a metadata change can never be waved through by authorizing chapters one at a time; they retire the package and need a fresh confirmation.
+
+Phases and their allowed image operations: `drafting` (none), `awaiting_story_review` (none), `sampling` (only whitelisted `sample_ids`), `awaiting_visual_review` (none beyond authorized sample revisions), `producing` (remaining missing or authorized-revision assets), `delivered` (only explicitly authorized local revisions). The executor checks the whole batch before calling the runner: a batch mixing approved and unapproved targets is rejected whole with zero real calls.
+
+A withdrawal is a decision too: recording `--decision changes-requested` for story, visual, or delegation becomes the newest word on that package, so the earlier accept stops authorizing production immediately and the phase falls back to the first gate that no longer has a decision behind it.
+
+A revision is bound to the change it covered. It records the chapter digests as they stood when the decision was made, plus the style basis, the story metadata, and the chapter order it was taken on — so a later edit to the same chapter, a restyle, or a retold meta is a different change needing its own decision, and with B still pending that decision is the only thing that can authorize a run; and a replaced sample file counts only when a run of a revision that authorized that chapter produced exactly the bytes now on disk, so a manual overwrite afterwards is still refused. A revision never rewrites a package baseline, and it stays open until every chapter it authorized has been produced — a failed call leaves that chapter still owed, and a chapter whose file landed before the process died is recovered from its persisted operation rather than waited on forever — including, for a derived page asset, the refreshed WebP.
+
+A revision while B is still pending sends the run back to `sampling` with the sample package retired: confirmation A stands, and B must be rebuilt and asked again.
+
+Review packages carry digests over the normalized JSON's effective fields, the actual image files, and the reference relationships — not over a hand-editable `r1` label. Overwriting a file changes its digest, so an old B cannot keep representing new images. Whitespace, JSON formatting, line endings, log timestamps, and state-field-only changes do not invalidate a creative confirmation. Digests only detect change: a digest or approval file the Agent writes does not become a trusted user-confirmation source. A decision recorded by the model from the conversation is `agent-recorded`; only a host-verified user event rates higher.
+
+### Masters, page assets, and in-doubt calls
+
+Generation always targets the lossless **master**: a chapter declaring `assets/images/scenes/03-cottage.webp` gets `03-cottage.png`, because the runner names its output from the format it produced. The page asset is derived afterwards by `make_posters.py`, so `status` and the run results report `needs_page_copy` beside `needs_generation`, and a chapter is never sent back to the model just because its WebP is missing. Existence is not freshness: a page asset older than the master beside it still counts as needing a refresh, because shipping it would show the reader a picture that was already superseded. A project that already has usable WebP with no master is left alone.
+
+Each attempt is written to `operations` with its quota **before** the request is sent. A process killed mid-flight therefore leaves a `committed` record, which is treated as an unknown result on resume: nothing is resent until `status` is read and `--retry-unknown <operation-id>` names the reconciled call explicitly, and the refusal lists any finished file still sitting in `tmp/staged/` so a paid image can be recovered instead of bought twice.
+
+The project lock is an exclusive lock the operating system grants to the owning process and releases the moment that process exits, however it exits. Two processes can therefore never be inside the executor at once — the second reports `project_locked` with zero provider calls — and a crash leaves no stale lock to break, because ownership never rests on the file's age or contents. The lock file is kept only as a readable descriptor of the current holder (pid and start time) and is never unlinked.
+
 ### Path rules
 
 Media paths are project-relative. Reject absolute paths, drive-letter paths, UNC paths, and `..` traversal; after resolving symlinks the target must still be inside the project. Import a user-supplied image into `assets/images/` before referencing it, so the delivered page never depends on the user's machine layout.

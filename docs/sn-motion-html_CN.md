@@ -83,11 +83,30 @@
 
 用户给出“修改第 3 幕，然后继续”时，明确修订本身同时构成该范围的继续授权；进度消息、文件已写入、用户沉默或超时都不算确认。流程会增加少量展示与等待成本，不承诺固定的 token 或图片费用节省。
 
+### 分阶段执行的实际形态
+
+一次普通制作请求最多分三个回合完成，在交接点结束回合即算完成当前任务，不算执行失败：
+
+1. **文案回合。** 展示完整的逐幕正文与画面安排（实际文字，不是路径或“已完成”），提出一个聚焦问题，然后结束回合；此时图片生成／编辑调用为 0。状态记录为 `awaiting_story_review`。
+2. **样图回合。** 用户确认文案后，只生成审阅包中列出的代表样图，展示实际图片、幕号和检查要点，然后结束回合；不生成其它幕，也不把后续工作入队或转后台。状态记录为 `awaiting_visual_review`。
+3. **交付回合。** 用户确认样图后，复用已采用样图，补齐其余静帧，生成联系表并组装、校验网页，交付项目。
+
+继续方式：回复那个聚焦问题即可——“继续”只接受最近一次已展示且仍有效的审阅包，或直接指出要修改的幕和画面。宿主自动追加的“继续完成任务”事件不是用户确认，不推进阶段。“故事你来安排，但先给我看”保留等待；只有明确说“直接做完、不用确认”才进入直接完成模式，该模式仍然产出草稿和样图自检作为可见阶段产物。
+
+环境检查：默认用离线 `sn-image-doctor` 做提交前检查。它不消耗图片额度，也不能证明远端鉴权成功，因此绝不写成“已验证登录”。没有单独的冒烟生图：A 通过后第一张正式代表样图兼作链路验证，并直接复用为正式素材。用户独立明确要求的冒烟测试单独记录用途与次数，且不推进 A/B——任何分辨率下成功返回的图片都不是用户确认。
+
+版本核验：技能 `SKILL.md` 元数据带 `workflow_protocol: 2` 标记本套分阶段行为。要确认宿主实际加载了哪一版，须按宿主报告的实际路径比对完整技能目录——`SKILL.md`、`references/workflow.md`、各阶段参考和脚本，而不是只看标题；新 `SKILL.md` 配旧 `workflow.md` 属于混合副本，行为等同旧版。
+
+程序检查：本技能初始化的项目自带 `scripts/motion_stage.py` 受控入口，它读取 `.motion-state/review.json`，在任何供应商请求之前拒绝超出当前阶段的图片调用。它同样拒绝重发结果未落盘的请求——中断的运行必须先核对，因为超时的请求可能已经计费；生成一律指向无损母版，因此缺少 WebP 网页图只是本地压缩步骤，不是再一次模型调用。这是程序级检查，不是不可绕过的宿主强制：拥有任意 shell 或直连凭证的 Agent 仍可绕过，模型自行记录的决策只算 `agent-recorded`。它用于防止遗忘阶段，不能当作真实用户批准的证明。已交付的门禁测试与宿主侧未完成项记录在[阶段执行约束验证记录](sn-motion-html-stage-enforcement-validation_CN.md)。
+
 ## 常用命令
 
 可在任意目录执行；所有路径都是绝对路径。
 
 ```bash
+# 报告当前阶段、已展示的审阅包与允许的生成范围（不调用模型）
+"<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/motion_stage.py" "<absolute PROJECT_ROOT>" status
+
 # 校验故事数据与静帧（不会调用 ffprobe）
 "<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/verify_media.py" "<absolute PROJECT_ROOT>"
 
@@ -162,7 +181,7 @@ scripts/                 项目自带的校验、压缩、分镜、联系表和�
 
 ## 视频片段（Agnes video）
 
-仅在明确要求时使用。片段由 Agnes video 生成，经由兄弟技能 `agnes-media` 自带的 CLI，由 `scripts/agnes_video.py` 驱动。默认模型是 `agnes-video-v2.0`，输出高清片段（默认 `1080p`，交付目标 1920×1080）；`agnes-video-2.5-flash` 是备选，用于需要参考图或只能锚定尾帧的场合，它上限为 720P。请求契约、约束与实测表现见 [references/agnes-video.md](../skills/sn-motion-html/references/agnes-video.md)，流程见 [references/workflow.md](../skills/sn-motion-html/references/workflow.md) 第 10 节。
+仅在明确要求时使用。片段由 Agnes video 生成，经由兄弟技能 `agnes-media` 自带的 CLI，由 `scripts/agnes_video.py` 驱动。默认模型是 `agnes-video-v2.0`，输出高清片段（默认 `1080p`，交付目标 1920×1080）；`agnes-video-2.5-flash` 是备选，用于需要参考图或只能锚定尾帧的场合，它上限为 720P。请求契约、约束与实测表现见 [references/agnes-video.md](../skills/sn-motion-html/references/agnes-video.md)，流程见 [references/produce-and-deliver.md](../skills/sn-motion-html/references/produce-and-deliver.md) 的视频一节。
 
 ```bash
 # 只打印将要发起的调用，不消耗任何额度

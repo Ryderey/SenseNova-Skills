@@ -1,5 +1,5 @@
 interface:
   display_name: "sn-motion-html"
-  short_description: "分阶段把图片或故事做成可审阅、可按幕修改的滚动故事网页，并导出同一份故事的分镜稿；展示海报走信息图技能"
+  short_description: "分阶段制作可审阅、可按幕修改的滚动故事网页：逐幕文案与代表样图两处确认，再补齐素材并导出分镜稿"
   brand_color: "#B85C3C"
-  default_prompt: "Use $sn-motion-html to turn my images or story into a staged, reviewable scroll story page, preserve chapter-level edits, and export the storyboard when requested."
+  default_prompt: "Use $sn-motion-html to turn my images or story into a staged, reviewable scroll story page: show the chapter draft first and wait, then the representative samples and wait, then complete the assets and export the storyboard when requested."

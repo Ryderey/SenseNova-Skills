@@ -2,9 +2,13 @@
 
 Start from one of the coordinated presets in [style-presets.md](style-presets.md), or replace it with a user-defined art direction. The initializer writes the chosen image block to `prompts/style-preamble.txt`; a video project additionally writes the motion block to `prompts/style-motion.txt`, which an image story never uses.
 
+## Environment checks and smoke tests
+
+The default pre-submit check is the offline `sn-image-doctor`: it consumes no image quota, and a "local configuration satisfied" report proves nothing about remote authentication, so never describe it as a verified remote login. Do not add a real smoke generation as an environment check — after A, the first official representative sample doubles as the link verification and is reused as a final asset, which avoids extra generations unrelated to the story. A smoke test the user independently and explicitly requests may run inside that authorization, with its purpose and count recorded separately; it never advances A or B, and a returned image at any resolution is not a user confirmation.
+
 ## Generating stills
 
-Still generation and image editing use the existing SenseNova runtime. Set the child process environment `SN_IMAGE_GEN_MODEL_TYPE=sensenova`, resolve the sibling skill, and pass absolute paths:
+Still generation and image editing use the existing SenseNova runtime. When the project carries the stage executor `scripts/motion_stage.py`, submit through it (`run-samples` before B, `run-remaining` after B): it validates the phase, the approval scope, and every target ID before any provider call, and it records each attempt's start, end, and result. An older project without the executor calls the runner directly under the same stage rules. Set the child process environment `SN_IMAGE_GEN_MODEL_TYPE=sensenova`, resolve the sibling skill, and pass absolute paths. The command below is the contract the executor builds; use the bare form only in a project that has no executor:
 
 ```bash
 "<absolute PYTHON path>" "<absolute BASE_SKILL_DIR>/scripts/sn_agent_runner.py" sn-image-generate \

@@ -83,11 +83,30 @@ For an explicit copy, single-image, recurring-identity, global-style, chapter-st
 
 “Change chapter 3, then continue” authorizes that explicit revision and continuation. Progress messages, file writes, silence, and timeout are not approval. The staged workflow adds some review cost; it does not promise a fixed token or image-cost saving.
 
+### Staged execution, in practice
+
+A normal request runs as up to three turns, and ending a turn at a hand-off is task completion, not failure:
+
+1. **Draft turn.** The complete chapter-by-chapter copy and visual plan is shown as actual text, one focused question is asked, and the turn ends with zero image generation or edit calls. The state is `awaiting_story_review`.
+2. **Sample turn.** After you confirm the draft, only the representative stills named in the review package are generated, shown as actual images with their chapter numbers and checks, and the turn ends. No other scene is generated and nothing is queued. The state is `awaiting_visual_review`.
+3. **Delivery turn.** After you confirm the samples, the accepted samples are reused, the remaining stills are generated, the contact sheet and the page are assembled and checked, and the project is delivered.
+
+How to continue: reply to the focused question — “continue” accepts the most recent shown review package, or name the chapter or visual change. A host's automatic “continue the task” event is not your confirmation and does not advance the stage. “You arrange the story, but show me first” keeps the waits; only an explicit “finish without waiting” switches to direct-completion mode, which still produces the draft and the sample check as visible artifacts.
+
+Environment checks: the offline `sn-image-doctor` is the default pre-submit check. It costs no image quota and says nothing about remote authentication, so it is never reported as a verified login. There is no separate smoke generation: the first representative sample doubles as the link verification and is reused as a final asset. A smoke test you explicitly request is recorded separately and never counts as accepting the story or the samples — a returned image is not a confirmation.
+
+Version check: the skill's `SKILL.md` metadata carries `workflow_protocol: 2` for this staged behavior. To confirm what a host actually loaded, compare the full skill directory at the path the host reports — `SKILL.md`, `references/workflow.md`, the stage references, and the scripts — not just the title; a new `SKILL.md` beside an old `workflow.md` is a mixed copy and behaves like the old one.
+
+Program checks: projects initialized by this skill carry `scripts/motion_stage.py`, a controlled entry that reads `.motion-state/review.json` and refuses out-of-scope image calls before any provider request. It also refuses to resend a call whose result was never recorded — an interrupted run must be reconciled first, because a timed-out request may already be billed — and it generates the lossless master, so a missing WebP page copy is a local compression step rather than another model call. It is a program-level check, not an unblockable host gate: an Agent with arbitrary shell access or direct credentials can bypass it, and a decision the model records itself is only `agent-recorded`. Treat it as protection against forgetting the stage, not as proof of a real user approval. The delivered gate tests and the host-side gaps are recorded in [the enforcement validation record](sn-motion-html-stage-enforcement-validation_CN.md).
+
 ## Common commands
 
 Run these from anywhere; every path is absolute.
 
 ```bash
+# Report the current stage, the shown review packages, and the allowed targets (never calls the model)
+"<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/motion_stage.py" "<absolute PROJECT_ROOT>" status
+
 # Validate the story data and the stills (never invokes ffprobe)
 "<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/verify_media.py" "<absolute PROJECT_ROOT>"
 
@@ -163,7 +182,7 @@ Open the page over HTTP. The page reads `content/story.json` with `fetch`, so op
 
 ## Video clips (Agnes video)
 
-On request only. Clip generation uses Agnes video through the sibling `agnes-media` skill's bundled CLI, driven by `scripts/agnes_video.py`. The default model is `agnes-video-v2.0`, which renders high-definition clips (`1080p` by default, target 1920×1080); `agnes-video-2.5-flash` is the alternative when you need reference images or a last-frame-only anchor, and it is capped at 720P. The request contract, constraints, and measured provider behaviour are in [references/agnes-video.md](../skills/sn-motion-html/references/agnes-video.md); the workflow is section 10 of [references/workflow.md](../skills/sn-motion-html/references/workflow.md).
+On request only. Clip generation uses Agnes video through the sibling `agnes-media` skill's bundled CLI, driven by `scripts/agnes_video.py`. The default model is `agnes-video-v2.0`, which renders high-definition clips (`1080p` by default, target 1920×1080); `agnes-video-2.5-flash` is the alternative when you need reference images or a last-frame-only anchor, and it is capped at 720P. The request contract, constraints, and measured provider behaviour are in [references/agnes-video.md](../skills/sn-motion-html/references/agnes-video.md); the workflow is the video section of [references/produce-and-deliver.md](../skills/sn-motion-html/references/produce-and-deliver.md).
 
 ```bash
 # See every call the pipeline would make, without spending anything

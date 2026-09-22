@@ -7,9 +7,23 @@ metadata:
   category: image-visualization
   priority: 7
   user_visible: true
+  workflow_protocol: 2
 ---
 
 # sn-motion-html
+
+## Execution contract
+
+Collaborative mode by default. This execution completes only the currently authorized stage; ending the turn at a stage hand-off is task completion, not failure.
+
+- **New story:** show the complete chapter-by-chapter copy and visual plan, record `awaiting_story_review`, ask for feedback in the final reply, and end the turn. Image generation and edit calls must be 0 at this point.
+- **After a new user confirmation of the current draft:** generate only the specified representative stills, display them, record `awaiting_visual_review`, ask for feedback in the final reply, and end the turn. Do not generate other scenes, and do not start later stages as committed, queued, background, or delegated work.
+- **After a new user confirmation of the current samples:** complete the remaining images, show the overview, and finish the page.
+- An explicit direct-completion instruction cancels only the user waits, not the stage artifacts or the sample self-check. Reuse existing inputs and valid decisions within scope; do not re-ask settled questions.
+
+A pause is an observable behavior, not a log note: the actual draft or images are visibly shown, one focused question with a simple reply path is asked, the turn ends (or the host's native wait truly pauses), nothing later is queued, and no tool call depends on the pending confirmation. A progress message, a file write, silence, a status question, an Agent self-check, a completed plan item, or a host auto-continue event is not a user confirmation. When the project carries `scripts/motion_stage.py`, story image calls go through it and it refuses out-of-scope calls before any provider request; that is a program check, not an unblockable host gate.
+
+Show the user one line about the flow — 采用分阶段流程：文案 → 样图 → 网页 — and verify the protocol version at task start or deployment check, not in every reply. Hashes, state fields, and tool traces stay out of the chat; the user sees actual copy, actual images, and one question.
 
 Deliver a reusable project, not a one-off HTML file. One fixed full-viewport media stage and one ordered chapter route carry the whole story: the reader scrolls, the page advances through the chapter sequence, and every chapter's copy stays readable together on its own scene.
 
@@ -32,7 +46,7 @@ Resolve `MOTION_SKILL_DIR` as the absolute directory containing this `SKILL.md`.
 
 Use absolute paths regardless of the current working directory, and never assume the host inherited a previously activated shell environment. On PowerShell, invoke a quoted executable path with the call operator (`& "<absolute PYTHON path>" ...`); on POSIX shells, execute the quoted path directly. These are logical path names, not environment variables; never ask the user to configure them.
 
-All image generation, editing, repair, enhancement, and compositing use the SenseNova backend through `RUNNER`. Set `SN_IMAGE_GEN_MODEL_TYPE=sensenova` for these calls and explicitly select `sensenova-u1.5-lite`; use `--no-fallback` when resolution or anchor identity must be preserved. Agnes is used only for video generation. Local file copying, lossless saving, WebP compression, video encoding, and frame extraction remain deterministic project-tool operations. Credentials follow the `sn-image-base` contract: `SENSENOVA_API_KEY`, capability-specific overrides, and `SN_ENV_FILE`.
+All image generation, editing, repair, enhancement, and compositing use the SenseNova backend. When the project carries the stage executor `scripts/motion_stage.py` (the initializer copies it), route story image calls through it: it checks the current phase and approval scope against `.motion-state/review.json` and only then calls `RUNNER` (`BASE_SKILL_DIR/scripts/sn_agent_runner.py`). An older project without the executor keeps the same runner contract directly, with the stage rules in the references as the check. Set `SN_IMAGE_GEN_MODEL_TYPE=sensenova` for these calls and explicitly select `sensenova-u1.5-lite`; use `--no-fallback` when resolution or anchor identity must be preserved. Agnes is used only for video generation. Local file copying, lossless saving, WebP compression, video encoding, and frame extraction remain deterministic project-tool operations. Credentials follow the `sn-image-base` contract: `SENSENOVA_API_KEY`, capability-specific overrides, and `SN_ENV_FILE`.
 
 ## What an image story needs
 
@@ -45,17 +59,20 @@ A story is readable without any generated motion: the stills, the copy, the navi
 1. Collect the subject, audience, language, device targets, chapter scale, supplied images, reference images, factual requirements, and explicit user decisions. Already-stated requirements count as decisions; do not re-ask them. Use collaborative mode by default. Use direct-completion mode only when the user explicitly says to finish without waiting, to decide for them, or equivalent.
 2. Inspect existing projects, images, production notes, and available image-generation capability before promising new stills. Resume from real files and recorded decisions; do not reinitialize an old project or replace missing assets silently.
 3. For factual or source-based stories, research first and keep source notes separate from the display copy. Build the chapter blueprint and shot plan with stable chapter IDs, actual display copy, the dominant visual event, the still path, copy position, and optional `shot` direction.
-4. In collaborative mode, write the complete draft copy to `content/story.json` with expected still paths, show every chapter's actual text and visual event, and stop at confirmation A. Do not generate new stills before A. A reply accepts only the material actually shown at that point.
-5. After A, generate only the representative stills needed to check identity and visual direction (usually one for a simple story, two or three when risks differ). If the user supplied a complete usable image set or an already accepted visual baseline, skip new image calls and record that decision. Otherwise display the actual samples with chapter numbers and checks, then stop at confirmation B. Reuse accepted samples as final assets; do not generate a separate preview set.
+4. In collaborative mode, write the complete draft copy to `content/story.json` with expected still paths, show every chapter's actual text and visual event, and end the turn at confirmation A (`awaiting_story_review`). Do not generate new stills before A, and do not queue later-stage work while waiting. A reply accepts only the material actually shown at that point.
+5. After A, generate only the representative stills needed to check identity and visual direction (usually one for a simple story, two or three when risks differ), display the actual samples with chapter numbers and checks, and end the turn at confirmation B (`awaiting_visual_review`). If the user supplied a complete usable image set or an already accepted visual baseline, skip new image calls and record that decision. Reuse accepted samples as final assets; do not generate a separate preview set.
 6. After B, or immediately in direct-completion mode, complete the remaining stills, show a labeled full contact sheet, and continue to assembly. The contact sheet is normally a visible stage artifact, not a third forced approval; wait after it only when the user explicitly asks to review all images first.
 7. Assemble the project from `content/story.json`, compress without overwriting masters, export the storyboard only after every declared still exists, and verify media and browser behavior.
 8. For a clear user request to change one chapter, one image, a recurring identity, the global style, chapter structure, or layout, map the current chapter number to its stable ID and update only the affected artifacts. Preserve unrelated accepted work and re-run only the required derived checks.
 9. When the user asks for a poster, derive the brief from the accepted story and hand it to `sn-infographic`; never present a compressed still as a designed poster.
 10. Deliver the project path, preview URL, visible stage artifacts, which deliverables exist, the check results, current production state, and any remaining blocker.
 
-Read [references/workflow.md](references/workflow.md) for the full sequence, and only the additional references the current stage needs:
+Read [references/workflow.md](references/workflow.md) for the stage router, the pause rules, the acceptance scope, and the recovery rules, then only the stage reference the current task needs:
 
-- [references/schemas.md](references/schemas.md) when creating `content/story.json` or exporting a storyboard.
+- [references/review-story.md](references/review-story.md) for a new story or a major story revision: drafting and confirmation A.
+- [references/review-visuals.md](references/review-visuals.md) after A is accepted: representative stills and confirmation B.
+- [references/produce-and-deliver.md](references/produce-and-deliver.md) after B is accepted: the remaining stills, assembly, verification, delivery, the optional poster, and the optional video route.
+- [references/schemas.md](references/schemas.md) when creating `content/story.json`, exporting a storyboard, or using the review state file.
 - [references/prompting.md](references/prompting.md) when generating stills or recording shot direction.
 - [references/style-presets.md](references/style-presets.md) when choosing or adapting a visual preset.
 - [references/frontend.md](references/frontend.md) before selecting or adapting the interface treatment or the storyboard layout.
@@ -78,11 +95,14 @@ The initializer copies the template and the project scripts, creates the media d
 From the initialized project, the common commands are:
 
 ```bash
+"<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/motion_stage.py" "<absolute PROJECT_ROOT>" status
 "<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/verify_media.py" "<absolute PROJECT_ROOT>"
 "<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/contact_sheet.py" "<absolute PROJECT_ROOT>"
 "<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/export_storyboard.py" "<absolute PROJECT_ROOT>"
 "<absolute PYTHON path>" "<absolute PROJECT_ROOT>/scripts/serve_project.py" "<absolute PROJECT_ROOT>" --port 8080
 ```
+
+`motion_stage.py status` reports the current phase, the shown review packages, the allowed target scope, and the waiting item; it never calls the provider. Use it when resuming and before any image call.
 
 ## Production invariants
 
@@ -120,7 +140,7 @@ Before delivery:
 
 ## Video clips (Agnes video)
 
-On request only. The default model is Agnes Video v2.0, which renders high-definition clips; Agnes Video 2.5 Flash is the alternative when reference images or a last-frame anchor are needed, since it is capped at 720P. Both contracts, their constraints, and the measured behaviour are in [references/agnes-video.md](references/agnes-video.md), and the workflow is section 10 of [references/workflow.md](references/workflow.md).
+On request only. The default model is Agnes Video v2.0, which renders high-definition clips; Agnes Video 2.5 Flash is the alternative when reference images or a last-frame anchor are needed, since it is capped at 720P. Both contracts, their constraints, and the measured behaviour are in [references/agnes-video.md](references/agnes-video.md), and the workflow is the video section of [references/produce-and-deliver.md](references/produce-and-deliver.md).
 
 `scripts/agnes_video.py` is the executor: it reads `prompts/video-manifest.json`, resolves each clip's anchor, calls the Agnes CLI, and normalizes every downloaded clip with FFmpeg so `verify_media.py` passes. Run it with `--dry-run` first to see every call before spending anything. The script does not author content — clip prompts and anchor prompts are written into the project first, which is where the reasoning belongs.
 

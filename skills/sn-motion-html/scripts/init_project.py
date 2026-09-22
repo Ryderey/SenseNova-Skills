@@ -31,6 +31,7 @@ TEMPLATE = SKILL_ROOT / "assets" / "template"
 
 ALWAYS_SCRIPTS = (
     "project_model.py",
+    "motion_stage.py",
     "make_posters.py",
     "verify_media.py",
     "contact_sheet.py",
