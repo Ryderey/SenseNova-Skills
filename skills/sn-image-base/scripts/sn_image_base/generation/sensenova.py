@@ -36,7 +36,7 @@ from sn_image_base.utils.error_utils import U1HttpErrorBase
 DEFAULT_RESOLUTION = "2K"
 DEFAULT_ASPECT_RATIO = "16:9"
 DEFAULT_MODEL = "sensenova-u1.5-lite"
-FAST_MODEL = "sensenova-u1-fast"
+FAST_MODEL = "sensenova-u1.5-fast"
 OUTPUT_DIR = Path(tempfile.gettempdir()) / "sensenova-image"
 
 IMAGE_GEN_ENDPOINT = "/images/generations"
@@ -96,7 +96,7 @@ class SensenovaText2ImageClient(T2IBaseClient):
     ) -> dict:
         """Generate once with U1.5 (or explicitly selected model) and save immediately."""
         selected_model = model or self.model or global_configs.SN_IMAGE_GEN_MODEL or DEFAULT_MODEL
-        size = self._resolve_size(image_size, aspect_ratio, fast=selected_model == FAST_MODEL)
+        size = self._resolve_size(image_size, aspect_ratio)
         payload = self.build_payload(
             prompt=prompt,
             model=selected_model,
@@ -133,12 +133,10 @@ class SensenovaText2ImageClient(T2IBaseClient):
     ) -> dict:
         """Edit one or more local/remote reference images with U1.5."""
         selected_model = model or self.model or global_configs.SN_IMAGE_GEN_MODEL or DEFAULT_MODEL
-        if selected_model == FAST_MODEL:
-            raise ValueError(
-                f"{FAST_MODEL} does not accept image input; use {DEFAULT_MODEL} for edits."
-            )
         if not images:
             raise ValueError("At least one reference image is required.")
+        if selected_model == FAST_MODEL and len(images) > 5:
+            raise ValueError("U1.5 Fast supports at most 5 reference images.")
         size = self._resolve_size(image_size, aspect_ratio, allow_auto=True)
         image_inputs = [{"image_url": self.image_to_data_url(image)} for image in images]
         payload: dict[str, Any] = {
@@ -292,22 +290,16 @@ class SensenovaText2ImageClient(T2IBaseClient):
         prompt_extend: bool = True,
         **_kwargs: Any,
     ) -> dict[str, Any]:
-        # U1 Fast has a smaller schema and returns a temporary URL. Do not send
-        # U1.5-only fields that the Fast endpoint does not document.
-        payload: dict[str, Any] = {
+        return {
             "model": model,
             "prompt": prompt,
             "size": size,
             "n": 1,
             "watermark": watermark,
+            "output_format": output_format,
+            "response_format": response_format,
+            "prompt_extend": prompt_extend,
         }
-        if model != FAST_MODEL:
-            payload.update(
-                output_format=output_format,
-                response_format=response_format,
-                prompt_extend=prompt_extend,
-            )
-        return payload
 
     @property
     @override
@@ -321,7 +313,6 @@ class SensenovaText2ImageClient(T2IBaseClient):
         aspect_ratio: str | None = None,
         *,
         allow_auto: bool = False,
-        fast: bool = False,
     ) -> str | None:
         value = (resolution or DEFAULT_RESOLUTION).strip()
         if value.lower() == "auto":
@@ -334,14 +325,10 @@ class SensenovaText2ImageClient(T2IBaseClient):
         if explicit:
             width, height = map(int, explicit.groups())
             cls._validate_dimensions(width, height)
-            if fast:
-                return cls._nearest_bucket(width / height, FAST_BUCKETS_2K)
             return f"{width}x{height}"
 
         ratio = cls._parse_ratio(aspect_ratio or "1:1")
         preset = value.upper()
-        if fast:
-            return cls._nearest_bucket(ratio, FAST_BUCKETS_2K)
         if preset == "1K":
             return cls._nearest_bucket(ratio, BUCKETS_1K)
         if preset == "2K":
@@ -493,7 +480,7 @@ BUCKETS_1K: dict[str, tuple[int, int]] = {
     "21:9": (2048, 864),
     "9:21": (864, 2048),
 }
-FAST_BUCKETS_2K: dict[str, tuple[int, int]] = {
+U15_BUCKETS_2K: dict[str, tuple[int, int]] = {
     "2:3": (1664, 2496),
     "3:2": (2496, 1664),
     "3:4": (1760, 2368),
@@ -501,13 +488,8 @@ FAST_BUCKETS_2K: dict[str, tuple[int, int]] = {
     "4:5": (1824, 2272),
     "5:4": (2272, 1824),
     "1:1": (2048, 2048),
-    "16:9": (2752, 1536),
-    "9:16": (1536, 2752),
-    "21:9": (3072, 1376),
-    "9:21": (1344, 3136),
-}
-U15_BUCKETS_2K: dict[str, tuple[int, int]] = {
-    **FAST_BUCKETS_2K,
     "16:9": (2720, 1536),
     "9:16": (1536, 2720),
+    "21:9": (3072, 1376),
+    "9:21": (1344, 3136),
 }

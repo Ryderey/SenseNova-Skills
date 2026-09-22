@@ -12,7 +12,7 @@ Additive parameters: `--model`, `--fallback-model`, `--no-fallback`, `--watermar
 
 Default request is `POST /v1/images/generations` with model `sensenova-u1.5-lite`, `n=1`, `watermark=false`, `prompt_extend=true`, `response_format=b64_json`, and `output_format=png`.
 
-`1K` is a repository compatibility preset, not an official U1.5/Fast resolution constant. The runtime maps it to a valid explicit `WIDTHxHEIGHT`; official named constants are `2K` and `4K` for U1.5 and the 11 fixed 2K buckets for U1 Fast. U1.5 uses the official recommended `2720x1536` / `1536x2720` for 16:9 / 9:16; U1 Fast uses `2752x1536` / `1536x2752`.
+`1K` is a repository compatibility preset, not an official U1.5/Fast resolution constant. The runtime maps it to a valid explicit `WIDTHxHEIGHT`; official named constants are `2K` and `4K` for both U1.5 Lite and Fast. Both use the official recommended `2720x1536` / `1536x2720` for 16:9 / 9:16.
 
 The explicit no-watermark default is a product choice. SenseNova documents `watermark=false` as free during public beta and a premium paid feature afterward; model usage otherwise follows the account plan and credit rules.
 
@@ -22,9 +22,9 @@ Required: exactly one of inline `--prompt` or UTF-8 `--prompt-path`, plus `--ima
 
 Optional: `--image-size` (`auto` default), `--aspect-ratio`, `--model`, `--api-key`, `--base-url`, `--timeout`, `--insecure`, watermark/prompt-extension booleans, `--response-format`, `--save-path`, `--output-format`.
 
-Calls `POST /v1/images/edits`. Each local file, public HTTP(S) URL, or Data URL is read through a 64 MiB / 40-million-pixel validation boundary, normalized to PNG/JPEG when needed, and emitted as `{ "image_url": "data:..." }`. U1 Fast is rejected.
+Calls `POST /v1/images/edits`. Each local file, public HTTP(S) URL, or Data URL is read through a 64 MiB / 40-million-pixel validation boundary, normalized to PNG/JPEG when needed, and emitted as `{ "image_url": "data:..." }`. U1.5 Fast supports up to 5 reference images when explicitly selected; editing never falls back automatically.
 
-For `response_format=url`, the runtime downloads immediately. U1.5 generation/edit URLs expire after 24 hours; U1 Fast generation URLs expire after 1 hour.
+For `response_format=url`, the runtime downloads immediately. U1.5 Lite/Fast generation and edit URLs expire after 24 hours.
 
 ## Optional compatibility commands
 

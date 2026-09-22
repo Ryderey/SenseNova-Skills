@@ -162,8 +162,9 @@ def check_image_runtime(verbose: bool, require_edit: bool = False) -> bool:
                 "response format defaults to b64_json": payload.get("response_format")
                 == "b64_json",
                 "U1.5 2K mapping is valid": client._resolve_size("2K", "16:9") == "2720x1536",
-                "U1 Fast 9:21 bucket is valid": client._resolve_size("2K", "9:21", fast=True)
-                == "1344x3136",
+                "U1.5 Fast Base64 transport is valid": client.build_payload(
+                    "diagnostic", "sensenova-u1.5-fast", size="4096x4096"
+                ).get("response_format") == "b64_json",
                 "4K mapping stays within API limits": client._resolve_size("4K", "1:1")
                 == "4096x4096",
             }
@@ -176,7 +177,7 @@ def check_image_runtime(verbose: bool, require_edit: bool = False) -> bool:
         if verbose or not passed:
             print(f"  {'[OK]' if passed else '[FAIL]'} {label}")
     if all(checks.values()) and not verbose:
-        print("  [OK] U1.5 generation/editing and U1 Fast fallback defaults are valid")
+        print("  [OK] U1.5 generation/editing and U1.5 Fast fallback defaults are valid")
     return all(checks.values())
 
 

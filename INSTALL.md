@@ -61,7 +61,7 @@ The image defaults are already:
 ```dotenv
 SN_IMAGE_GEN_BASE_URL=https://token.sensenova.cn/v1
 SN_IMAGE_GEN_MODEL=sensenova-u1.5-lite
-SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1-fast
+SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1.5-fast
 ```
 
 Do not set `SN_CHAT_MODEL` unless you explicitly want the low-level external text/vision adapters. The current Agent should normally plan prompts and review images itself.
@@ -104,8 +104,8 @@ SN_CHAT_TYPE=openai-completions
 
 - 401/403: check the key and account authorization; the runtime will not hide it with fallback.
 - 400 or safety error: fix the prompt/parameters; no fallback occurs.
-- 404/429/retry-exhausted 5xx during text-to-image: the default runtime may use U1 Fast and records why.
-- Editing failure: U1 Fast does not support image input, so editing never falls back.
+- 404/429/retry-exhausted 5xx during text-to-image: the default runtime may use U1.5 Fast and records why.
+- Editing failure: Editing never switches models automatically; U1.5 Fast can be selected explicitly for editing (up to 5 references).
 - Invalid size: use multiples of 32, 512-4096 pixels per side, and at most 3:1.
 
 See [the image guide](docs/sn-image-generate_en.md) for commands and output fields.

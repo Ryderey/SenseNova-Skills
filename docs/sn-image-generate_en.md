@@ -7,13 +7,13 @@ This repository contains only `sn-image-base`, `sn-image-doctor`, `sn-infographi
 ## Defaults
 
 - `sensenova-u1.5-lite`: primary generation and editing model.
-- `sensenova-u1-fast`: recoverable text-to-image fallback only; no image input.
+- `sensenova-u1.5-fast`: default fallback for recoverable text-to-image failures; also supports explicit editing with up to 5 references.
 - `watermark=false`, `prompt_extend=true`, `response_format=b64_json`; save immediately.
 - No default `SN_CHAT_MODEL`; the host Agent plans and reviews first.
 
 Model calls follow the account plan and credit rules. `watermark=false` is free only during the current public beta and is documented to become a premium paid feature afterward.
 
-Open the official [SenseNova API documentation](https://platform.sensenova.cn/docs) and find the `SenseNova U1.5 Lite` or `SenseNova U1 Fast` section by its heading. The documentation site's deep links are not reliable on a cold load.
+Open the official [SenseNova API documentation](https://platform.sensenova.cn/docs) and find the `SenseNova U1.5 Lite` or `SenseNova U1.5 Fast` section by its heading. The documentation site's deep links are not reliable on a cold load.
 
 ## Configure and diagnose
 
@@ -21,7 +21,7 @@ Open the official [SenseNova API documentation](https://platform.sensenova.cn/do
 SENSENOVA_API_KEY=your-key
 SN_IMAGE_GEN_BASE_URL=https://token.sensenova.cn/v1
 SN_IMAGE_GEN_MODEL=sensenova-u1.5-lite
-SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1-fast
+SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1.5-fast
 ```
 
 The default setup needs only `SENSENOVA_API_KEY`. Set an override only when a capability uses a different credential:
@@ -56,9 +56,9 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-generate \
   --output-format json
 ```
 
-Sizes: official `2k` / `4k`, repository compatibility preset `1k`, or `WIDTHxHEIGHT`. `1k` is mapped to valid explicit dimensions rather than sent as an API constant. U1.5 2K 16:9 / 9:16 uses the official recommended `2720x1536` / `1536x2720`; Fast uses its fixed `2752x1536` / `1536x2752` buckets. Explicit dimensions must be multiples of 32, 512-4096 per side, and at most 3:1. PNG/JPEG/WEBP are supported; after a Fast fallback, the runtime transcodes the downloaded result to the requested format.
+Sizes: official `2k` / `4k`, repository compatibility preset `1k`, or `WIDTHxHEIGHT`. `1k` is mapped to valid explicit dimensions rather than sent as an API constant. U1.5 2K 16:9 / 9:16 uses the official recommended `2720x1536` / `1536x2720`; Lite and Fast share these rules. Explicit dimensions must be multiples of 32, 512-4096 per side, and at most 3:1. PNG/JPEG/WEBP are supported; Fast fallback preserves size, format, and response transport.
 
-URL responses are downloaded immediately: U1.5 generation/edit URLs expire after 24 hours and U1 Fast URLs after 1 hour. The default Base64 path has no URL-expiry risk.
+URL responses are downloaded immediately: U1.5 Lite/Fast generation and edit URLs expire after 24 hours. The default Base64 path has no URL-expiry risk.
 
 Use `--model`, `--fallback-model`, and `--no-fallback` for control. Only 404, 429, and retry-exhausted 5xx may fall back. Bad/safety requests, 401/403, and file errors never do.
 
@@ -75,7 +75,7 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-edit \
   --output-format json
 ```
 
-Local images, public URLs, and Data URLs are validated, bounded to 64 MiB / 40 million decoded pixels, normalized to PNG/JPEG when needed, and sent as Data URLs. Multiple references and continued editing are supported. Editing uses U1.5 and never falls back to U1 Fast.
+Local images, public URLs, and Data URLs are validated, bounded to 64 MiB / 40 million decoded pixels, normalized to PNG/JPEG when needed, and sent as Data URLs. Multiple references and continued editing are supported. Editing defaults to U1.5 Lite; explicitly selecting U1.5 Fast supports up to 5 references. Editing never falls back automatically.
 
 ## JSON fields
 
@@ -87,5 +87,5 @@ Success preserves `status`, `output`, and `message`, adding `model`, `operation`
 - 400/safety: fix the request; no fallback.
 - 429: generation may fall back; editing cannot.
 - 5xx: U1.5 retries first; generation may fall back after exhaustion.
-- Edit failure: ensure the model is not U1 Fast and every local/remote reference is readable.
+- Edit failure: ensure every local/remote reference is readable and U1.5 Fast has at most 5 references.
 - External text/vision says model missing: pass `--model` or set `SN_TEXT_MODEL` / `SN_VISION_MODEL`; the skill will not select one.

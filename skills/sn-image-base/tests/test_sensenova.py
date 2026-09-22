@@ -99,7 +99,8 @@ class ConfigurationTests(unittest.TestCase):
             configs = Configs()
         self.assertEqual(configs.SN_IMAGE_GEN_MODEL_TYPE, "sensenova")
         self.assertEqual(configs.SN_IMAGE_GEN_MODEL, DEFAULT_MODEL)
-        self.assertEqual(configs.SN_IMAGE_GEN_FALLBACK_MODEL, FAST_MODEL)
+        self.assertEqual(configs.SN_IMAGE_GEN_FALLBACK_MODEL, "sensenova-u1.5-fast")
+        self.assertEqual(FAST_MODEL, "sensenova-u1.5-fast")
         self.assertEqual(configs.SN_CHAT_MODEL, "")
         self.assertEqual(configs.SN_TEXT_MODEL, "")
         self.assertEqual(configs.SN_VISION_MODEL, "")
@@ -201,11 +202,11 @@ class SensenovaPayloadTests(unittest.TestCase):
         self.assertFalse(payload["watermark"])
         self.assertEqual(payload["n"], 1)
 
-    def test_fast_payload_omits_u15_only_fields(self) -> None:
+    def test_fast_payload_supports_u15_fields(self) -> None:
         payload = self.client.build_payload("draw", FAST_MODEL, size="2048x2048")
-        self.assertNotIn("response_format", payload)
-        self.assertNotIn("output_format", payload)
-        self.assertNotIn("prompt_extend", payload)
+        self.assertEqual(payload["response_format"], "b64_json")
+        self.assertEqual(payload["output_format"], "png")
+        self.assertTrue(payload["prompt_extend"])
         self.assertFalse(payload["watermark"])
 
     def test_sizes_and_dimension_validation(self) -> None:
@@ -213,7 +214,7 @@ class SensenovaPayloadTests(unittest.TestCase):
         self.assertEqual(self.client._resolve_size("4096x2048", "1:1"), "4096x2048")
         self.assertEqual(self.client._resolve_size("4K", "1:1"), "4096x4096")
         self.assertEqual(
-            self.client._resolve_size("4K", "16:9", fast=True), "2752x1536"
+            self.client._resolve_size("4K", "16:9"), "4096x2304"
         )
         with self.assertRaisesRegex(ValueError, "multiples of 32"):
             self.client._resolve_size("1025x1024", "1:1")
@@ -224,7 +225,7 @@ class SensenovaPayloadTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "aspect-ratio"):
             self.client._resolve_size("auto", "16:9", allow_auto=True)
 
-    def test_fast_uses_all_eleven_official_2k_buckets(self) -> None:
+    def test_u15_uses_all_2k_presets(self) -> None:
         expected = {
             "2:3": "1664x2496",
             "3:2": "2496x1664",
@@ -233,15 +234,15 @@ class SensenovaPayloadTests(unittest.TestCase):
             "4:5": "1824x2272",
             "5:4": "2272x1824",
             "1:1": "2048x2048",
-            "16:9": "2752x1536",
-            "9:16": "1536x2752",
+            "16:9": "2720x1536",
+            "9:16": "1536x2720",
             "21:9": "3072x1376",
             "9:21": "1344x3136",
         }
         for ratio, size in expected.items():
             with self.subTest(ratio=ratio):
                 self.assertEqual(
-                    self.client._resolve_size("2K", ratio, fast=True), size
+                    self.client._resolve_size("2K", ratio), size
                 )
 
     def test_u15_uses_official_recommended_widescreen_2k_sizes(self) -> None:
@@ -667,6 +668,31 @@ class FallbackMatrixTests(unittest.TestCase):
 
 
 class RunnerGuardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_fast_generation_and_edit_contract(self) -> None:
+        client = SensenovaText2ImageClient(
+            api_key="test-key", base_url="https://example.test/v1", model=FAST_MODEL
+        )
+        with patch.object(client, "_request_and_save", new_callable=AsyncMock) as request:
+            await client.generate("draw", image_size="4K", output_format="webp",
+                                  response_format="url", prompt_extend=False)
+            payload = request.call_args.kwargs["payload"]
+            self.assertEqual(payload["model"], "sensenova-u1.5-fast")
+            self.assertEqual(payload["size"], "4096x2304")
+            self.assertEqual(payload["output_format"], "webp")
+            self.assertEqual(payload["response_format"], "url")
+            self.assertFalse(payload["prompt_extend"])
+            references = [data_url(png_bytes())] * 5
+            await client.edit("edit", references)
+            self.assertEqual(request.call_args.kwargs["endpoint"], "/images/edits")
+            payload = request.call_args.kwargs["payload"]
+            self.assertEqual(payload["model"], "sensenova-u1.5-fast")
+            self.assertEqual(len(payload["images"]), 5)
+            self.assertEqual(payload["response_format"], "b64_json")
+            request.reset_mock()
+            with self.assertRaisesRegex(ValueError, "at most 5"):
+                await client.edit("edit", references * 2)
+            request.assert_not_called()
+
     async def test_generation_fallback_preserves_requested_output_options(self) -> None:
         args = sn_agent_runner.build_parser().parse_args(
             [

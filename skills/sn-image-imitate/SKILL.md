@@ -65,7 +65,7 @@ Use the current Agent's visual understanding and writing ability for analysis, r
      --output-format json
    ```
 
-   Do not fall back to U1 Fast; it cannot accept images.
+   Do not automatically switch models for editing. U1.5 Fast supports up to 5 reference images when explicitly selected.
 5. Review each candidate with `prompts/layout_review.md`, supplying the original reference, candidate, target content, `target_language`, `allowed_foreign_terms`, `rewritten_caption`, and the complete `semantic_replacement_ledger`. Record all fields in its schema. A candidate passes only when layout score reaches `layout_threshold`, target content is accurate, all required text is legible, every ledger entry is valid, and both `semantic_residue` and `language_contamination` are empty.
 6. For attempts 2-8, save the exact correction prompt as UTF-8 text in `$TEMP_DIR/correction_${ATTEMPT}.txt`, then edit the current best candidate with the original reference as a second input when useful:
 

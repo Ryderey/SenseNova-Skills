@@ -112,7 +112,7 @@ class Configs:
     )
     SN_IMAGE_GEN_MODEL: Annotated[str, Field("SN_IMAGE_GEN_MODEL")] = "sensenova-u1.5-lite"
     SN_IMAGE_GEN_FALLBACK_MODEL: Annotated[str, Field("SN_IMAGE_GEN_FALLBACK_MODEL")] = (
-        "sensenova-u1-fast"
+        "sensenova-u1.5-fast"
     )
 
     # Chat runtime shared by text and vision commands; command-specific

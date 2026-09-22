@@ -80,7 +80,7 @@ Condensation is allowed only to fit the visual hierarchy. Preserve names, dates,
      --output-format json
    ```
 
-   Each correction must identify the exact text/location and desired final state. Editing never falls back to U1 Fast.
+   Each correction must identify the exact text/location and desired final state. Editing never falls back to U1.5 Fast.
 7. Retain the best verified candidate after every round, ranking exact fact preservation and legibility before layout/style. Return that candidate rather than automatically returning the last edit. If visual inspection is unavailable, return the generated image with `visual_review_performed=false`; do not pretend it was reviewed.
 8. After the result is delivered, delete the prompt intermediates (`resume_prompt.txt`, `resume_correction_*.txt`) and superseded revision images from `$TEMP_DIR`; keep only the final selected image, removing it after delivery when the user did not ask to keep the run's files.
 

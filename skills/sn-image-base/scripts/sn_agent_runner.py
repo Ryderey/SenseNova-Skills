@@ -144,7 +144,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--response-format",
         choices=["b64_json", "url"],
         default="b64_json",
-        help="U1.5 response transport; Fast always returns a temporary URL",
+        help="U1.5 Lite/Fast response transport: Base64 or temporary URL",
     )
     gen_parser.add_argument(
         "--image-format",

@@ -10,7 +10,7 @@
 
 | Skill | 能力 |
 |---|---|
-| [`sn-image-base`](skills/sn-image-base/SKILL.md) | U1.5 文生图、原生多参考图编辑、合成与融合、显式可选的文本/视觉适配器，以及受控的 U1 Fast 回退 |
+| [`sn-image-base`](skills/sn-image-base/SKILL.md) | U1.5 文生图、原生多参考图编辑、合成与融合、显式可选的文本/视觉适配器，以及受控的 U1.5 Fast 回退 |
 | [`sn-image-doctor`](skills/sn-image-doctor/SKILL.md) | 离线检查安装、依赖、Key、端点、模型、尺寸及无水印默认值 |
 | [`sn-infographic`](skills/sn-infographic/SKILL.md) | 87 种布局、66 种风格、提示词扩写、用户限定的 1–15 轮生成、视觉评审、按问题选择编辑或重新生成，以及质量排序 |
 | [`sn-image-imitate`](skills/sn-image-imitate/SKILL.md) | 参考图解析、内容改写、U1.5 原生仿制、一致性评审与多轮排序 |
@@ -31,7 +31,7 @@
 ## 默认策略
 
 - 首选模型：`sensenova-u1.5-lite`
-- 文生图次选：`sensenova-u1-fast`
+- 文生图次选：`sensenova-u1.5-fast`
 - 默认无水印
 - 默认启用 U1.5 提示词扩展
 - U1.5 默认返回 Base64 并立即落盘
@@ -41,7 +41,7 @@
 
 本仓库有意显式发送 `watermark=false`。SenseNova 当前在公测期免费开放无水印，官方说明公测结束后将作为高级付费特性；届时用于生产前应先确认账号费用。
 
-请打开 [SenseNova API 官方文档](https://platform.sensenova.cn/docs)，按标题查找 `SenseNova U1.5 Lite` 或 `SenseNova U1 Fast`。文档站的深链接在首次加载时不能可靠定位。
+请打开 [SenseNova API 官方文档](https://platform.sensenova.cn/docs)，按标题查找 `SenseNova U1.5 Lite` 或 `SenseNova U1.5 Fast`。文档站的深链接在首次加载时不能可靠定位。
 
 ## 快速开始
 

@@ -1,6 +1,6 @@
 ---
 name: sn-image-doctor
-description: Diagnose the five-skill SenseNova image installation, Python dependencies, API key, U1.5/U1 Fast models, image endpoints, dimension rules, no-watermark default, and optional external text/vision adapters.
+description: Diagnose the five-skill SenseNova image installation, Python dependencies, API key, U1.5/U1.5 Fast models, image endpoints, dimension rules, no-watermark default, and optional external text/vision adapters.
 metadata:
   project: SenseNova-Skills
   tier: 0
@@ -44,7 +44,7 @@ Minimal image configuration:
 ```dotenv
 SENSENOVA_API_KEY=your-key
 SN_IMAGE_GEN_MODEL=sensenova-u1.5-lite
-SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1-fast
+SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1.5-fast
 ```
 
 Do not add `SN_CHAT_MODEL` unless the user explicitly wants an external text/vision adapter.

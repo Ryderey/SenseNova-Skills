@@ -61,7 +61,7 @@ Key 读取顺序为 `--api-key` > 当前能力专用 Key > 适用时的 `SN_CHAT
 ```dotenv
 SN_IMAGE_GEN_BASE_URL=https://token.sensenova.cn/v1
 SN_IMAGE_GEN_MODEL=sensenova-u1.5-lite
-SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1-fast
+SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1.5-fast
 ```
 
 除非明确需要外部文本/视觉适配器，否则不要设置 `SN_CHAT_MODEL`。通常应由当前 Agent 直接完成提示词规划与图片评审。
@@ -104,8 +104,8 @@ SN_CHAT_TYPE=openai-completions
 
 - 401/403：检查 Key 和账号权限；不会通过回退掩盖。
 - 400 或安全错误：修正提示词/参数；不会回退。
-- 文生图遇到 404、429 或重试后仍失败的 5xx：默认可转 U1 Fast，并记录原因。
-- 图片编辑失败：U1 Fast 不支持图片输入，因此编辑绝不回退。
+- 文生图遇到 404、429 或重试后仍失败的 5xx：默认可转 U1.5 Fast，并记录原因。
+- 图片编辑失败：编辑不自动切换模型；可显式选择 U1.5 Fast 进行编辑（最多 5 张参考图）。
 - 尺寸非法：宽高须为 32 的倍数、各在 512–4096 之间，比例不超过 3:1。
 
 命令和输出字段见[图像指南](docs/sn-image-generate.md)。

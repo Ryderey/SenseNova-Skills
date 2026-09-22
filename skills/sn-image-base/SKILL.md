@@ -19,7 +19,7 @@ Resolve `BASE_SKILL_DIR` as the absolute directory containing this `SKILL.md`. R
 ## Runtime policy
 
 - Default image model: `sensenova-u1.5-lite`.
-- Default generation-only fallback: `sensenova-u1-fast`.
+- Default generation-only fallback: `sensenova-u1.5-fast`.
 - Default output: no watermark, prompt extension enabled, `b64_json` saved immediately. SenseNova documents `watermark=false` as free during public beta and a premium paid feature afterward; disclose that cost boundary when it is relevant to production use.
 - Never select a chat/text/vision model implicitly. The host Agent should plan prompts, inspect images, and judge quality with its own capabilities.
 - Use `sn-text-optimize` or `sn-image-recognize` only when the caller explicitly passes `--model`, or configures `SN_TEXT_MODEL` / `SN_VISION_MODEL` (or shared `SN_CHAT_MODEL`). Missing models are errors with configuration guidance.
@@ -49,7 +49,7 @@ Important options:
 |---|---|---|
 | `--prompt` / `--prompt-path` | required | Inline prompt or UTF-8 prompt file; prefer the file form for long or multiline copy |
 | `--model` | `SN_IMAGE_GEN_MODEL` / `sensenova-u1.5-lite` | Primary image model |
-| `--fallback-model` | `SN_IMAGE_GEN_FALLBACK_MODEL` / `sensenova-u1-fast` | Text-to-image fallback |
+| `--fallback-model` | `SN_IMAGE_GEN_FALLBACK_MODEL` / `sensenova-u1.5-fast` | Text-to-image fallback |
 | `--no-fallback` | false | Disable automatic fallback |
 | `--image-size` | `2k` | Official `2k`/`4k`, local compatibility preset `1k` mapped to explicit dimensions, or `WIDTHxHEIGHT` |
 | `--aspect-ratio` | `16:9` | Supported ratio, up to 3:1 either direction |
@@ -58,9 +58,9 @@ Important options:
 | `--response-format` | `b64_json` | U1.5 response transport (`b64_json` or `url`) |
 | `--image-format` | `png` | U1.5 output (`png`, `jpeg`, `webp`) |
 
-Explicit dimensions must be multiples of 32, each between 512 and 4096 pixels, and no wider/taller than 3:1. U1 Fast is limited to its official 2K buckets; a 4K or explicit U1.5 request is mapped to the nearest Fast bucket only when Fast is explicitly selected or used as fallback.
+Explicit dimensions must be multiples of 32, each between 512 and 4096 pixels, and no wider/taller than 3:1. U1.5 Lite and Fast share the same 2K/4K and explicit dimension rules; fallback preserves the requested resolution.
 
-When URL transport is selected, download immediately: U1.5 generation/edit URLs expire after 24 hours, while U1 Fast URLs expire after 1 hour. The default `b64_json` path is not subject to URL expiry.
+When URL transport is selected, download immediately: U1.5 Lite/Fast generation and edit URLs expire after 24 hours. The default `b64_json` path is not subject to URL expiry.
 
 Automatic fallback applies only to text-to-image when the primary returns 404, 429, or a 5xx after same-model retries. Never fall back for 400/validation or safety errors, 401/403, local file errors, network errors without an HTTP response, or image editing. JSON always reports `model`, `fallback_used`, and `fallback_reason`.
 
@@ -77,7 +77,7 @@ Use native U1.5 editing for local files, public URLs, Data URLs, multiple refere
   --output-format json
 ```
 
-Local files, public HTTP(S) URLs, and existing Data URLs are read through the same bounded image validator, normalized to PNG/JPEG where needed, and sent as Data URLs. Inputs are limited to 64 MiB and 40 million decoded pixels. U1 Fast is rejected for editing because it does not accept image input. Editing never falls back.
+Local files, public HTTP(S) URLs, and existing Data URLs are read through the same bounded image validator, normalized to PNG/JPEG where needed, and sent as Data URLs. Inputs are limited to 64 MiB and 40 million decoded pixels. U1.5 Fast supports editing with up to 5 reference images when explicitly selected. Editing never falls back automatically.
 
 Both image commands accept `--prompt-path <UTF-8 file>` instead of `--prompt`; the options are mutually exclusive. Prefer the file form for assembled infographic, resume, and correction prompts so shell quoting cannot alter Chinese text or line breaks.
 
