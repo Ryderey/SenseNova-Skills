@@ -77,7 +77,7 @@
 ## 实施记录（2026-09-23）
 
 - 新增 `skills/sn-image-base/scripts/sn_task_files.py`，提供 `begin`、`publish`、`abort`、`gc` 四个子命令（`-o text|json`）。锁放在独立的 `.sensenova-task.lock`：Windows 的文件区域锁会阻断其他句柄对该区域的读取，锁 marker 本身会让 `gc` 读不到归属标记而误判。
-- `begin` 在临时名目录内写好归属标记与锁文件后原子改名；`gc` 的回收判据是**最近活动时间**——归属标记（仅当 `task_id` 与目录名一致时才采信其创建时间）、目录、标记文件与锁文件四者的最新修改时间——整组超过 48 小时未活动才回收（`SN_TASK_RETENTION_HOURS` 可覆盖），因此持续写入的任务不会被误收；锁文件用于并发回收与提交之间的互斥（Windows 上删除文件前必须先释放句柄，因此锁在删除前释放，竞态由删除后的存在性复查兜底）。链接、越界路径与近期目录一律跳过。`publish` 校验选中图位于任务目录、目标在任务目录之外，先原子写入并复核大小，确认后再删任务目录，失败时保留任务目录与原图；`publish`、`abort`、`gc` 在删除因目录内文件消失而中止时会复查目录是否仍存在，仍存在即报错，不谎报已清理。
+- `begin` 在临时名目录内写好归属标记与锁文件后原子改名；`gc` 的回收判据是**最近活动时间**——有效归属标记的创建时间（仅当 `task_id` 与目录名一致时才采信）与任务目录内全部条目（含任务目录自身，使用 `lstat` 且不跟随链接）的修改时间取最新值；位于任务目录外的锁文件时间不参与判定——整组超过 48 小时未活动才回收（`SN_TASK_RETENTION_HOURS` 可覆盖），因此持续写入的任务不会被误收；锁文件用于并发回收与提交之间的互斥（Windows 上删除文件前必须先释放句柄，因此锁在删除前释放，竞态由删除后的存在性复查兜底）。链接、越界路径与近期目录一律跳过。`publish` 校验选中图位于任务目录、目标在任务目录之外，先原子写入并复核大小，确认后再删任务目录，失败时保留任务目录与原图；`publish`、`abort`、`gc` 在删除因目录内文件消失而中止时会复查目录是否仍存在，仍存在即报错，不谎报已清理。
 - 三个图像后端在省略 `--save-path` 时改存正式输出目录：`configs.py` 新增 `SN_IMAGE_OUTPUT_DIR` 字段与 `default_formal_output_dir()`，默认 `~/Pictures/SenseNova`；显式 `--save-path` 含义不变。
 - 四个技能文档（sn-image-base、sn-infographic、sn-image-imitate、sn-image-resume）与 sn-image-doctor 接入 `MANAGER`；信息图在第 5 步（用户确认视觉方向之后）才创建任务目录，确认被拒时不产生任何文件；成功路径调用 `publish`，失败/取消调用 `abort`；文档中 Python 命令统一加 `-B`。
 - 测试：新增 `test_task_files.py` 27 例；全套 94 例通过。既有的 `test_exactly_five_skills_remain` 期望集补入已存在的 `sn-motion-html` 并更名为 `test_expected_skills_remain`。
