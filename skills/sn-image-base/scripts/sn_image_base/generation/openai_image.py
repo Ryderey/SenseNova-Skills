@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import math
 import re
-import tempfile
 from pathlib import Path
 from typing import Any, Literal
 
 import httpx
 from typing_extensions import override
 
-from sn_image_base.configs import global_configs, is_valid_base_url
+from sn_image_base.configs import default_formal_output_dir, global_configs, is_valid_base_url
 from sn_image_base.exceptions import BadConfigurationError
 from sn_image_base.image_utils import decode_bounded_base64, save_image_bytes
 from sn_image_base.utils.error_utils import U1HttpErrorBase
@@ -24,7 +23,6 @@ from .core.client_base import (
 DEFAULT_RESOLUTION: Literal["1K", "2K"] = "2K"
 DEFAULT_ASPECT_RATIO = "16:9"
 DEFAULT_POLL_INTERVAL = 5.0
-OUTPUT_DIR = Path(tempfile.gettempdir()) / "sensenova-image"
 
 B64_PARSE_PATTERN = re.compile(r"^data:([a-zA-Z0-9/]+?);base64,([+-/_A-Za-z0-9]+=*)$")
 
@@ -131,7 +129,7 @@ class OpenAIImageGenerationClient(T2IBaseClient):
         api_url = self.get_api_url(model)
 
         if output_path is None:
-            output_path = unique_output_path(OUTPUT_DIR, "t2i", ".png")
+            output_path = unique_output_path(default_formal_output_dir(), "t2i", ".png")
         output_path = ensure_output_path(output_path)
 
         client = await self._get_client()

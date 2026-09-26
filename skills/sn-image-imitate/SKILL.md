@@ -15,7 +15,7 @@ Preserve the original reference-analysis, content-rewrite, layout-consistency re
 
 ## Runtime dependency
 
-Before analysis, read the sibling [`sn-image-base`](../sn-image-base/SKILL.md) skill and use its absolute `PYTHON`, `RUNNER`, model defaults, fallback policy, output contract, and Credential discovery procedure. Resolve `DOCTOR` as the sibling `sn-image-doctor/scripts/check_environment.py` and `POLICY` as this skill's `scripts/imitation_policy.py`. Use absolute paths for all three scripts.
+Before analysis, read the sibling [`sn-image-base`](../sn-image-base/SKILL.md) skill and use its absolute `PYTHON`, `RUNNER`, `MANAGER`, model defaults, fallback policy, output contract, and Credential discovery procedure. Resolve `DOCTOR` as the sibling `sn-image-doctor/scripts/check_environment.py` and `POLICY` as this skill's `scripts/imitation_policy.py`. Use absolute paths for all three scripts.
 
 ## Inputs
 
@@ -35,8 +35,8 @@ Use the current Agent's visual understanding and writing ability for analysis, r
 
 ## Workflow
 
-0. Before reference analysis, run `"<absolute PYTHON path>" "<absolute DOCTOR path>" --require-edit`. This check is offline. If the image API key is missing from the process, immediately follow `sn-image-base` Credential discovery, inject a persistent value into the same shell without printing it, and rerun the Doctor. Stop before analysis when the Doctor still fails.
-1. Validate the reference and target content, create `$TEMP_DIR` under the system temporary directory (for example `tempfile.gettempdir()/sn-image-imitate/<task-id>`; never create it inside the user's project or repository), and save the user's target request verbatim to `$TEMP_DIR/target_content.txt`. Never fabricate labels, values, logos, or facts.
+0. Before reference analysis, run `"<absolute PYTHON path>" -B "<absolute DOCTOR path>" --require-edit`. This check is offline. If the image API key is missing from the process, immediately follow `sn-image-base` Credential discovery, inject a persistent value into the same shell without printing it, and rerun the Doctor. Stop before analysis when the Doctor still fails.
+1. Validate the reference and target content, create the task directory with `"<absolute PYTHON path>" -B "<absolute MANAGER path>" begin -o json` and use the printed path (a unique guarded directory under `tempfile.gettempdir()/sensenova-tasks/`) as `$TEMP_DIR`, then save the user's target request verbatim to `$TEMP_DIR/target_content.txt`. Never fabricate labels, values, logos, or facts.
 2. Analyze the reference with `prompts/image_annotate.md`. Save its `LAYOUT_BLUEPRINT_JSON` object to `$TEMP_DIR/reference_blueprint.json`, including a stable-ID `source_topic_elements` inventory. Produce and retain a detailed blueprint covering:
    - canvas and region geometry;
    - reading order, alignment, spacing, hierarchy, connectors, and icon placement;
@@ -46,7 +46,7 @@ Use the current Agent's visual understanding and writing ability for analysis, r
 3. Rewrite the blueprint with `prompts/caption_rewrite.md`, save its structured result to `$TEMP_DIR/rewrite.json`, and save the exact `rewritten_caption` value as UTF-8 text in `$TEMP_DIR/rewritten_caption.txt`. It must declare `target_language`, user-authorized `allowed_foreign_terms`, and exactly one ledger disposition for every source topic ID. General requests to preserve the reference's style or layout never authorize semantic carry-over. Translate every topic-bearing element to the target topic while preserving its structural and stylistic role, region count, proportions, visual rhythm, palette relationships, and layout locks. Then run:
 
    ```bash
-   "<absolute PYTHON path>" "<absolute POLICY path>" \
+   "<absolute PYTHON path>" -B "<absolute POLICY path>" \
      "$TEMP_DIR/reference_blueprint.json" \
      "$TEMP_DIR/rewrite.json" \
      "$TEMP_DIR/target_content.txt"
@@ -56,7 +56,7 @@ Use the current Agent's visual understanding and writing ability for analysis, r
 4. Attempt 1 uses native U1.5 editing with the original reference and only `rewritten_caption` as the editing instruction:
 
    ```bash
-   "<absolute PYTHON path>" "<absolute RUNNER path>" sn-image-edit \
+   "<absolute PYTHON path>" -B "<absolute RUNNER path>" sn-image-edit \
      --prompt-path "$TEMP_DIR/rewritten_caption.txt" \
      --images "$REFERENCE_IMAGE" \
      --image-size auto \
@@ -70,7 +70,7 @@ Use the current Agent's visual understanding and writing ability for analysis, r
 6. For attempts 2-8, save the exact correction prompt as UTF-8 text in `$TEMP_DIR/correction_${ATTEMPT}.txt`, then edit the current best candidate with the original reference as a second input when useful:
 
    ```bash
-   "<absolute PYTHON path>" "<absolute RUNNER path>" sn-image-edit \
+   "<absolute PYTHON path>" -B "<absolute RUNNER path>" sn-image-edit \
      --prompt-path "$TEMP_DIR/correction_${ATTEMPT}.txt" \
      --images "$BEST_CANDIDATE" "$REFERENCE_IMAGE" \
      --image-size auto \
@@ -81,7 +81,7 @@ Use the current Agent's visual understanding and writing ability for analysis, r
 
 7. Stop on the first fully passing result. If none passes, rank by content accuracy, layout score, style score, legibility, and fewer violations; return the best candidate with `layout_passed=false`.
 8. If native editing is unavailable, return the actual error. Use the legacy analysis → rewritten prompt → `sn-image-generate` path only when the user explicitly requests a fresh reinterpretation rather than direct imitation; pass `--no-prompt-extend` there as well and mark `generation_mode=regenerate`.
-9. After the result is delivered, delete the prompt and JSON intermediates (`target_content.txt`, `reference_blueprint.json`, `rewrite.json`, `rewritten_caption.txt`, `correction_*.txt`) and all non-winning attempt images from `$TEMP_DIR`; keep only the final selected image, removing it after delivery when the user did not ask to keep the run's files.
+9. Deliver the selected image with `"<absolute PYTHON path>" -B "<absolute MANAGER path>" publish "$TEMP_DIR" "$SELECTED_IMAGE" -o json`; it prints the formal path to deliver and removes the whole task directory, including the prompt and JSON intermediates and every non-winning attempt. If the render fails, the user cancels, or no candidate is deliverable, run `"<absolute PYTHON path>" -B "<absolute MANAGER path>" abort "$TEMP_DIR"` instead. Never delete the user's reference image or any explicit `--save-path` target, and report a deletion failure instead of claiming the files were cleaned up.
 
 ## Result contract
 
@@ -91,7 +91,7 @@ Retain original core fields and include model provenance:
 {
   "status": "ok",
   "need_main_agent_send": true,
-  "image": "/absolute/path/attempt_2.png",
+  "image": "<formal path returned by publish>",
   "reference_blueprint": "...",
   "generation_prompt": "...",
   "target_language": "<inferred BCP-47 language tag>",
@@ -112,7 +112,7 @@ Retain original core fields and include model provenance:
   "attempts": [
     {
       "attempt": 1,
-      "image": "/absolute/path/attempt_1.png",
+      "image": "<task-directory path; removed with the task directory after delivery>",
       "generation_mode": "edit",
       "model": "sensenova-u1.5-lite",
       "fallback_used": false,
@@ -129,4 +129,6 @@ Retain original core fields and include model provenance:
 }
 ```
 
-`friendly` shows a short summary and the selected image. When `layout_passed=false`, it must also name the unresolved content, text, or layout findings that prevented a pass. `verbose` also shows the blueprint, rewritten prompt, semantic replacement ledger, attempt ranking, scores, violations, model, timing, and output paths. Never expose Base64 image data or credentials.
+The top-level `image` must be the formal path returned by `publish`; attempt-level `image` values live in the task directory and are removed with it after delivery, so report them as removed rather than as openable paths.
+
+`friendly` shows a short summary and the selected image. When `layout_passed=false`, it must also name the unresolved content, text, or layout findings that prevented a pass. `verbose` also shows the blueprint, rewritten prompt, semantic replacement ledger, attempt ranking, scores, violations, model, timing, and output paths; only the selected image remains as a file after delivery. Never expose Base64 image data or credentials.

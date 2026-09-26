@@ -22,6 +22,7 @@ EXPECTED_SKILLS = {
     "sn-image-imitate",
     "sn-image-resume",
     "sn-infographic",
+    "sn-motion-html",
 }
 DOCTOR_SCRIPT = SKILLS_ROOT / "sn-image-doctor/scripts/check_environment.py"
 INFOGRAPHIC_POLICY_SCRIPT = (
@@ -50,7 +51,7 @@ def load_infographic_policy_module():
 
 
 class RepositoryScopeTests(unittest.TestCase):
-    def test_exactly_five_skills_remain(self) -> None:
+    def test_expected_skills_remain(self) -> None:
         actual = {path.name for path in SKILLS_ROOT.iterdir() if path.is_dir()}
         self.assertEqual(actual, EXPECTED_SKILLS)
         self.assertFalse((REPO_ROOT / "examples").exists())
@@ -205,7 +206,7 @@ class RepositoryScopeTests(unittest.TestCase):
                 all("--prompt-path" in command for command in image_commands), name
             )
 
-    def test_scene_skills_use_system_temp_and_clean_up_intermediates(self) -> None:
+    def test_scene_skills_use_the_manager_for_task_files(self) -> None:
         for name in (
             "sn-image-base",
             "sn-infographic",
@@ -213,10 +214,13 @@ class RepositoryScopeTests(unittest.TestCase):
             "sn-image-resume",
         ):
             text = (SKILLS_ROOT / name / "SKILL.md").read_text(encoding="utf-8")
-            self.assertIn("under the system temporary directory", text, name)
+            self.assertIn("MANAGER", text, name)
+            self.assertIn("sensenova-tasks", text, name)
+            self.assertIn("abort", text, name)
+            self.assertNotIn("After the result is delivered, delete", text, name)
         for name in ("sn-infographic", "sn-image-imitate", "sn-image-resume"):
             text = (SKILLS_ROOT / name / "SKILL.md").read_text(encoding="utf-8")
-            self.assertIn("After the result is delivered, delete", text, name)
+            self.assertIn("MANAGER path", text, name)
 
     def test_legacy_host_paths_are_absent(self) -> None:
         legacy_host = "open" + "claw"
@@ -234,16 +238,19 @@ class RepositoryScopeTests(unittest.TestCase):
         scripts = SKILLS_ROOT / "sn-image-base/scripts"
         sys.path.insert(0, str(scripts))
         try:
+            from sn_image_base.configs import default_formal_output_dir
             from sn_image_base.generation import nano_banana, openai_image, sensenova
 
-            output_dirs = {
-                nano_banana.OUTPUT_DIR,
-                openai_image.OUTPUT_DIR,
-                sensenova.OUTPUT_DIR,
-            }
+            for module in (nano_banana, openai_image, sensenova):
+                source = Path(module.__file__).read_text(encoding="utf-8")
+                self.assertNotIn("gettempdir", source, module.__name__)
+                self.assertIn("default_formal_output_dir", source, module.__name__)
+            default_path = sensenova.SensenovaText2ImageClient._default_output_path(
+                None, "t2i", "png"
+            )
+            self.assertEqual(default_path.parent, default_formal_output_dir())
         finally:
             sys.path.pop(0)
-        self.assertEqual(output_dirs, {Path(tempfile.gettempdir()) / "sensenova-image"})
 
     def test_infographic_gallery_has_no_orphan_images(self) -> None:
         image_names = {

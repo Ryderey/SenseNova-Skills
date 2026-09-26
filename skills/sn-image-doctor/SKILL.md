@@ -17,7 +17,7 @@ Resolve `DOCTOR_SKILL_DIR` as the absolute directory containing this `SKILL.md`.
 Run this before generation when installation or configuration is uncertain:
 
 ```bash
-"<absolute PYTHON path>" "<absolute DOCTOR path>" --verbose
+"<absolute PYTHON path>" -B "<absolute DOCTOR path>" --verbose
 ```
 
 The check is offline and does not spend model quota. It validates:
@@ -36,7 +36,7 @@ If the image API key check fails, follow `sn-image-base`'s **Credential discover
 To install dependencies:
 
 ```bash
-"<absolute PYTHON path>" -m pip install -r "<absolute BASE_REQUIREMENTS path>"
+"<absolute PYTHON path>" -B -m pip install -r "<absolute BASE_REQUIREMENTS path>"
 ```
 
 Minimal image configuration:

@@ -13,7 +13,7 @@ from urllib.parse import urljoin
 import httpx
 from typing_extensions import override
 
-from sn_image_base.configs import global_configs, is_valid_base_url
+from sn_image_base.configs import default_formal_output_dir, global_configs, is_valid_base_url
 from sn_image_base.exceptions import InvalidBaseUrlError, MissingApiKeyError
 from sn_image_base.generation.core import ensure_output_path, unique_output_path
 from sn_image_base.generation.core.client_base import (
@@ -37,7 +37,6 @@ DEFAULT_RESOLUTION = "2K"
 DEFAULT_ASPECT_RATIO = "16:9"
 DEFAULT_MODEL = "sensenova-u1.5-lite"
 FAST_MODEL = "sensenova-u1.5-fast"
-OUTPUT_DIR = Path(tempfile.gettempdir()) / "sensenova-image"
 
 IMAGE_GEN_ENDPOINT = "/images/generations"
 IMAGE_EDIT_ENDPOINT = "/images/edits"
@@ -243,7 +242,7 @@ class SensenovaText2ImageClient(T2IBaseClient):
     def _default_output_path(path: Path | None, prefix: str, output_format: str) -> Path:
         suffix = _FORMAT_SUFFIX.get(output_format, ".png")
         if path is None:
-            path = unique_output_path(OUTPUT_DIR, prefix, suffix)
+            path = unique_output_path(default_formal_output_dir(), prefix, suffix)
         elif path.suffix.lower() != suffix:
             path = path.with_suffix(suffix)
         return ensure_output_path(path)

@@ -14,28 +14,45 @@ Use `scripts/sn_agent_runner.py` as the stable CLI. It preserves the original `s
 
 ## Runtime paths
 
-Resolve `BASE_SKILL_DIR` as the absolute directory containing this `SKILL.md`. Resolve `RUNNER` as `BASE_SKILL_DIR/scripts/sn_agent_runner.py` and `REQUIREMENTS` as `BASE_SKILL_DIR/requirements.txt`. Resolve `PYTHON` as the same interpreter that passes `sn-image-doctor`; prefer the repository `.venv` interpreter when it exists and has the required packages. Use absolute paths regardless of the current working directory, and never assume the host inherited a previously activated shell environment. On PowerShell, invoke a quoted executable path with the call operator (`& "<absolute PYTHON path>" ...`); on POSIX shells, execute the quoted path directly. These are logical path names, not environment variables; never ask the user to configure them.
+Resolve `BASE_SKILL_DIR` as the absolute directory containing this `SKILL.md`. Resolve `RUNNER` as `BASE_SKILL_DIR/scripts/sn_agent_runner.py`, `MANAGER` as `BASE_SKILL_DIR/scripts/sn_task_files.py`, and `REQUIREMENTS` as `BASE_SKILL_DIR/requirements.txt`. Resolve `PYTHON` as the same interpreter that passes `sn-image-doctor`; prefer the repository `.venv` interpreter when it exists and has the required packages. Use absolute paths regardless of the current working directory, and never assume the host inherited a previously activated shell environment. On PowerShell, invoke a quoted executable path with the call operator (`& "<absolute PYTHON path>" ...`); on POSIX shells, execute the quoted path directly. These are logical path names, not environment variables; never ask the user to configure them.
 
 ## Runtime policy
 
 - Default image model: `sensenova-u1.5-lite`.
 - Default generation-only fallback: `sensenova-u1.5-fast`.
+- Default output location: when `--save-path` is omitted, generated and edited images are saved to `SN_IMAGE_OUTPUT_DIR`, or `~/Pictures/SenseNova` by default; an explicit `--save-path` keeps its exact meaning.
 - Default output: no watermark, prompt extension enabled, `b64_json` saved immediately. SenseNova documents `watermark=false` as free during public beta and a premium paid feature afterward; disclose that cost boundary when it is relevant to production use.
 - Never select a chat/text/vision model implicitly. The host Agent should plan prompts, inspect images, and judge quality with its own capabilities.
 - Use `sn-text-optimize` or `sn-image-recognize` only when the caller explicitly passes `--model`, or configures `SN_TEXT_MODEL` / `SN_VISION_MODEL` (or shared `SN_CHAT_MODEL`). Missing models are errors with configuration guidance.
 - Keep `nano-banana` and `openai-image` backends available only through explicit `SN_IMAGE_GEN_MODEL_TYPE` and model configuration.
-- Keep task intermediates — assembled prompt files, analysis or blueprint JSON, and non-final candidates — in a per-task directory under the system temporary directory (for example `tempfile.gettempdir()/sn-tasks/<task-id>`); never write them into the user's project or the skill directories. After the result is delivered, delete the prompt and JSON intermediates and all non-final candidates; keep only the final delivered image, removing it after delivery when the user did not ask to keep the run's files.
+- Keep task intermediates — assembled prompt files, analysis or blueprint JSON, and non-final candidates — in a task directory created by the manager (`MANAGER begin`, under `tempfile.gettempdir()/sensenova-tasks/<task-id>`; the root is per-user and owner-only on POSIX); never write them into the user's project or the skill directories. Deliver with `MANAGER publish`, which copies the selected image to its formal location and then removes the whole task directory; run `MANAGER abort` when the task fails or the user cancels. Never delete files a user supplied or the target of an explicit `--save-path`.
 
 Install dependencies once:
 
 ```bash
-"<absolute PYTHON path>" -m pip install -r "<absolute REQUIREMENTS path>"
+"<absolute PYTHON path>" -B -m pip install -r "<absolute REQUIREMENTS path>"
 ```
+
+## Task files and delivery
+
+`MANAGER` owns the lifecycle of per-task temporary files; run every command with `-B` as well:
+
+```bash
+"<absolute PYTHON path>" -B "<absolute MANAGER path>" begin -o json
+"<absolute PYTHON path>" -B "<absolute MANAGER path>" publish "<task dir>" "<selected image>" --final-path "<target>" -o json
+"<absolute PYTHON path>" -B "<absolute MANAGER path>" abort "<task dir>" -o json
+"<absolute PYTHON path>" -B "<absolute MANAGER path>" gc -o json
+```
+
+- `begin` collects expired task directories, then creates a unique guarded directory under the task root (`tempfile.gettempdir()/sensenova-tasks/`, or a per-user `sensenova-tasks-<uid>` with owner-only permissions on POSIX) and prints its absolute path. Write only your task's own intermediates into it.
+- `publish` verifies the selected image, copies it atomically to the formal location (an explicit `--final-path`, otherwise the formal output directory with a unique name), removes the whole task directory, and prints the formal path to deliver. On failure it keeps the task directory and the original image so the call can be retried.
+- `abort` removes the whole task directory after a failure or cancellation. Report a deletion failure instead of claiming the files were cleaned up.
+- `gc` is also run automatically by `begin`; it collects this tool's directories under the dedicated root only after 48 hours of inactivity — the newest of the matching marker's creation time and the modification time of every entry in the directory, so both creating and rewriting files keeps a task alive (`SN_TASK_RETENTION_HOURS` overrides the window). A task left untouched for the whole window is treated as abandoned. Locks live in the sibling `.locks` directory and are held across the whole check-and-delete step, so `gc`, `publish`, and `abort` never interleave on the same task: whoever holds the lock first wins, and the others fail fast or skip; orphaned lock files are swept. Linked, recent, and out-of-root entries are skipped, and a task root or `.locks` directory that is itself a symlink, junction, or reparse point is rejected before anything is scanned, created, or removed. Users' own files and explicit `--save-path` targets are never touched.
 
 ## Generate
 
 ```bash
-"<absolute PYTHON path>" "<absolute RUNNER path>" sn-image-generate \
+"<absolute PYTHON path>" -B "<absolute RUNNER path>" sn-image-generate \
   --prompt "A clean bilingual product architecture infographic" \
   --image-size 2k \
   --aspect-ratio 16:9 \
@@ -69,7 +86,7 @@ Automatic fallback applies only to text-to-image when the primary returns 404, 4
 Use native U1.5 editing for local files, public URLs, Data URLs, multiple references, and continued editing of a prior result:
 
 ```bash
-"<absolute PYTHON path>" "<absolute RUNNER path>" sn-image-edit \
+"<absolute PYTHON path>" -B "<absolute RUNNER path>" sn-image-edit \
   --prompt "Keep the composition; correct the Chinese title and strengthen hierarchy" \
   --images first-round.png brand-reference.webp \
   --image-size auto \
@@ -86,12 +103,12 @@ Both image commands accept `--prompt-path <UTF-8 file>` instead of `--prompt`; t
 Prefer the host Agent. Invoke these compatibility tools only when an external runtime is explicitly configured:
 
 ```bash
-"<absolute PYTHON path>" "<absolute RUNNER path>" sn-text-optimize \
+"<absolute PYTHON path>" -B "<absolute RUNNER path>" sn-text-optimize \
   --user-prompt "Rewrite this image prompt" \
   --model YOUR_TEXT_MODEL \
   --output-format json
 
-"<absolute PYTHON path>" "<absolute RUNNER path>" sn-image-recognize \
+"<absolute PYTHON path>" -B "<absolute RUNNER path>" sn-image-recognize \
   --user-prompt "Review typography and factual accuracy" \
   --images output.png \
   --model YOUR_VISION_MODEL \

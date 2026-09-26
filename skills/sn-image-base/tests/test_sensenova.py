@@ -345,6 +345,18 @@ class SensenovaPayloadTests(unittest.TestCase):
             with Image.open(saved) as image:
                 self.assertEqual(image.size, (32, 32))
 
+    def test_failed_save_leaves_no_tmp_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target_dir = Path(temp_dir)
+            with (
+                patch("sn_image_base.image_utils.os.fsync", side_effect=OSError("simulated")),
+                self.assertRaises(OSError),
+            ):
+                save_base64_image(
+                    base64.b64encode(png_bytes()).decode(), target_dir / "result.png"
+                )
+            self.assertEqual(list(target_dir.iterdir()), [])
+
     def test_webp_is_normalized_for_model_input(self) -> None:
         mime, raw = normalize_for_model(webp_bytes())
         self.assertEqual(mime, "image/png")

@@ -15,7 +15,7 @@ This skill preserves the complete resume-to-layout mapping and the two visual mo
 
 ## Runtime dependency
 
-Before rendering, read the sibling [`sn-image-base`](../sn-image-base/SKILL.md) skill and use its absolute `PYTHON`, `RUNNER`, model defaults, fallback policy, and output contract in the commands below.
+Before rendering, read the sibling [`sn-image-base`](../sn-image-base/SKILL.md) skill and use its absolute `PYTHON`, `RUNNER`, `MANAGER`, model defaults, fallback policy, and output contract in the commands below.
 
 ## Inputs
 
@@ -42,13 +42,13 @@ Condensation is allowed only to fit the visual hierarchy. Preserve names, dates,
 
 ## Workflow
 
-1. Validate that enough resume content exists for a meaningful page, and create `$TEMP_DIR` under the system temporary directory (for example `tempfile.gettempdir()/sn-image-resume/<task-id>`); never create it inside the user's project or repository.
+1. Validate that enough resume content exists for a meaningful page, then create the task directory with `"<absolute PYTHON path>" -B "<absolute MANAGER path>" begin -o json` and use the printed path (a unique guarded directory under `tempfile.gettempdir()/sensenova-tasks/`) as `$TEMP_DIR`.
 2. Read all of `prompts/resume.md`. Resolve `layout_mode` from the requested deliverable and content density: use `portfolio` only for an explicitly creative, editorial, or portfolio-style request; otherwise use `content-first`. Apply the selected mode's structure plus the shared language, fact, typography, and style rules.
 3. Use the fact ledger to compose a complete generation prompt and save it as UTF-8 text in `$TEMP_DIR/resume_prompt.txt`. Explicitly instruct U1.5 to reproduce exact supplied strings, avoid pseudo-text, leave absent facts out, use large legible typography, omit QR codes, and render without a watermark. When `portrait_image` is absent, use an abstract typographic or profession-related visual anchor instead of inventing a human face.
 4. When `portrait_image` is absent, generate with U1.5:
 
    ```bash
-   "<absolute PYTHON path>" "<absolute RUNNER path>" sn-image-generate \
+   "<absolute PYTHON path>" -B "<absolute RUNNER path>" sn-image-generate \
      --prompt-path "$TEMP_DIR/resume_prompt.txt" \
      --image-size "$IMAGE_SIZE" \
      --aspect-ratio "$ASPECT_RATIO" \
@@ -59,7 +59,7 @@ Condensation is allowed only to fit the visual hierarchy. Preserve names, dates,
    When `portrait_image` is supplied, use native editing so the provided identity reference participates directly:
 
    ```bash
-   "<absolute PYTHON path>" "<absolute RUNNER path>" sn-image-edit \
+   "<absolute PYTHON path>" -B "<absolute RUNNER path>" sn-image-edit \
      --prompt-path "$TEMP_DIR/resume_prompt.txt" \
      --images "$PORTRAIT_IMAGE" \
      --image-size "$IMAGE_SIZE" \
@@ -72,7 +72,7 @@ Condensation is allowed only to fit the visual hierarchy. Preserve names, dates,
 6. For each bounded correction, save the exact correction prompt as UTF-8 text in `$TEMP_DIR/resume_correction_${ROUND}.txt`, then edit the previous image with U1.5:
 
    ```bash
-   "<absolute PYTHON path>" "<absolute RUNNER path>" sn-image-edit \
+   "<absolute PYTHON path>" -B "<absolute RUNNER path>" sn-image-edit \
      --prompt-path "$TEMP_DIR/resume_correction_${ROUND}.txt" \
      --images "$CURRENT_IMAGE" \
      --image-size auto \
@@ -82,7 +82,7 @@ Condensation is allowed only to fit the visual hierarchy. Preserve names, dates,
 
    Each correction must identify the exact text/location and desired final state. Editing never falls back to U1.5 Fast.
 7. Retain the best verified candidate after every round, ranking exact fact preservation and legibility before layout/style. Return that candidate rather than automatically returning the last edit. If visual inspection is unavailable, return the generated image with `visual_review_performed=false`; do not pretend it was reviewed.
-8. After the result is delivered, delete the prompt intermediates (`resume_prompt.txt`, `resume_correction_*.txt`) and superseded revision images from `$TEMP_DIR`; keep only the final selected image, removing it after delivery when the user did not ask to keep the run's files.
+8. Deliver the selected image with `"<absolute PYTHON path>" -B "<absolute MANAGER path>" publish "$TEMP_DIR" "$SELECTED_IMAGE" -o json`; it prints the formal path to deliver and removes the whole task directory, including the prompt intermediates and superseded revisions. If the render fails, the user cancels, or no candidate is deliverable, run `"<absolute PYTHON path>" -B "<absolute MANAGER path>" abort "$TEMP_DIR"` instead. Never delete the user's portrait or any explicit `--save-path` target, and report a deletion failure instead of claiming the files were cleaned up.
 
 ## Result contract
 
@@ -94,14 +94,14 @@ Preserve the original core fields; model and review fields are additive:
   "need_main_agent_send": true,
   "output_mode": "friendly",
   "layout_mode": "content-first",
-  "image": "/absolute/path/resume_revision_1.png",
+  "image": "<formal path returned by publish>",
   "generation_prompt": "included in verbose mode",
   "model": "sensenova-u1.5-lite",
   "fallback_used": false,
   "visual_review_performed": true,
   "quality_passed": true,
   "corrections": [
-    {"round": 1, "issues": ["..."], "image": "/absolute/path/resume_revision_1.png"}
+    {"round": 1, "issues": ["..."], "image": "<task-directory path; removed after delivery>"}
   ],
   "timing": {
     "total_elapsed_seconds": 25.12,
@@ -110,4 +110,6 @@ Preserve the original core fields; model and review fields are additive:
 }
 ```
 
-`friendly` returns a short summary and the single final image. When `quality_passed=false`, it must name the unresolved fact, text, or legibility findings. `verbose` also returns the fact ledger, selected layout mode, applied style, prompt, size/ratio, generation and correction provenance, review findings, timings, and final path.
+The top-level `image` must be the formal path returned by `publish`; correction-level `image` values point into the task directory and are removed with it after delivery.
+
+`friendly` returns a short summary and the single final image. When `quality_passed=false`, it must name the unresolved fact, text, or legibility findings. `verbose` also returns the fact ledger, selected layout mode, applied style, prompt, size/ratio, generation and correction provenance, review findings, timings, and the published formal path.

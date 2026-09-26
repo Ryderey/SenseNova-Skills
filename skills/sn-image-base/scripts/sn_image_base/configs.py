@@ -114,6 +114,8 @@ class Configs:
     SN_IMAGE_GEN_FALLBACK_MODEL: Annotated[str, Field("SN_IMAGE_GEN_FALLBACK_MODEL")] = (
         "sensenova-u1.5-fast"
     )
+    # Formal output directory for delivered images; empty means ~/Pictures/SenseNova.
+    SN_IMAGE_OUTPUT_DIR: Annotated[str, Field("SN_IMAGE_OUTPUT_DIR")] = ""
 
     # Chat runtime shared by text and vision commands; command-specific
     # SN_TEXT_* / SN_VISION_* values override these defaults.
@@ -338,6 +340,14 @@ def is_valid_base_url(url: str) -> bool:
             and not parsed.fragment
         )
     return False
+
+
+def default_formal_output_dir() -> Path:
+    """Formal directory for delivered images: SN_IMAGE_OUTPUT_DIR or ~/Pictures/SenseNova."""
+    override = (global_configs.SN_IMAGE_OUTPUT_DIR or "").strip()
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / "Pictures" / "SenseNova"
 
 
 def reload_env() -> None:

@@ -193,10 +193,10 @@ def save_image_bytes(
             suffix=".tmp",
             delete=False,
         ) as temporary:
+            temp_path = Path(temporary.name)
             temporary.write(raw)
             temporary.flush()
             os.fsync(temporary.fileno())
-            temp_path = Path(temporary.name)
         temp_path.replace(final_path)
         return final_path
     except Exception:
