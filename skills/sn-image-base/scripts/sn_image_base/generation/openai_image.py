@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import math
 import re
-from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import httpx
 from typing_extensions import override
@@ -19,6 +18,9 @@ from .core.client_base import (
     DEFAULT_MAX_CONNECTIONS,
     T2IBaseClient,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 DEFAULT_RESOLUTION: Literal["1K", "2K"] = "2K"
 DEFAULT_ASPECT_RATIO = "16:9"

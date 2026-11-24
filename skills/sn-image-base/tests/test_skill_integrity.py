@@ -23,12 +23,12 @@ EXPECTED_SKILLS = {
     "sn-image-imitate",
     "sn-image-resume",
     "sn-infographic",
-    "sn-motion-html",
 }
 DOCTOR_SCRIPT = SKILLS_ROOT / "sn-image-doctor/scripts/check_environment.py"
 RELEASE_MANIFEST_SCRIPT = (
     SKILLS_ROOT / "sn-image-doctor/scripts/prepare_release_manifest.py"
 )
+RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
 INFOGRAPHIC_POLICY_SCRIPT = (
     SKILLS_ROOT / "sn-infographic/scripts/infographic_policy.py"
 )
@@ -324,6 +324,35 @@ class DocumentationTests(unittest.TestCase):
             self.assertEqual(result.returncode, 1)
             self.assertIn("sensenova-release.json", result.stderr)
             self.assertFalse(output.exists())
+
+    def test_release_workflow_is_manual_and_protected(self) -> None:
+        text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+        for token in (
+            "workflow_dispatch:",
+            "refs/heads/main",
+            "contents: read",
+            "environment: release",
+            "contents: write",
+            "releases/latest",
+            "strictly newer than latest release",
+            "prepare_release_manifest.py --output sensenova-release.json",
+            "actions/upload-artifact@v4",
+            "actions/download-artifact@v4",
+            "gh release create",
+            "--verify-tag",
+            "--draft",
+            "--clobber",
+            "--draft=false",
+            "--latest",
+            "sha256sum",
+        ):
+            self.assertIn(token, text)
+        self.assertNotRegex(text, r"(?m)^  push:")
+        self.assertNotRegex(text, r"(?m)^  pull_request:")
+        for name in ("INSTALL.md", "INSTALL_CN.md"):
+            document = (REPO_ROOT / name).read_text(encoding="utf-8")
+            self.assertIn(".github/workflows/release.yml", document)
+            self.assertIn("release", document)
 
     def test_release_asset_and_update_command_are_documented(self) -> None:
         self.assertIn(

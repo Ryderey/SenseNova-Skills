@@ -133,6 +133,8 @@ SN_CHAT_TYPE=openai-completions
 
 默认模型、模型下线状态或接口兼容性发生变化时，必须同步更新五个技能目录中的 `VERSION`、各 `SKILL.md` 的 `metadata.version` 和根目录 `release.json`，再运行测试。`release.json` 的 `version` 必须为无 `v` 前缀的 `X.Y.Z`，`severity` 可选 `info`、`recommended`、`required`。发布时创建对应 `vX.Y.Z` tag，并发布为非草稿、非预发行的 GitHub Release；先运行 `python skills/sn-image-doctor/scripts/prepare_release_manifest.py --output sensenova-release.json` 校验并生成资产，再上传该文件。已安装技能只把最新的正式 Release 识别为可更新版本。
 
+需要自动化上述流程时，在 `Actions` 页面从 `main` 手动运行 [Release workflow](.github/workflows/release.yml)，输入规范版本号和可选 Markdown 发布说明，并确认所选提交。首次使用前，请在 **Settings > Environments** 创建 `release` Environment 并配置必需审批人。校验作业只有只读权限；校验通过后，发布作业等待审批，再使用工作流 Token 的 `contents: write` 权限创建附注标签、发布最新正式 Release 并上传 `sensenova-release.json`。Gitee 标签与 Release 镜像仍手动同步。
+
 ## 排障
 
 - 401/403：检查 Key 和账号权限；不会通过回退掩盖。

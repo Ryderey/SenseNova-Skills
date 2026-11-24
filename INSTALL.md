@@ -133,6 +133,8 @@ SN_CHAT_TYPE=openai-completions
 
 When default models, model retirement status, or API compatibility change, update `VERSION` in all five skill directories, `metadata.version` in every `SKILL.md`, and the root `release.json`, then run the tests. `release.json` requires a canonical `X.Y.Z` version without a `v` prefix and accepts `severity` values `info`, `recommended`, or `required`. Create the matching `vX.Y.Z` tag and publish a non-draft, non-prerelease GitHub Release. Run `python skills/sn-image-doctor/scripts/prepare_release_manifest.py --output sensenova-release.json` to validate and generate the asset, then upload it. Installed skills only treat the latest full Release as an available update.
 
+To automate the checklist, run the [Release workflow](.github/workflows/release.yml) from the `Actions` tab on `main`, enter the canonical version and optional Markdown notes, then confirm the selected commit. Before first use, create the `release` Environment under **Settings > Environments** and configure required reviewers. Validation runs with read-only access; publication then waits for approval and uses the workflow token's `contents: write` permission to create an annotated tag, publish the latest full Release, and attach `sensenova-release.json`. Gitee tag and Release mirroring remain manual.
+
 ## Troubleshooting
 
 - 401/403: check the key and account authorization; the runtime will not hide it with fallback.

@@ -38,8 +38,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if (d := str(SCRIPT_DIR)) not in sys.path:
     sys.path.insert(0, d)
 
-from sn_image_base.configs import default_formal_output_dir
-from sn_image_base.image_utils import MAX_IMAGE_BYTES, validate_image_file
+from sn_image_base.configs import default_formal_output_dir  # noqa: E402
+from sn_image_base.image_utils import MAX_IMAGE_BYTES, validate_image_file  # noqa: E402
 
 TASKS_DIRNAME = "sensenova-tasks"
 LOCK_DIRNAME = ".locks"
@@ -205,13 +205,13 @@ def _on_rmtree_error(func, path, exc):
     try:
         st = os.lstat(path)
     except OSError:
-        raise exc
+        raise exc from None
     if stat.S_ISLNK(st.st_mode):
         parent = os.path.dirname(os.fspath(path))
         try:
             os.chmod(parent, 0o700)
         except OSError:
-            raise exc
+            raise exc from None
         if func is os.unlink:
             func(path)
         else:
@@ -220,7 +220,7 @@ def _on_rmtree_error(func, path, exc):
     try:
         os.chmod(path, 0o700 if stat.S_ISDIR(st.st_mode) else 0o600)
     except OSError:
-        raise exc
+        raise exc from None
     if func is os.open:
         key = os.fspath(path)
         if key in _RETRYING_PATHS:

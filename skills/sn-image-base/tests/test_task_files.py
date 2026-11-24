@@ -368,9 +368,10 @@ class TestAbort(TaskFilesTestCase):
 
     def test_reports_partial_removal(self) -> None:
         task_dir = self.begin()
-        with patch.object(tf, "_rmtree", side_effect=FileNotFoundError(2, "vanished entry")):
-            with self.assertRaises(OSError):
-                tf.abort(task_dir, root=self.root)
+        with patch.object(
+            tf, "_rmtree", side_effect=FileNotFoundError(2, "vanished entry")
+        ), self.assertRaises(OSError):
+            tf.abort(task_dir, root=self.root)
         self.assertTrue(task_dir.exists())
 
     def test_fails_fast_while_task_dir_is_locked(self) -> None:
