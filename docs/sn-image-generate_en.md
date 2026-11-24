@@ -6,22 +6,23 @@ This repository contains only `sn-image-base`, `sn-image-doctor`, `sn-infographi
 
 ## Defaults
 
-- `sensenova-u1.5-lite`: primary generation and editing model.
-- `sensenova-u1.5-fast`: default fallback for recoverable text-to-image failures; also supports explicit editing with up to 5 references.
-- `watermark=false`, `prompt_extend=true`, `response_format=b64_json`; save immediately.
+- `sensenova-u1.6-lite`: primary generation and editing model.
+- Automatic fallback is off by default; set `SN_IMAGE_GEN_FALLBACK_MODEL` or `--fallback-model` explicitly. `sensenova-u1.5-fast` / `sensenova-u1-fast` are retired and kept only for legacy compatibility (explicit selection still allows editing with up to 5 references).
+- `watermark=false`, `prompt_extend=true`, `self_correction=true`, `response_format=b64_json`; save immediately.
 - No default `SN_CHAT_MODEL`; the host Agent plans and reviews first.
 
 Model calls follow the account plan and credit rules. `watermark=false` is free only during the current public beta and is documented to become a premium paid feature afterward.
 
-Open the official [SenseNova API documentation](https://platform.sensenova.cn/docs) and find the `SenseNova U1.5 Lite` or `SenseNova U1.5 Fast` section by its heading. The documentation site's deep links are not reliable on a cold load.
+Open the official [SenseNova API documentation](https://platform.sensenova.cn/docs) and find the `SenseNova U1.6 Lite` section by its heading (the only image model in the current overview). The documentation site's deep links are not reliable on a cold load.
 
 ## Configure and diagnose
 
 ```dotenv
 SENSENOVA_API_KEY=your-key
 SN_IMAGE_GEN_BASE_URL=https://token.sensenova.cn/v1
-SN_IMAGE_GEN_MODEL=sensenova-u1.5-lite
-SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1.5-fast
+SN_IMAGE_GEN_MODEL=sensenova-u1.6-lite
+# Optional fallback; empty by default means automatic fallback is off. u1.5-fast / u1-fast are retired (legacy only).
+SN_IMAGE_GEN_FALLBACK_MODEL=
 ```
 
 The default setup needs only `SENSENOVA_API_KEY`. Set an override only when a capability uses a different credential:
@@ -56,11 +57,11 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-generate \
   --output-format json
 ```
 
-Sizes: official `2k` / `4k`, repository compatibility preset `1k`, or `WIDTHxHEIGHT`. `1k` is mapped to valid explicit dimensions rather than sent as an API constant. U1.5 2K 16:9 / 9:16 uses the official recommended `2720x1536` / `1536x2720`; Lite and Fast share these rules. Explicit dimensions must be multiples of 32, 512-4096 per side, and at most 3:1. PNG/JPEG/WEBP are supported; Fast fallback preserves size, format, and response transport.
+The server-side `size` default is `auto` (adapts to the primary image when editing; the server chooses the resolution for generation); this runtime sends `2k` for generation by default and also accepts `--image-size auto` (cannot combine with `--aspect-ratio`; presets default to 16:9). Sizes: official constants `2k` / `4k`, repository compatibility preset `1k`, or `WIDTHxHEIGHT`. `1k` is not a server constant and is mapped to valid explicit dimensions. U1.6 2K 16:9 / 9:16 uses the official recommended `2720x1536` / `1536x2720`. Explicit dimensions must be multiples of 32, 512-4096 per side, and at most 3:1. PNG/JPEG/WEBP are supported; an explicitly configured fallback preserves size, format, and response transport.
 
-URL responses are downloaded immediately: U1.5 Lite/Fast generation and edit URLs expire after 24 hours. The default Base64 path has no URL-expiry risk.
+URL responses are downloaded immediately: U1.6 Lite generation and edit URLs expire after 24 hours. The default Base64 path has no URL-expiry risk.
 
-Use `--model`, `--fallback-model`, and `--no-fallback` for control. Only 404, 429, and retry-exhausted 5xx may fall back. Bad/safety requests, 401/403, and file errors never do.
+Use `--model`, `--fallback-model`, and `--no-fallback` for control. Automatic fallback is off by default; once a fallback model is set explicitly, only 404, 429, and retry-exhausted 5xx may fall back. Bad/safety requests, 401/403, and file errors never do.
 
 For a long prompt, save UTF-8 text and pass `--prompt-path prompt.txt`; it is mutually exclusive with `--prompt`. Prefer the file form for infographics, resumes, and punctuation-heavy copy.
 
@@ -75,17 +76,26 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-edit \
   --output-format json
 ```
 
-Local images, public URLs, and Data URLs are validated, bounded to 64 MiB / 40 million decoded pixels, normalized to PNG/JPEG when needed, and sent as Data URLs. Multiple references and continued editing are supported. Editing defaults to U1.5 Lite; explicitly selecting U1.5 Fast supports up to 5 references. Editing never falls back automatically.
+Local images, public URLs, and Data URLs are validated, bounded to 64 MiB / 40 million decoded pixels, normalized to PNG/JPEG when needed, and sent as Data URLs. Multiple references and continued editing are supported. Editing defaults to U1.6 Lite with at most 5 references, the first being the primary image edited. The retired `sensenova-u1.5-fast` is only available when explicitly selected for legacy compatibility. Editing never falls back automatically.
 
 ## JSON fields
 
 Success preserves `status`, `output`, and `message`, adding `model`, `operation`, `retry_count`, `fallback_used`, and `fallback_reason`. Failures include `error_type` and `error`, plus `http_status` when available.
+
+## Model migration (U1.5 to U1.6)
+
+SenseNova has announced the retirement of `sensenova-u1.5-lite` and `sensenova-u1.5-fast`. During the transition the platform routes those two IDs to `sensenova-u1.6-lite`. This repository now defaults to `sensenova-u1.6-lite`, and automatic fallback is off by default.
+
+- The compatibility routing guarantees only `sensenova-u1.5-lite` and `sensenova-u1.5-fast`; no other legacy model name is covered.
+- If you configured your own environment, change `SN_IMAGE_GEN_MODEL` to `sensenova-u1.6-lite` yourself and review any explicit `SN_IMAGE_GEN_FALLBACK_MODEL`, `--model`, or `--fallback-model` value. `sensenova-u1-fast` is outside the routing guarantee and fails when used as a fallback.
+- Once retirement completes, the compatibility routing stops working and legacy IDs return errors; `sensenova-u1.6-lite` is the only image model in the overview.
+- After migrating, re-check the effective model names and endpoints with Doctor: `python skills/sn-image-doctor/scripts/check_environment.py --verbose`.
 
 ## Troubleshooting
 
 - 401/403: key or permission problem; no fallback.
 - 400/safety: fix the request; no fallback.
 - 429: generation may fall back; editing cannot.
-- 5xx: U1.5 retries first; generation may fall back after exhaustion.
-- Edit failure: ensure every local/remote reference is readable and U1.5 Fast has at most 5 references.
+- 5xx: U1.6 retries first; generation falls back after exhaustion only when a fallback model is configured explicitly.
+- Edit failure: ensure every local/remote reference is readable and there are at most 5 references (the first is the primary image).
 - External text/vision says model missing: pass `--model` or set `SN_TEXT_MODEL` / `SN_VISION_MODEL`; the skill will not select one.

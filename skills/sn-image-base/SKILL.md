@@ -1,6 +1,6 @@
 ---
 name: sn-image-base
-description: Shared SenseNova U1.5 runtime for generation and native image editing. Use directly for “SenseNova 技能” requests to combine, merge, or collage multiple supplied images, including 图片合成、多图合成、图片融合、多图融合、融图或拼图; also use it as the backend for other SenseNova image skills.
+description: Shared SenseNova U1.6 runtime for generation and native image editing. Use directly for “SenseNova 技能” requests to combine, merge, or collage multiple supplied images, including 图片合成、多图合成、图片融合、多图融合、融图或拼图; also use it as the backend for other SenseNova image skills.
 metadata:
   project: SenseNova-Skills
   tier: 0
@@ -18,10 +18,10 @@ Resolve `BASE_SKILL_DIR` as the absolute directory containing this `SKILL.md`. R
 
 ## Runtime policy
 
-- Default image model: `sensenova-u1.5-lite`.
-- Default generation-only fallback: `sensenova-u1.5-fast`.
+- Default image model: `sensenova-u1.6-lite`.
+- Generation-only fallback: off by default (`SN_IMAGE_GEN_FALLBACK_MODEL` is empty). Set it or `--fallback-model` explicitly to enable it; `sensenova-u1.5-fast` / `sensenova-u1-fast` are retired and kept only for legacy compatibility.
 - Default output location: when `--save-path` is omitted, generated and edited images are saved to `SN_IMAGE_OUTPUT_DIR`, or `~/Pictures/SenseNova` by default; an explicit `--save-path` keeps its exact meaning.
-- Default output: no watermark, prompt extension enabled, `b64_json` saved immediately. SenseNova documents `watermark=false` as free during public beta and a premium paid feature afterward; disclose that cost boundary when it is relevant to production use.
+- Default output: no watermark, prompt extension enabled, text self-correction enabled (`self_correction=true` sent explicitly), `b64_json` saved immediately. SenseNova documents `watermark=false` as free during public beta and a premium paid feature afterward; disclose that cost boundary when it is relevant to production use.
 - Never select a chat/text/vision model implicitly. The host Agent should plan prompts, inspect images, and judge quality with its own capabilities.
 - Use `sn-text-optimize` or `sn-image-recognize` only when the caller explicitly passes `--model`, or configures `SN_TEXT_MODEL` / `SN_VISION_MODEL` (or shared `SN_CHAT_MODEL`). Missing models are errors with configuration guidance.
 - Keep `nano-banana` and `openai-image` backends available only through explicit `SN_IMAGE_GEN_MODEL_TYPE` and model configuration.
@@ -65,25 +65,26 @@ Important options:
 | Option | Default | Meaning |
 |---|---|---|
 | `--prompt` / `--prompt-path` | required | Inline prompt or UTF-8 prompt file; prefer the file form for long or multiline copy |
-| `--model` | `SN_IMAGE_GEN_MODEL` / `sensenova-u1.5-lite` | Primary image model |
-| `--fallback-model` | `SN_IMAGE_GEN_FALLBACK_MODEL` / `sensenova-u1.5-fast` | Text-to-image fallback |
+| `--model` | `SN_IMAGE_GEN_MODEL` / `sensenova-u1.6-lite` | Primary image model |
+| `--fallback-model` | `SN_IMAGE_GEN_FALLBACK_MODEL` / empty (off) | Text-to-image fallback; explicit configuration only |
 | `--no-fallback` | false | Disable automatic fallback |
 | `--image-size` | `2k` | Official `2k`/`4k`, local compatibility preset `1k` mapped to explicit dimensions, or `WIDTHxHEIGHT` |
 | `--aspect-ratio` | `16:9` | Supported ratio, up to 3:1 either direction |
-| `--watermark` / `--no-watermark` | false | Watermark control |
-| `--prompt-extend` / `--no-prompt-extend` | true | U1.5 prompt extension |
-| `--response-format` | `b64_json` | U1.5 response transport (`b64_json` or `url`) |
-| `--image-format` | `png` | U1.5 output (`png`, `jpeg`, `webp`) |
+| `--watermark` / `--no-watermark` | false | Watermark control; the server default is `true`, so `false` is sent explicitly |
+| `--self-correction` / `--no-self-correction` | true | Text self-correction, sent explicitly as `self_correction` |
+| `--prompt-extend` / `--no-prompt-extend` | true | U1.6 prompt extension |
+| `--response-format` | `b64_json` | U1.6 response transport (`b64_json` or `url`) |
+| `--image-format` | `png` | U1.6 output (`png`, `jpeg`, `webp`) |
 
-Explicit dimensions must be multiples of 32, each between 512 and 4096 pixels, and no wider/taller than 3:1. U1.5 Lite and Fast share the same 2K/4K and explicit dimension rules; fallback preserves the requested resolution.
+Explicit dimensions must be multiples of 32, each between 512 and 4096 pixels, and no wider/taller than 3:1. The server-side `size` default is `auto`; this runtime sends the official `2k`/`4k` constants or explicit dimensions for generation by default and also accepts `auto` (server chooses; cannot combine with `--aspect-ratio`, presets default to 16:9), and `1k` is a local preset mapped to explicit dimensions. An explicitly configured fallback preserves the requested resolution.
 
-When URL transport is selected, download immediately: U1.5 Lite/Fast generation and edit URLs expire after 24 hours. The default `b64_json` path is not subject to URL expiry.
+When URL transport is selected, download immediately: U1.6 Lite generation and edit URLs expire after 24 hours. The default `b64_json` path is not subject to URL expiry.
 
 Automatic fallback applies only to text-to-image when the primary returns 404, 429, or a 5xx after same-model retries. Never fall back for 400/validation or safety errors, 401/403, local file errors, network errors without an HTTP response, or image editing. JSON always reports `model`, `fallback_used`, and `fallback_reason`.
 
 ## Edit
 
-Use native U1.5 editing for local files, public URLs, Data URLs, multiple references, and continued editing of a prior result:
+Use native U1.6 editing for local files, public URLs, Data URLs, multiple references, and continued editing of a prior result:
 
 ```bash
 "<absolute PYTHON path>" -B "<absolute RUNNER path>" sn-image-edit \
@@ -94,7 +95,7 @@ Use native U1.5 editing for local files, public URLs, Data URLs, multiple refere
   --output-format json
 ```
 
-Local files, public HTTP(S) URLs, and existing Data URLs are read through the same bounded image validator, normalized to PNG/JPEG where needed, and sent as Data URLs. Inputs are limited to 64 MiB and 40 million decoded pixels. U1.5 Fast supports editing with up to 5 reference images when explicitly selected. Editing never falls back automatically.
+Local files, public HTTP(S) URLs, and existing Data URLs are read through the same bounded image validator, normalized to PNG/JPEG where needed, and sent as Data URLs. Inputs are limited to 64 MiB and 40 million decoded pixels. Editing accepts at most 5 reference images, and the first one is the primary image being edited. The retired `sensenova-u1.5-fast` can still be selected explicitly for legacy compatibility. Editing never falls back automatically.
 
 Both image commands accept `--prompt-path <UTF-8 file>` instead of `--prompt`; the options are mutually exclusive. Prefer the file form for assembled infographic, resume, and correction prompts so shell quoting cannot alter Chinese text or line breaks.
 
@@ -119,7 +120,7 @@ Supported adapter protocols remain `openai-completions` and `anthropic-messages`
 
 ## Configuration
 
-Resolution priority is CLI > capability-specific environment variable > shared environment variable. The minimal setup is `SENSENOVA_API_KEY`; use `SN_IMAGE_GEN_API_KEY`, `SN_CHAT_API_KEY`, `SN_TEXT_API_KEY`, or `SN_VISION_API_KEY` only when that capability needs a different credential. The official base URL, primary model, and fallback model already have image-specific defaults.
+Resolution priority is CLI > capability-specific environment variable > shared environment variable. The minimal setup is `SENSENOVA_API_KEY`; use `SN_IMAGE_GEN_API_KEY`, `SN_CHAT_API_KEY`, `SN_TEXT_API_KEY`, or `SN_VISION_API_KEY` only when that capability needs a different credential. The official base URL and primary model already have image-specific defaults; the fallback model default is empty, so automatic fallback is off until configured.
 
 Environment lookup order is: existing process values, the file named by `SN_ENV_FILE`, then the nearest `.env` found from the current working directory upward. File values never override existing process values. `sn-image-doctor --verbose` reports the selected Python executable and environment-file path without printing secrets.
 

@@ -97,13 +97,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--image-size",
         default="2k",
         help=(
-            "2K/4K API preset, 1K compatibility preset mapped to explicit dimensions, "
-            "or WIDTHxHEIGHT (multiples of 32, 512-4096)"
+            "auto (server chooses), 2K/4K API preset, 1K compatibility preset mapped "
+            "to explicit dimensions, or WIDTHxHEIGHT (multiples of 32, 512-4096)"
         ),
     )
     gen_parser.add_argument(
         "--aspect-ratio",
-        default="16:9",
+        default=None,
         choices=[
             "2:3",
             "3:2",
@@ -117,7 +117,7 @@ def build_parser() -> argparse.ArgumentParser:
             "21:9",
             "9:21",
         ],
-        help="Aspect ratio",
+        help="Aspect ratio for presets (default 16:9); cannot combine with auto",
     )
     gen_parser.add_argument("--seed", type=int, default=None, help="Random seed")
     gen_parser.add_argument("--unet-name", dest="unet_name", default=None, help="UNet model name")
@@ -138,19 +138,25 @@ def build_parser() -> argparse.ArgumentParser:
         "--prompt-extend",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Let U1.5 extend the prompt (default: true)",
+        help="Let U1.6 extend the prompt (default: true)",
+    )
+    gen_parser.add_argument(
+        "--self-correction",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Let U1.6 self-correct in-image text (default: true)",
     )
     gen_parser.add_argument(
         "--response-format",
         choices=["b64_json", "url"],
         default="b64_json",
-        help="U1.5 Lite/Fast response transport: Base64 or temporary URL",
+        help="U1.6 Lite/Fast response transport: Base64 or temporary URL",
     )
     gen_parser.add_argument(
         "--image-format",
         choices=["png", "jpeg", "webp"],
         default="png",
-        help="Saved U1.5 image format",
+        help="Saved U1.6 image format",
     )
     gen_parser.add_argument(
         "--api-key",
@@ -173,8 +179,8 @@ def build_parser() -> argparse.ArgumentParser:
     gen_parser.add_argument("-o", "--output-format", choices=["text", "json"], default="text")
     gen_parser.add_argument("--save-path", type=Path, default=None)
 
-    # sn-image-edit (U1.5 native image-to-image)
-    edit_parser = subparsers.add_parser("sn-image-edit", help="Edit image(s) with SenseNova U1.5")
+    # sn-image-edit (U1.6 native image-to-image)
+    edit_parser = subparsers.add_parser("sn-image-edit", help="Edit image(s) with SenseNova U1.6")
     edit_prompt = edit_parser.add_mutually_exclusive_group(required=True)
     edit_prompt.add_argument("--prompt", help="Editing instruction")
     edit_prompt.add_argument(
@@ -209,7 +215,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--prompt-extend",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Let U1.5 extend the prompt (default: true)",
+        help="Let U1.6 extend the prompt (default: true)",
+    )
+    edit_parser.add_argument(
+        "--self-correction",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Let U1.6 self-correct in-image text (default: true)",
     )
     edit_parser.add_argument("--response-format", choices=["b64_json", "url"], default="b64_json")
     edit_parser.add_argument("-o", "--output-format", choices=["text", "json"], default="text")
@@ -360,7 +372,7 @@ async def run_image_generate(args: argparse.Namespace) -> tuple[dict, int]:
             failure.
     """
     prompt = _resolve_prompt(args.prompt, args.prompt_path, required=True, name="prompt")
-    args.image_size = _normalize_image_size(args.image_size)
+    args.image_size = _normalize_image_size(args.image_size, allow_auto=True)
     _reject_unsupported_generation_options(args)
 
     api_key = args.api_key or global_configs.SN_IMAGE_GEN_API_KEY
@@ -444,6 +456,7 @@ async def run_image_generate(args: argparse.Namespace) -> tuple[dict, int]:
                 response_format=args.response_format,
                 watermark=args.watermark,
                 prompt_extend=args.prompt_extend,
+                self_correction=args.self_correction,
             )
         result = _normalize_image_result(
             await client.generate(**generation_options),
@@ -477,6 +490,7 @@ async def run_image_generate(args: argparse.Namespace) -> tuple[dict, int]:
                     response_format=args.response_format,
                     watermark=args.watermark,
                     prompt_extend=args.prompt_extend,
+                    self_correction=args.self_correction,
                 ),
                 model=fallback_model,
                 operation="generate",
@@ -492,7 +506,7 @@ async def run_image_generate(args: argparse.Namespace) -> tuple[dict, int]:
 
 
 async def run_image_edit(args: argparse.Namespace) -> tuple[dict, int]:
-    """Run U1.5 native editing; edits never fall back to a text-only model."""
+    """Run U1.6 native editing; edits never fall back to a text-only model."""
     prompt = _resolve_prompt(args.prompt, args.prompt_path, required=True, name="prompt")
     if global_configs.SN_IMAGE_GEN_MODEL_TYPE != "sensenova":
         raise BadConfigurationError(
@@ -524,6 +538,7 @@ async def run_image_edit(args: argparse.Namespace) -> tuple[dict, int]:
                 response_format=args.response_format,
                 watermark=args.watermark,
                 prompt_extend=args.prompt_extend,
+                self_correction=args.self_correction,
             ),
             model=model,
             operation="edit",

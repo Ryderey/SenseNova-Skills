@@ -59,7 +59,7 @@ Use the current host Agent to analyze content, expand prompts, inspect generated
    ```
 
    Use the printed directory (a unique guarded task directory under `tempfile.gettempdir()/sensenova-tasks/`) as `$TEMP_DIR`, write the completed analysis to `$TEMP_DIR/analysis.json`, and run `"<absolute PYTHON path>" -B "<absolute POLICY path>" density "$TEMP_DIR/analysis.json"`; copy the returned `required_text_unit_count`, `cjk_character_count`, and `text_density_risk` into the analysis. Then build the final prompt from `references/base-prompt.md`, `references/prompts-expand-system.md`, `references/prompt-writing-rules.md`, `references/structured-content-template.md`, and the selected definitions. Apply the CJK density gate before finalizing the layout. If it changes an explicit layout, tell the user which internal columns or rows will change before rendering; proceed with text accuracy unless they explicitly prioritize layout fidelity. Preserve the fact ledger, requested language, concrete labels, visual hierarchy, no-watermark requirement, and ample readable type. Add organizational headings only when they make no new factual claim, and add every intended heading to the required-text inventory before review. Save the complete prompt as UTF-8 text in `$TEMP_DIR/final_prompt.txt`.
-6. Generate round 1 with U1.5:
+6. Generate round 1 with U1.6:
 
    ```bash
    "<absolute PYTHON path>" -B "<absolute RUNNER path>" sn-image-generate \
@@ -70,11 +70,11 @@ Use the current host Agent to analyze content, expand prompts, inspect generated
      --output-format json
    ```
 
-   The base runtime handles the allowed U1.5 Fast fallback for this initial text-to-image request.
+   Automatic fallback is off by default; the base runtime falls back for this initial text-to-image request only when a fallback model is explicitly configured.
 7. Inspect every generated image, including round 1, with `references/prompts-critic-system.md`, supplying the candidate image, fact ledger, stable-ID required-text inventory, and final generation prompt. Require its character-level text audit; use its weighted score and red-line gates. This is structured visual inspection, not deterministic OCR, and must not be reported as OCR. `references/evaluation-standard.md` evaluates input-prompt completeness only and must not be used as an image-quality rubric.
 8. When `max_rounds > 1` and the current candidate does not meet the stop gate, run `"<absolute PYTHON path>" -B "<absolute POLICY path>" correction --text-violations <count>` with any applicable `--localized-visual`, `--long-text`, `--large-cjk-rewrite`, `--repeated-entry-error`, or `--layout-topology-change` flags to choose the correction mode:
 
-   - Use native U1.5 editing only for localized visual corrections or at most three short text-label corrections that do not change layout topology.
+   - Use native U1.6 editing only for localized visual corrections or at most three short text-label corrections that do not change layout topology.
    - Regenerate from the complete corrected prompt for any large CJK rewrite, more than three text violations in any language or density class, a repeated entry that is missing/duplicated/extra, any long text replacement, or a change to columns, section flow, or other layout topology.
 
    For a localized edit, save the exact correction prompt as UTF-8 text in `$TEMP_DIR/correction_${ROUND}.txt`:
@@ -88,7 +88,7 @@ Use the current host Agent to analyze content, expand prompts, inspect generated
      --output-format json
    ```
 
-   Editing never falls back to U1.5 Fast. If an edit fails, retry the edit once for a transient 5xx; if it still fails and rounds remain, regenerate. If an edit reduces `exact_match_count` or factual accuracy, or introduces a new text violation, abandon that edit branch and regenerate on the next round rather than editing it again. Record every mode as `edit` or `regenerate`.
+   Editing never falls back automatically. If an edit fails, retry the edit once for a transient 5xx; if it still fails and rounds remain, regenerate. If an edit reduces `exact_match_count` or factual accuracy, or introduces a new text violation, abandon that edit branch and regenerate on the next round rather than editing it again. Record every mode as `edit` or `regenerate`.
 9. Stop early when the critic returns `PASS`, `score >= 0.90`, and no factual, text-legibility, or watermark red line. Otherwise track whether each candidate improves `exact_match_count`, factual accuracy, or total score over the best prior candidate; run `"<absolute PYTHON path>" -B "<absolute POLICY path>" stagnation <non-improving-count>` and stop when it returns `true`. This rule never requires trying an inapplicable correction mode. Return the best candidate and never exceed `max_rounds`.
 10. Rank all completed candidates by: exact required-text matches, factual accuracy, and legibility first, then rubric score, then fewer violations, then later corrected round. Return the highest-quality result even if none passes; mark `quality_passed=false` in that case.
 11. Deliver the selected image with `"<absolute PYTHON path>" -B "<absolute MANAGER path>" publish "$TEMP_DIR" "$BEST_IMAGE" -o json`; it prints the formal path to deliver and removes the whole task directory, including all prompts, JSON intermediates, and losing round images. If the render fails, the user cancels, or no candidate is deliverable, run `"<absolute PYTHON path>" -B "<absolute MANAGER path>" abort "$TEMP_DIR"` instead. Never delete user-supplied inputs or an explicit `--save-path` target, and report a deletion failure instead of claiming the files were cleaned up.
@@ -117,7 +117,7 @@ Keep the original core fields and add provenance fields without removing anythin
       "round": 1,
       "image": "<task-directory path; removed with the task directory after delivery>",
       "generation_mode": "generate",
-      "model": "sensenova-u1.5-lite",
+      "model": "sensenova-u1.6-lite",
       "fallback_used": false,
       "score": 0.82,
       "result": "FAIL",

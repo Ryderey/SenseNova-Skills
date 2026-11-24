@@ -99,7 +99,7 @@ class ConfigurationTests(unittest.TestCase):
             configs = Configs()
         self.assertEqual(configs.SN_IMAGE_GEN_MODEL_TYPE, "sensenova")
         self.assertEqual(configs.SN_IMAGE_GEN_MODEL, DEFAULT_MODEL)
-        self.assertEqual(configs.SN_IMAGE_GEN_FALLBACK_MODEL, "sensenova-u1.5-fast")
+        self.assertEqual(configs.SN_IMAGE_GEN_FALLBACK_MODEL, "")
         self.assertEqual(FAST_MODEL, "sensenova-u1.5-fast")
         self.assertEqual(configs.SN_CHAT_MODEL, "")
         self.assertEqual(configs.SN_TEXT_MODEL, "")
@@ -194,19 +194,21 @@ class SensenovaPayloadTests(unittest.TestCase):
             api_key="test-key", base_url="https://example.test/v1", model=DEFAULT_MODEL
         )
 
-    def test_u15_payload_defaults(self) -> None:
+    def test_u16_payload_defaults(self) -> None:
         payload = self.client.build_payload("draw", DEFAULT_MODEL, size="2048x2048")
         self.assertEqual(payload["response_format"], "b64_json")
         self.assertEqual(payload["output_format"], "png")
         self.assertTrue(payload["prompt_extend"])
+        self.assertTrue(payload["self_correction"])
         self.assertFalse(payload["watermark"])
         self.assertEqual(payload["n"], 1)
 
-    def test_fast_payload_supports_u15_fields(self) -> None:
+    def test_fast_payload_supports_u16_fields(self) -> None:
         payload = self.client.build_payload("draw", FAST_MODEL, size="2048x2048")
         self.assertEqual(payload["response_format"], "b64_json")
         self.assertEqual(payload["output_format"], "png")
         self.assertTrue(payload["prompt_extend"])
+        self.assertTrue(payload["self_correction"])
         self.assertFalse(payload["watermark"])
 
     def test_sizes_and_dimension_validation(self) -> None:
@@ -225,7 +227,7 @@ class SensenovaPayloadTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "aspect-ratio"):
             self.client._resolve_size("auto", "16:9", allow_auto=True)
 
-    def test_u15_uses_all_2k_presets(self) -> None:
+    def test_u16_uses_all_2k_presets(self) -> None:
         expected = {
             "2:3": "1664x2496",
             "3:2": "2496x1664",
@@ -245,7 +247,7 @@ class SensenovaPayloadTests(unittest.TestCase):
                     self.client._resolve_size("2K", ratio), size
                 )
 
-    def test_u15_uses_official_recommended_widescreen_2k_sizes(self) -> None:
+    def test_u16_uses_official_recommended_widescreen_2k_sizes(self) -> None:
         self.assertEqual(self.client._resolve_size("2K", "16:9"), "2720x1536")
         self.assertEqual(self.client._resolve_size("2K", "9:16"), "1536x2720")
 
@@ -440,6 +442,21 @@ class SensenovaRequestTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["response_format"], "b64_json")
         self.assertFalse(payload["watermark"])
 
+    async def test_generation_auto_size_and_default_ratio(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            auto = await self.client.generate(
+                "draw", image_size="auto", output_path=Path(temp_dir) / "auto.png"
+            )
+            self.assertEqual(auto["status"], "ok")
+            default = await self.client.generate(
+                "draw", output_path=Path(temp_dir) / "default.png"
+            )
+            self.assertEqual(default["status"], "ok")
+        self.assertEqual(self.requests[0]["size"], "auto")
+        self.assertEqual(self.requests[1]["size"], "2720x1536")
+        with self.assertRaisesRegex(ValueError, "aspect-ratio"):
+            await self.client.generate("draw", image_size="auto", aspect_ratio="4:3")
+
     async def test_model_url_download_uses_the_verified_ip_and_original_sni(self) -> None:
         async def handler(request: httpx.Request) -> httpx.Response:
             self.assertEqual(
@@ -492,6 +509,11 @@ class SensenovaRequestTests(unittest.IsolatedAsyncioTestCase):
             payload["images"][1]["image_url"].startswith("data:image/png;base64,")
         )
         self.assertFalse(payload["watermark"])
+        self.assertTrue(payload["self_correction"])
+
+    async def test_edit_rejects_more_than_five_references(self) -> None:
+        with self.assertRaisesRegex(ValueError, "at most 5"):
+            await self.client.edit("noop", [data_url(png_bytes())] * 6)
 
     async def test_5xx_retries_same_model_before_success(self) -> None:
         attempts = 0

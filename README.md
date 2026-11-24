@@ -4,16 +4,16 @@ English | [简体中文](README_CN.md)
 
 ![SenseNova image and visualization examples](docs/images/teasers/teaser_v2.webp)
 
-This branch is intentionally focused: it contains only five complete image and visualization skills. It is designed for any Agent Skills-compatible host and uses `sensenova-u1.5-lite` as the default model for image generation and editing. Model use follows the account's current plan and credit rules.
+This branch is intentionally focused: it contains only five complete image and visualization skills. It is designed for any Agent Skills-compatible host and uses `sensenova-u1.6-lite` as the default model for image generation and editing. Model use follows the account's current plan and credit rules.
 
 ## Included skills
 
 | Skill | Capability |
 |---|---|
-| [`sn-image-base`](skills/sn-image-base/SKILL.md) | U1.5 text-to-image, native multi-reference editing, composition and blending, explicit optional text/vision adapters, and controlled U1.5 Fast fallback |
+| [`sn-image-base`](skills/sn-image-base/SKILL.md) | U1.6 text-to-image, native multi-reference editing, composition and blending, explicit optional text/vision adapters, and an optional explicit fallback (off by default) |
 | [`sn-image-doctor`](skills/sn-image-doctor/SKILL.md) | Offline installation, dependency, key, endpoint, model, sizing, and watermark diagnostics |
 | [`sn-infographic`](skills/sn-infographic/SKILL.md) | 87 layouts, 66 styles, prompt expansion, 1-15 user-bounded rounds, visual review, evidence-based editing/regeneration, and result ranking |
-| [`sn-image-imitate`](skills/sn-image-imitate/SKILL.md) | Reference analysis, content rewrite, U1.5 native imitation, consistency review, and ranked retries |
+| [`sn-image-imitate`](skills/sn-image-imitate/SKILL.md) | Reference analysis, content rewrite, U1.6 native imitation, consistency review, and ranked retries |
 | [`sn-image-resume`](skills/sn-image-resume/SKILL.md) | Fact-preserving visual resumes with content-first/portfolio layouts and edit-based correction |
 
 The full bilingual infographic gallery remains available in [English](docs/sn-infographic-examples.md) and [Chinese](docs/sn-infographic-examples_CN.md).
@@ -30,18 +30,19 @@ Use SenseNova skills to create a resume poster
 
 ## Defaults
 
-- Primary: `sensenova-u1.5-lite`
-- Generation-only fallback: `sensenova-u1.5-fast`
+- Primary: `sensenova-u1.6-lite`
+- Generation-only fallback: off by default; enable explicitly with `SN_IMAGE_GEN_FALLBACK_MODEL` or `--fallback-model`
+- Text self-correction: on (`self_correction=true` sent explicitly)
 - Watermark: off
-- U1.5 prompt extension: on
-- U1.5 response: Base64 saved immediately to disk
+- U1.6 prompt extension: on
+- U1.6 response: Base64 saved immediately to disk
 - Text/vision model: none; the host Agent plans and reviews by default
 
-U1.5 Fast is used automatically only for recoverable text-to-image failures (404, 429, or retry-exhausted 5xx). Automatic fallback is disabled for image editing, authentication/authorization failures, bad parameters, safety blocks, and local file problems. U1.5 Fast can be explicitly selected for editing with up to 5 reference images.
+Automatic fallback is off by default. Once a fallback model is configured explicitly, it is used only for recoverable text-to-image failures (404, 429, or retry-exhausted 5xx). Automatic fallback never applies to image editing, authentication/authorization failures, bad parameters, safety blocks, or local file problems. The retired `sensenova-u1.5-fast` remains explicitly selectable for legacy compatibility, including editing with up to 5 reference images.
 
 The repository deliberately sends `watermark=false`. SenseNova currently offers watermark removal free during public beta and documents it as a premium paid feature after the beta; review account charges before production use when that policy changes.
 
-See the official [SenseNova API documentation](https://platform.sensenova.cn/docs) and find the `SenseNova U1.5 Lite` or `SenseNova U1.5 Fast` section by its heading. The documentation site's deep links are not reliable on a cold load.
+See the official [SenseNova API documentation](https://platform.sensenova.cn/docs) and find the `SenseNova U1.6 Lite` section by its heading (the only image model in the current overview). The documentation site's deep links are not reliable on a cold load.
 
 ## Quick start
 

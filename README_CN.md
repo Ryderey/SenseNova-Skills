@@ -4,16 +4,16 @@
 
 ![SenseNova 图像与可视化案例](docs/images/teasers/teaser_v2.webp)
 
-本分支只维护 5 个完整的“图像与可视化”技能，适用于任何兼容 Agent Skills 的智能体。生图与图片编辑默认使用 `sensenova-u1.5-lite`；模型调用按账号当前套餐及积分规则计费。
+本分支只维护 5 个完整的“图像与可视化”技能，适用于任何兼容 Agent Skills 的智能体。生图与图片编辑默认使用 `sensenova-u1.6-lite`；模型调用按账号当前套餐及积分规则计费。
 
 ## 保留的技能
 
 | Skill | 能力 |
 |---|---|
-| [`sn-image-base`](skills/sn-image-base/SKILL.md) | U1.5 文生图、原生多参考图编辑、合成与融合、显式可选的文本/视觉适配器，以及受控的 U1.5 Fast 回退 |
+| [`sn-image-base`](skills/sn-image-base/SKILL.md) | U1.6 文生图、原生多参考图编辑、合成与融合、显式可选的文本/视觉适配器，以及默认关闭、可显式指定的回退 |
 | [`sn-image-doctor`](skills/sn-image-doctor/SKILL.md) | 离线检查安装、依赖、Key、端点、模型、尺寸及无水印默认值 |
 | [`sn-infographic`](skills/sn-infographic/SKILL.md) | 87 种布局、66 种风格、提示词扩写、用户限定的 1–15 轮生成、视觉评审、按问题选择编辑或重新生成，以及质量排序 |
-| [`sn-image-imitate`](skills/sn-image-imitate/SKILL.md) | 参考图解析、内容改写、U1.5 原生仿制、一致性评审与多轮排序 |
+| [`sn-image-imitate`](skills/sn-image-imitate/SKILL.md) | 参考图解析、内容改写、U1.6 原生仿制、一致性评审与多轮排序 |
 | [`sn-image-resume`](skills/sn-image-resume/SKILL.md) | 事实不虚构、正文优先/作品集双版式、生成后编辑纠错的可视化简历 |
 
 完整的信息图中英文案例库仍保留：[中文](docs/sn-infographic-examples_CN.md) / [English](docs/sn-infographic-examples.md)。
@@ -30,18 +30,19 @@
 
 ## 默认策略
 
-- 首选模型：`sensenova-u1.5-lite`
-- 文生图次选：`sensenova-u1.5-fast`
+- 首选模型：`sensenova-u1.6-lite`
+- 文生图回退：默认关闭，可用 `SN_IMAGE_GEN_FALLBACK_MODEL` 或 `--fallback-model` 显式指定
+- 文字自修正：默认开启（显式发送 `self_correction=true`）
 - 默认无水印
-- 默认启用 U1.5 提示词扩展
-- U1.5 默认返回 Base64 并立即落盘
+- 默认启用 U1.6 提示词扩展
+- U1.6 默认返回 Base64 并立即落盘
 - 不设置默认文本/视觉聊天模型；优先由当前 Agent 完成规划和评审
 
-只有文生图遇到 404、429 或同模型重试后仍失败的 5xx 才自动回退。图片编辑、401/403、参数/安全错误和本地文件错误均不回退。
+自动回退默认关闭。显式配置回退模型后，只有文生图遇到 404、429 或同模型重试后仍失败的 5xx 才自动回退。图片编辑、401/403、参数/安全错误和本地文件错误均不回退。已退役的 `sensenova-u1.5-fast` 仍可显式选择用于遗留兼容。
 
 本仓库有意显式发送 `watermark=false`。SenseNova 当前在公测期免费开放无水印，官方说明公测结束后将作为高级付费特性；届时用于生产前应先确认账号费用。
 
-请打开 [SenseNova API 官方文档](https://platform.sensenova.cn/docs)，按标题查找 `SenseNova U1.5 Lite` 或 `SenseNova U1.5 Fast`。文档站的深链接在首次加载时不能可靠定位。
+请打开 [SenseNova API 官方文档](https://platform.sensenova.cn/docs)，按标题查找 `SenseNova U1.6 Lite`（当前模型总览中唯一的图像模型）。文档站的深链接在首次加载时不能可靠定位。
 
 ## 快速开始
 

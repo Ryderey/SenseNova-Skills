@@ -44,8 +44,8 @@ Condensation is allowed only to fit the visual hierarchy. Preserve names, dates,
 
 1. Validate that enough resume content exists for a meaningful page, then create the task directory with `"<absolute PYTHON path>" -B "<absolute MANAGER path>" begin -o json` and use the printed path (a unique guarded directory under `tempfile.gettempdir()/sensenova-tasks/`) as `$TEMP_DIR`.
 2. Read all of `prompts/resume.md`. Resolve `layout_mode` from the requested deliverable and content density: use `portfolio` only for an explicitly creative, editorial, or portfolio-style request; otherwise use `content-first`. Apply the selected mode's structure plus the shared language, fact, typography, and style rules.
-3. Use the fact ledger to compose a complete generation prompt and save it as UTF-8 text in `$TEMP_DIR/resume_prompt.txt`. Explicitly instruct U1.5 to reproduce exact supplied strings, avoid pseudo-text, leave absent facts out, use large legible typography, omit QR codes, and render without a watermark. When `portrait_image` is absent, use an abstract typographic or profession-related visual anchor instead of inventing a human face.
-4. When `portrait_image` is absent, generate with U1.5:
+3. Use the fact ledger to compose a complete generation prompt and save it as UTF-8 text in `$TEMP_DIR/resume_prompt.txt`. Explicitly instruct U1.6 to reproduce exact supplied strings, avoid pseudo-text, leave absent facts out, use large legible typography, omit QR codes, and render without a watermark. When `portrait_image` is absent, use an abstract typographic or profession-related visual anchor instead of inventing a human face.
+4. When `portrait_image` is absent, generate with U1.6:
 
    ```bash
    "<absolute PYTHON path>" -B "<absolute RUNNER path>" sn-image-generate \
@@ -69,7 +69,7 @@ Condensation is allowed only to fit the visual hierarchy. Preserve names, dates,
    ```
 
 5. If the Agent supports visual input, inspect the image against the fact ledger and selected layout rules. Check exact text, missing/invented facts, spelling, hierarchy, clipping, alignment, and legibility. Set `quality_passed=true` only when no fact or required-text issue remains and the page is readable.
-6. For each bounded correction, save the exact correction prompt as UTF-8 text in `$TEMP_DIR/resume_correction_${ROUND}.txt`, then edit the previous image with U1.5:
+6. For each bounded correction, save the exact correction prompt as UTF-8 text in `$TEMP_DIR/resume_correction_${ROUND}.txt`, then edit the previous image with U1.6:
 
    ```bash
    "<absolute PYTHON path>" -B "<absolute RUNNER path>" sn-image-edit \
@@ -80,7 +80,7 @@ Condensation is allowed only to fit the visual hierarchy. Preserve names, dates,
      --output-format json
    ```
 
-   Each correction must identify the exact text/location and desired final state. Editing never falls back to U1.5 Fast.
+   Each correction must identify the exact text/location and desired final state. Editing never falls back automatically.
 7. Retain the best verified candidate after every round, ranking exact fact preservation and legibility before layout/style. Return that candidate rather than automatically returning the last edit. If visual inspection is unavailable, return the generated image with `visual_review_performed=false`; do not pretend it was reviewed.
 8. Deliver the selected image with `"<absolute PYTHON path>" -B "<absolute MANAGER path>" publish "$TEMP_DIR" "$SELECTED_IMAGE" -o json`; it prints the formal path to deliver and removes the whole task directory, including the prompt intermediates and superseded revisions. If the render fails, the user cancels, or no candidate is deliverable, run `"<absolute PYTHON path>" -B "<absolute MANAGER path>" abort "$TEMP_DIR"` instead. Never delete the user's portrait or any explicit `--save-path` target, and report a deletion failure instead of claiming the files were cleaned up.
 
@@ -96,7 +96,7 @@ Preserve the original core fields; model and review fields are additive:
   "layout_mode": "content-first",
   "image": "<formal path returned by publish>",
   "generation_prompt": "included in verbose mode",
-  "model": "sensenova-u1.5-lite",
+  "model": "sensenova-u1.6-lite",
   "fallback_used": false,
   "visual_review_performed": true,
   "quality_passed": true,
@@ -105,7 +105,7 @@ Preserve the original core fields; model and review fields are additive:
   ],
   "timing": {
     "total_elapsed_seconds": 25.12,
-    "image_generation": {"elapsed_seconds": 19.89, "model": "sensenova-u1.5-lite"}
+    "image_generation": {"elapsed_seconds": 19.89, "model": "sensenova-u1.6-lite"}
   }
 }
 ```

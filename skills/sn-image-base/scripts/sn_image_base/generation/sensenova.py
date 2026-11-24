@@ -35,8 +35,9 @@ from sn_image_base.utils.error_utils import U1HttpErrorBase
 
 DEFAULT_RESOLUTION = "2K"
 DEFAULT_ASPECT_RATIO = "16:9"
-DEFAULT_MODEL = "sensenova-u1.5-lite"
+DEFAULT_MODEL = "sensenova-u1.6-lite"
 FAST_MODEL = "sensenova-u1.5-fast"
+MAX_EDIT_IMAGES = 5
 
 IMAGE_GEN_ENDPOINT = "/images/generations"
 IMAGE_EDIT_ENDPOINT = "/images/edits"
@@ -45,7 +46,7 @@ _FORMAT_SUFFIX = {"png": ".png", "jpeg": ".jpg", "webp": ".webp"}
 
 
 class SensenovaText2ImageClient(T2IBaseClient):
-    """Small async client for SenseNova U1.5 generation and native editing."""
+    """Small async client for SenseNova U1.6 generation and native editing."""
 
     def __init__(
         self,
@@ -84,18 +85,24 @@ class SensenovaText2ImageClient(T2IBaseClient):
         *,
         model: str | None = None,
         image_size: str = DEFAULT_RESOLUTION,
-        aspect_ratio: str = DEFAULT_ASPECT_RATIO,
+        aspect_ratio: str | None = None,
         output_path: Path | None = None,
         output_format: Literal["png", "jpeg", "webp"] = "png",
         response_format: Literal["b64_json", "url"] = "b64_json",
         watermark: bool = False,
         prompt_extend: bool = True,
+        self_correction: bool = True,
         max_retries: int = 2,
         **_kwargs: Any,
     ) -> dict:
-        """Generate once with U1.5 (or explicitly selected model) and save immediately."""
+        """Generate once with U1.6 (or explicitly selected model) and save immediately."""
         selected_model = model or self.model or global_configs.SN_IMAGE_GEN_MODEL or DEFAULT_MODEL
-        size = self._resolve_size(image_size, aspect_ratio)
+        auto = image_size.strip().lower() == "auto"
+        size = self._resolve_size(
+            image_size,
+            aspect_ratio if auto else (aspect_ratio or DEFAULT_ASPECT_RATIO),
+            allow_auto=True,
+        )
         payload = self.build_payload(
             prompt=prompt,
             model=selected_model,
@@ -104,6 +111,7 @@ class SensenovaText2ImageClient(T2IBaseClient):
             response_format=response_format,
             watermark=watermark,
             prompt_extend=prompt_extend,
+            self_correction=self_correction,
         )
         output_path = self._default_output_path(output_path, "t2i", output_format)
         return await self._request_and_save(
@@ -128,14 +136,17 @@ class SensenovaText2ImageClient(T2IBaseClient):
         response_format: Literal["b64_json", "url"] = "b64_json",
         watermark: bool = False,
         prompt_extend: bool = True,
+        self_correction: bool = True,
         max_retries: int = 2,
     ) -> dict:
-        """Edit one or more local/remote reference images with U1.5."""
+        """Edit one or more local/remote reference images with U1.6."""
         selected_model = model or self.model or global_configs.SN_IMAGE_GEN_MODEL or DEFAULT_MODEL
         if not images:
             raise ValueError("At least one reference image is required.")
-        if selected_model == FAST_MODEL and len(images) > 5:
-            raise ValueError("U1.5 Fast supports at most 5 reference images.")
+        if len(images) > MAX_EDIT_IMAGES:
+            raise ValueError(
+                f"Image editing supports at most {MAX_EDIT_IMAGES} reference images."
+            )
         size = self._resolve_size(image_size, aspect_ratio, allow_auto=True)
         image_inputs = [{"image_url": self.image_to_data_url(image)} for image in images]
         payload: dict[str, Any] = {
@@ -146,6 +157,7 @@ class SensenovaText2ImageClient(T2IBaseClient):
             "n": 1,
             "watermark": watermark,
             "prompt_extend": prompt_extend,
+            "self_correction": self_correction,
             "response_format": response_format,
         }
         output_path = self._default_output_path(output_path, "edit", "png")
@@ -287,6 +299,7 @@ class SensenovaText2ImageClient(T2IBaseClient):
         response_format: Literal["b64_json", "url"] = "b64_json",
         watermark: bool = False,
         prompt_extend: bool = True,
+        self_correction: bool = True,
         **_kwargs: Any,
     ) -> dict[str, Any]:
         return {
@@ -298,6 +311,7 @@ class SensenovaText2ImageClient(T2IBaseClient):
             "output_format": output_format,
             "response_format": response_format,
             "prompt_extend": prompt_extend,
+            "self_correction": self_correction,
         }
 
     @property
@@ -331,7 +345,7 @@ class SensenovaText2ImageClient(T2IBaseClient):
         if preset == "1K":
             return cls._nearest_bucket(ratio, BUCKETS_1K)
         if preset == "2K":
-            return cls._nearest_bucket(ratio, U15_BUCKETS_2K)
+            return cls._nearest_bucket(ratio, BUCKETS_2K)
         if preset == "4K":
             if ratio >= 1:
                 width = 4096
@@ -479,7 +493,7 @@ BUCKETS_1K: dict[str, tuple[int, int]] = {
     "21:9": (2048, 864),
     "9:21": (864, 2048),
 }
-U15_BUCKETS_2K: dict[str, tuple[int, int]] = {
+BUCKETS_2K: dict[str, tuple[int, int]] = {
     "2:3": (1664, 2496),
     "3:2": (2496, 1664),
     "3:4": (1760, 2368),

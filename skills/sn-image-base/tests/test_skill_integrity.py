@@ -174,7 +174,7 @@ class RepositoryScopeTests(unittest.TestCase):
         self.assertNotIn("All user information mapped", resume)
         self.assertIn("including round 1", infographic)
 
-    def test_image_skill_commands_inherit_the_u15_primary_default(self) -> None:
+    def test_image_skill_commands_inherit_the_u16_primary_default(self) -> None:
         for name in (
             "sn-image-base",
             "sn-infographic",

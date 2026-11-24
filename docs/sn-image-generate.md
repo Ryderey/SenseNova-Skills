@@ -6,22 +6,23 @@
 
 ## 默认行为
 
-- `sensenova-u1.5-lite`：首选文生图和图片编辑模型。
-- `sensenova-u1.5-fast`：默认用于可恢复的文生图回退；也可显式用于编辑，最多 5 张参考图。
-- `watermark=false`、`prompt_extend=true`、`response_format=b64_json`，结果立即落盘。
+- `sensenova-u1.6-lite`：首选文生图和图片编辑模型。
+- 自动回退默认关闭；可显式指定 `SN_IMAGE_GEN_FALLBACK_MODEL` 或 `--fallback-model`。`sensenova-u1.5-fast` / `sensenova-u1-fast` 已退役，仅保留遗留兼容（显式选择时可用于编辑，最多 5 张参考图）。
+- `watermark=false`、`prompt_extend=true`、`self_correction=true`、`response_format=b64_json`，结果立即落盘。
 - 没有默认 `SN_CHAT_MODEL`；优先由当前 Agent 规划、看图和评审。
 
 模型调用按账号套餐及积分规则计费。`watermark=false` 当前仅在公测期免费，官方说明公测结束后将作为高级付费特性。
 
-请打开 [SenseNova API 官方文档](https://platform.sensenova.cn/docs)，按标题查找 `SenseNova U1.5 Lite` 或 `SenseNova U1.5 Fast`。文档站的深链接在首次加载时不能可靠定位。
+请打开 [SenseNova API 官方文档](https://platform.sensenova.cn/docs)，按标题查找 `SenseNova U1.6 Lite`（当前模型总览中唯一的图像模型）。文档站的深链接在首次加载时不能可靠定位。
 
 ## 配置与检查
 
 ```dotenv
 SENSENOVA_API_KEY=your-key
 SN_IMAGE_GEN_BASE_URL=https://token.sensenova.cn/v1
-SN_IMAGE_GEN_MODEL=sensenova-u1.5-lite
-SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1.5-fast
+SN_IMAGE_GEN_MODEL=sensenova-u1.6-lite
+# 可选回退，默认留空即关闭自动回退；u1.5-fast / u1-fast 已退役，仅遗留兼容
+SN_IMAGE_GEN_FALLBACK_MODEL=
 ```
 
 默认只需配置 `SENSENOVA_API_KEY`。只有不同能力使用不同凭证时才设置覆盖项：
@@ -56,11 +57,11 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-generate \
   --output-format json
 ```
 
-支持官方 `2k` / `4k`、本仓库兼容预设 `1k`，以及 `WIDTHxHEIGHT`。`1k` 不会作为 API 常量发送，而会映射为合法显式尺寸。U1.5 的 2K 16:9 / 9:16 使用官方建议的 `2720x1536` / `1536x2720`，Lite 与 Fast 使用相同规则。显式宽高必须为 32 的倍数、512–4096、比例最大 3:1。格式支持 PNG/JPEG/WEBP；回退到 Fast 时保留尺寸、格式和返回方式。
+服务端 `size` 默认为 `auto`（编辑时自动适配主图，文生图时由服务端选择分辨率），本运行时文生图默认发送 `2k`，也接受 `--image-size auto`（不可与 `--aspect-ratio` 同用，预设比例默认 16:9）。支持官方常量 `2k` / `4k`、本仓库兼容预设 `1k`，以及 `WIDTHxHEIGHT`。`1k` 不是服务端常量，会映射为合法显式尺寸。U1.6 的 2K 16:9 / 9:16 使用官方建议的 `2720x1536` / `1536x2720`。显式宽高必须为 32 的倍数、512–4096、比例最大 3:1。格式支持 PNG/JPEG/WEBP；显式配置回退时保留尺寸、格式和返回方式。
 
-选择 URL 返回时会立即下载：U1.5 Lite/Fast 生成与编辑 URL 均有效 24 小时。默认 Base64 路径不受 URL 时效影响。
+选择 URL 返回时会立即下载：U1.6 Lite 生成与编辑 URL 均有效 24 小时。默认 Base64 路径不受 URL 时效影响。
 
-可用 `--model`、`--fallback-model`、`--no-fallback` 控制模型。仅 404、429 或同模型重试后仍失败的 5xx 会自动回退。400/安全拦截、401/403、文件错误不会回退。
+可用 `--model`、`--fallback-model`、`--no-fallback` 控制模型。自动回退默认关闭；显式指定回退模型后，仅 404、429 或同模型重试后仍失败的 5xx 会自动回退。400/安全拦截、401/403、文件错误不会回退。
 
 长提示词可保存为 UTF-8 文件并用 `--prompt-path prompt.txt` 传入；它与 `--prompt` 互斥。信息图、简历和包含大量中文标点的请求优先使用文件方式。
 
@@ -75,7 +76,7 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-edit \
   --output-format json
 ```
 
-本地图片、公开 URL 与 Data URL 都会经过统一校验，限制为 64 MiB / 4000 万解码像素，必要时规范化为 PNG/JPEG 后再以 Data URL 发送。支持多参考图和把上一轮输出继续编辑；编辑默认使用 U1.5 Lite，也可显式选择 U1.5 Fast（最多 5 张参考图）；编辑不自动回退。
+本地图片、公开 URL 与 Data URL 都会经过统一校验，限制为 64 MiB / 4000 万解码像素，必要时规范化为 PNG/JPEG 后再以 Data URL 发送。支持多参考图和把上一轮输出继续编辑；编辑默认使用 U1.6 Lite，最多 5 张参考图且第 1 张为主编辑图。已退役的 `sensenova-u1.5-fast` 仅可显式选择用于遗留兼容；编辑不自动回退。
 
 ## 五个技能
 
@@ -89,11 +90,20 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-edit \
 
 成功结果保留 `status`、`output`、`message`，并增加 `model`、`operation`、`retry_count`、`fallback_used`、`fallback_reason`。失败时包含 `error_type`、`error`，有 HTTP 响应时还包含 `http_status`。
 
+## 模型迁移（U1.5 → U1.6）
+
+官方已宣布下线 `sensenova-u1.5-lite` 与 `sensenova-u1.5-fast`，过渡期平台把这两个 ID 自动路由到 `sensenova-u1.6-lite`。本仓库默认模型已改为 `sensenova-u1.6-lite`，自动回退默认关闭。
+
+- 兼容路由只保障 `sensenova-u1.5-lite` 与 `sensenova-u1.5-fast`，不覆盖其他旧模型名。
+- 自行配置过 env 的用户须自行把 `SN_IMAGE_GEN_MODEL` 改为 `sensenova-u1.6-lite`，并同步检查显式设置的 `SN_IMAGE_GEN_FALLBACK_MODEL` 与 `--model` / `--fallback-model`。`sensenova-u1-fast` 不在路由保障范围内，用作回退会直接失败。
+- 下线完成后兼容路由失效，旧 ID 直接报错；模型总览中的图像模型只有 `sensenova-u1.6-lite`。
+- 迁移后用 Doctor 复核实际生效的模型名与端点：`python skills/sn-image-doctor/scripts/check_environment.py --verbose`。
+
 ## 常见问题
 
 - 401/403：Key 或权限问题，不回退。
 - 400/安全拦截：修正参数或内容，不回退。
 - 429：文生图可回退；编辑不可回退。
-- 5xx：U1.5 先做同模型重试；耗尽后文生图可回退。
-- 图片编辑失败：确认图片路径存在，URL 可公开访问，U1.5 Fast 的参考图不超过 5 张。
+- 5xx：U1.6 先做同模型重试；耗尽后文生图在显式配置回退模型时才回退。
+- 图片编辑失败：确认图片路径存在，URL 可公开访问，参考图不超过 5 张（第 1 张为主编辑图）。
 - 外部文本/视觉命令提示缺少模型：显式传 `--model` 或设置 `SN_TEXT_MODEL` / `SN_VISION_MODEL`；Skill 不会替你选择。

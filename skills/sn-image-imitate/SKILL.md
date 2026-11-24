@@ -11,7 +11,7 @@ metadata:
 
 # sn-image-imitate
 
-Preserve the original reference-analysis, content-rewrite, layout-consistency review, bounded retry, ranking, and detailed artifact output. Use U1.5 native editing as the primary render path so the reference pixels participate directly instead of relying only on “recognize → rewrite → regenerate”.
+Preserve the original reference-analysis, content-rewrite, layout-consistency review, bounded retry, ranking, and detailed artifact output. Use U1.6 native editing as the primary render path so the reference pixels participate directly instead of relying only on “recognize → rewrite → regenerate”.
 
 ## Runtime dependency
 
@@ -25,7 +25,7 @@ Before analysis, read the sibling [`sn-image-base`](../sn-image-base/SKILL.md) s
 | `target_content` | required | New content and requested changes |
 | `output_mode` | `friendly` | `friendly` or `verbose` |
 | `aspect_ratio` | reference ratio or `16:9` | Used only when a fresh canvas is explicitly required |
-| `image_size` | `2k` | U1.5 target size; native edits normally use `auto` |
+| `image_size` | `2k` | U1.6 target size; native edits normally use `auto` |
 | `max_attempts` | `3` | 1-8 |
 | `layout_threshold` | `0.75` | Minimum layout similarity |
 
@@ -53,7 +53,7 @@ Use the current Agent's visual understanding and writing ability for analysis, r
    ```
 
    Record its JSON output as `ledger_validation`. Reject and repair the rewrite until it returns `valid=true`, allowing at most two repair passes before returning its errors without rendering. It deterministically checks ledger coverage, action/evidence fields, and unapproved Latin-script fragments in Chinese captions; semantic correctness remains the Agent's responsibility.
-4. Attempt 1 uses native U1.5 editing with the original reference and only `rewritten_caption` as the editing instruction:
+4. Attempt 1 uses native U1.6 editing with the original reference and only `rewritten_caption` as the editing instruction:
 
    ```bash
    "<absolute PYTHON path>" -B "<absolute RUNNER path>" sn-image-edit \
@@ -65,7 +65,7 @@ Use the current Agent's visual understanding and writing ability for analysis, r
      --output-format json
    ```
 
-   Do not automatically switch models for editing. U1.5 Fast supports up to 5 reference images when explicitly selected.
+   Do not automatically switch models for editing. Editing accepts at most 5 reference images, the first being the primary image; the retired `sensenova-u1.5-fast` is available only when explicitly selected for legacy compatibility.
 5. Review each candidate with `prompts/layout_review.md`, supplying the original reference, candidate, target content, `target_language`, `allowed_foreign_terms`, `rewritten_caption`, and the complete `semantic_replacement_ledger`. Record all fields in its schema. A candidate passes only when layout score reaches `layout_threshold`, target content is accurate, all required text is legible, every ledger entry is valid, and both `semantic_residue` and `language_contamination` are empty.
 6. For attempts 2-8, save the exact correction prompt as UTF-8 text in `$TEMP_DIR/correction_${ATTEMPT}.txt`, then edit the current best candidate with the original reference as a second input when useful:
 
@@ -114,7 +114,7 @@ Retain original core fields and include model provenance:
       "attempt": 1,
       "image": "<task-directory path; removed with the task directory after delivery>",
       "generation_mode": "edit",
-      "model": "sensenova-u1.5-lite",
+      "model": "sensenova-u1.6-lite",
       "fallback_used": false,
       "layout_similarity_score": 0.81,
       "style_similarity_score": 0.84,

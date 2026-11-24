@@ -1,6 +1,6 @@
 ---
 name: sn-image-doctor
-description: Diagnose the five-skill SenseNova image installation, Python dependencies, API key, U1.5/U1.5 Fast models, image endpoints, dimension rules, no-watermark default, and optional external text/vision adapters.
+description: Diagnose the five-skill SenseNova image installation, Python dependencies, API key, the U1.6 Lite model, image endpoints, dimension rules, no-watermark default, and optional external text/vision adapters.
 metadata:
   project: SenseNova-Skills
   tier: 0
@@ -25,7 +25,7 @@ The check is offline and does not spend model quota. It validates:
 1. These required skills exist: `sn-image-base`, `sn-image-doctor`, `sn-infographic`, `sn-image-imitate`, `sn-image-resume`. Other installed skills are allowed.
 2. Python 3.9+, its exact executable path, and the dependencies in `sn-image-base/requirements.txt`.
 3. An image API key, configured backend/model names, a valid base URL, and the image endpoints. Custom model names are reported rather than rejected.
-4. U1.5 defaults: `watermark=false`, `prompt_extend=true`, `response_format=b64_json`; valid 2K/4K sizing.
+4. U1.6 defaults: `watermark=false`, `prompt_extend=true`, `response_format=b64_json`; valid 2K/4K sizing. The legacy U1.5 Fast path is opt-in: `SN_IMAGE_GEN_FALLBACK_MODEL` is empty by default and reported as configured.
 5. The loaded `.env` path, if any. `SN_ENV_FILE` selects an explicit file; otherwise lookup starts at the current working directory.
 6. External text/vision models as optional. Incomplete optional adapters produce warnings and do not block image work. Use `--require-text` or `--require-vision` only when that adapter is required by the current task.
 
@@ -43,8 +43,8 @@ Minimal image configuration:
 
 ```dotenv
 SENSENOVA_API_KEY=your-key
-SN_IMAGE_GEN_MODEL=sensenova-u1.5-lite
-SN_IMAGE_GEN_FALLBACK_MODEL=sensenova-u1.5-fast
+SN_IMAGE_GEN_MODEL=sensenova-u1.6-lite
+SN_IMAGE_GEN_FALLBACK_MODEL=
 ```
 
 Do not add `SN_CHAT_MODEL` unless the user explicitly wants an external text/vision adapter.

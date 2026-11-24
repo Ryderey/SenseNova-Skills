@@ -110,10 +110,8 @@ class Configs:
     SN_IMAGE_GEN_MODEL_TYPE: Annotated[ImageGenerationBackend, Field("SN_IMAGE_GEN_MODEL_TYPE")] = (
         "sensenova"
     )
-    SN_IMAGE_GEN_MODEL: Annotated[str, Field("SN_IMAGE_GEN_MODEL")] = "sensenova-u1.5-lite"
-    SN_IMAGE_GEN_FALLBACK_MODEL: Annotated[str, Field("SN_IMAGE_GEN_FALLBACK_MODEL")] = (
-        "sensenova-u1.5-fast"
-    )
+    SN_IMAGE_GEN_MODEL: Annotated[str, Field("SN_IMAGE_GEN_MODEL")] = "sensenova-u1.6-lite"
+    SN_IMAGE_GEN_FALLBACK_MODEL: Annotated[str, Field("SN_IMAGE_GEN_FALLBACK_MODEL")] = ""
     # Formal output directory for delivered images; empty means ~/Pictures/SenseNova.
     SN_IMAGE_OUTPUT_DIR: Annotated[str, Field("SN_IMAGE_OUTPUT_DIR")] = ""
 
