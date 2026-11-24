@@ -6,6 +6,16 @@ __pycache__/
 .pytest_cache/
 .venv/
 
+# Generated GitHub Release asset
+/sensenova-release.json
+
+# Private process notes, reviews, and probes
+/.tmp/
+/docs/project-review-*.md
+/docs/sn-image-u16-migration-plan_CN.md
+/docs/sn-image-u16-review-2026-11-24_CN.md
+/docs/temporary-file-cleanup-design_CN.md
+
 # Worktrees (managed by `git worktree`)
 .worktrees/
 tmp/

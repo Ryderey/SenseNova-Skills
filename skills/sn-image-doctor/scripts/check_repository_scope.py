@@ -23,6 +23,7 @@ ALLOWED_ROOT_FILES = {
     "LICENSE",
     "README.md",
     "README_CN.md",
+    "release.json",
 }
 ALLOWED_DOC_FILES = {
     "project-review-2026-09-03-follow-up.md",

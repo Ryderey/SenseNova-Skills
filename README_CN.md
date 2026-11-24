@@ -11,7 +11,7 @@
 | Skill | 能力 |
 |---|---|
 | [`sn-image-base`](skills/sn-image-base/SKILL.md) | U1.6 文生图、原生多参考图编辑、合成与融合、显式可选的文本/视觉适配器，以及默认关闭、可显式指定的回退 |
-| [`sn-image-doctor`](skills/sn-image-doctor/SKILL.md) | 离线检查安装、依赖、Key、端点、模型、尺寸及无水印默认值 |
+| [`sn-image-doctor`](skills/sn-image-doctor/SKILL.md) | 本地检查安装、依赖、Key、端点、模型、尺寸及无水印默认值，并检查仓库 Release 更新 |
 | [`sn-infographic`](skills/sn-infographic/SKILL.md) | 87 种布局、66 种风格、提示词扩写、用户限定的 1–15 轮生成、视觉评审、按问题选择编辑或重新生成，以及质量排序 |
 | [`sn-image-imitate`](skills/sn-image-imitate/SKILL.md) | 参考图解析、内容改写、U1.6 原生仿制、一致性评审与多轮排序 |
 | [`sn-image-resume`](skills/sn-image-resume/SKILL.md) | 事实不虚构、正文优先/作品集双版式、生成后编辑纠错的可视化简历 |
@@ -38,7 +38,7 @@
 - U1.6 默认返回 Base64 并立即落盘
 - 不设置默认文本/视觉聊天模型；优先由当前 Agent 完成规划和评审
 
-自动回退默认关闭。显式配置回退模型后，只有文生图遇到 404、429 或同模型重试后仍失败的 5xx 才自动回退。图片编辑、401/403、参数/安全错误和本地文件错误均不回退。已退役的 `sensenova-u1.5-fast` 仍可显式选择用于遗留兼容。
+自动回退默认关闭。显式配置回退模型后，只有文生图遇到 404、429 或同模型重试后仍失败的 5xx 才自动回退。图片编辑、401/403、参数/安全错误和本地文件错误均不回退。`sensenova-u1.5-fast` 与 `sensenova-u1-fast` 已退役且不再受支持；发布清单标记下线时，更新检查会阻断这些模型，请迁移到 `sensenova-u1.6-lite`。
 
 本仓库有意显式发送 `watermark=false`。SenseNova 当前在公测期免费开放无水印，官方说明公测结束后将作为高级付费特性；届时用于生产前应先确认账号费用。
 
@@ -106,6 +106,10 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-edit \
 ```
 
 Agent Skills 安装方法见 [INSTALL_CN.md](INSTALL_CN.md)，CLI 与 API 细节见[图像指南](docs/sn-image-generate.md)。
+
+## 更新已安装技能
+
+五个技能共享版本。Runner 和 Doctor 每 24 小时最多检查一次仓库最新正式 Release，结果按安装隔离缓存；检查不访问模型端点，也不发送 Key 或任务内容。可运行 Doctor 的 `--check-update` 或 Runner 的 `sn-check-update` 强制检查。Git、软链接和复制安装的更新步骤见 [INSTALL_CN.md](INSTALL_CN.md#更新已安装技能)。
 
 ## 安全
 

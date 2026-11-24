@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import io
+import json
 import os
 import re
 import subprocess
@@ -11,7 +12,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from urllib.parse import unquote
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -25,6 +26,9 @@ EXPECTED_SKILLS = {
     "sn-motion-html",
 }
 DOCTOR_SCRIPT = SKILLS_ROOT / "sn-image-doctor/scripts/check_environment.py"
+RELEASE_MANIFEST_SCRIPT = (
+    SKILLS_ROOT / "sn-image-doctor/scripts/prepare_release_manifest.py"
+)
 INFOGRAPHIC_POLICY_SCRIPT = (
     SKILLS_ROOT / "sn-infographic/scripts/infographic_policy.py"
 )
@@ -36,6 +40,22 @@ def load_doctor_module():
         raise RuntimeError("Could not load sn-image-doctor")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    return module
+
+
+def load_release_manifest_module():
+    spec = importlib.util.spec_from_file_location(
+        "sn_release_manifest", RELEASE_MANIFEST_SCRIPT
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Could not load sn-release-manifest")
+    module = importlib.util.module_from_spec(spec)
+    script_dir = str(RELEASE_MANIFEST_SCRIPT.parent)
+    sys.path.insert(0, script_dir)
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.pop(0)
     return module
 
 
@@ -274,9 +294,57 @@ class DocumentationTests(unittest.TestCase):
             self.assertNotIn("--branch image-viz", text)
             self.assertNotIn("OpenSenseNova/SenseNova-Skills", text)
 
+    def test_release_manifest_asset_can_be_generated(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = Path(temp_dir) / "sensenova-release.json"
+            result = subprocess.run(
+                [sys.executable, str(RELEASE_MANIFEST_SCRIPT), "--output", str(output)],
+                cwd=REPO_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            generated = json.loads(output.read_text(encoding="utf-8"))
+        source = json.loads((REPO_ROOT / "release.json").read_text(encoding="utf-8"))
+        self.assertEqual(generated, source)
+
+    def test_release_manifest_requires_expected_asset_filename(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = Path(temp_dir) / "wrong-name.json"
+            result = subprocess.run(
+                [sys.executable, str(RELEASE_MANIFEST_SCRIPT), "--output", str(output)],
+                cwd=REPO_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("sensenova-release.json", result.stderr)
+            self.assertFalse(output.exists())
+
+    def test_release_asset_and_update_command_are_documented(self) -> None:
+        self.assertIn(
+            "/sensenova-release.json",
+            (REPO_ROOT / ".gitignore").read_text(encoding="utf-8"),
+        )
+        contract = (
+            SKILLS_ROOT / "sn-image-base" / "references" / "api_spec.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("## `sn-check-update`", contract)
+        self.assertIn("Exit code `3`", contract)
+
     def test_env_example_lists_every_supported_shared_runtime_setting(self) -> None:
         example = (REPO_ROOT / ".env.example").read_text(encoding="utf-8")
-        for key in ("SN_BASE_URL", "SN_CHAT_TYPE", "SN_TEXT_TYPE", "SN_VISION_TYPE"):
+        for key in (
+            "SN_BASE_URL",
+            "SN_CHAT_TYPE",
+            "SN_TEXT_TYPE",
+            "SN_VISION_TYPE",
+            "SN_SKILLS_NO_UPDATE_CHECK",
+        ):
             self.assertRegex(example, rf"(?m)^{key}=.*$")
 
     def test_skill_runtime_commands_are_location_independent(self) -> None:
@@ -381,7 +449,69 @@ class InfographicPolicyTests(unittest.TestCase):
         self.assertTrue(self.policy.should_stop_for_stagnation(3))
 
 
+class ReleaseManifestTests(unittest.TestCase):
+    def test_manifest_validation_rejects_mixed_bundle_versions(self) -> None:
+        module = load_release_manifest_module()
+        updates = module.load_updates(module.REPO_ROOT / "skills" / "sn-image-base")
+        manifest = {
+            "schema_version": 1,
+            "version": "1.1.0",
+            "min_supported_version": "1.0.0",
+            "update_required": False,
+            "severity": "recommended",
+            "summary": "Release checks.",
+            "release_notes": "https://example.test/release",
+            "retired_models": [],
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "release.json").write_text(
+                json.dumps(manifest), encoding="utf-8"
+            )
+            for name in updates.IMAGE_SKILL_NAMES:
+                skill = root / "skills" / name
+                skill.mkdir(parents=True)
+                (skill / "VERSION").write_text("1.1.0\n", encoding="utf-8")
+                (skill / "SKILL.md").write_text(
+                    "---\nmetadata:\n  version: 1.1.0\n---\n",
+                    encoding="utf-8",
+                )
+            with patch.object(module, "REPO_ROOT", root):
+                self.assertEqual(module.validate_manifest(updates), manifest)
+                (root / "skills" / "sn-image-doctor" / "VERSION").write_text(
+                    "0.9.0\n", encoding="utf-8"
+                )
+                with self.assertRaisesRegex(ValueError, "sn-image-doctor/VERSION"):
+                    module.validate_manifest(updates)
+                manifest["version"] = "v1.1.0"
+                (root / "release.json").write_text(
+                    json.dumps(manifest), encoding="utf-8"
+                )
+                with self.assertRaisesRegex(ValueError, "canonical"):
+                    module.validate_manifest(updates)
+                manifest["version"] = "1.1.0"
+                manifest["retired_models"] = [
+                    {"name": "old-*", "status": "retired", "replacement": 123}
+                ]
+                (root / "release.json").write_text(
+                    json.dumps(manifest), encoding="utf-8"
+                )
+                with self.assertRaisesRegex(ValueError, "replacement"):
+                    module.validate_manifest(updates)
+
+
 class DoctorTests(unittest.TestCase):
+    def test_missing_base_package_does_not_break_doctor_import(self) -> None:
+        with patch.object(
+            importlib, "import_module", side_effect=ImportError("missing base")
+        ):
+            doctor = load_doctor_module()
+
+        self.assertEqual(
+            doctor.EXPECTED_SKILLS,
+            frozenset(doctor.DEFAULT_IMAGE_SKILL_NAMES),
+        )
+
     def test_incomplete_optional_adapter_warns_without_blocking_images(self) -> None:
         doctor = load_doctor_module()
         configs = SimpleNamespace(
@@ -453,6 +583,7 @@ class DoctorTests(unittest.TestCase):
     def test_custom_sensenova_models_pass_offline_validation(self) -> None:
         env = os.environ.copy()
         env.update(
+            SN_SKILLS_NO_UPDATE_CHECK="1",
             SENSENOVA_API_KEY="diagnostic-placeholder",
             SN_IMAGE_GEN_MODEL_TYPE="sensenova",
             SN_IMAGE_GEN_MODEL="custom-u1.5-model",
@@ -478,6 +609,7 @@ class DoctorTests(unittest.TestCase):
     def test_invalid_base_url_is_reported_without_a_traceback(self) -> None:
         env = os.environ.copy()
         env.update(
+            SN_SKILLS_NO_UPDATE_CHECK="1",
             SENSENOVA_API_KEY="diagnostic-placeholder",
             SN_IMAGE_GEN_BASE_URL="not-a-url",
         )
@@ -513,6 +645,39 @@ class DoctorTests(unittest.TestCase):
         self.assertFalse(result)
         self.assertIn("typing-extensions", output.getvalue())
 
+    def test_update_check_uses_all_configured_models(self) -> None:
+        doctor = load_doctor_module()
+        configs = SimpleNamespace(
+            SN_IMAGE_GEN_MODEL="primary",
+            SN_IMAGE_GEN_FALLBACK_MODEL="fallback",
+            SN_TEXT_MODEL="text",
+            SN_VISION_MODEL="vision",
+            SN_CHAT_MODEL="chat",
+        )
+        with patch.object(doctor, "_load_runtime", return_value=(configs,)):
+            models = doctor._configured_models()
+
+        self.assertEqual(models, ("primary", "fallback", "text", "vision", "chat"))
+
+    def test_manual_update_check_reports_required_exit_code(self) -> None:
+        doctor = load_doctor_module()
+        for blocking, expected in ((False, 0), (True, 3)):
+            with self.subTest(blocking=blocking):
+                emitter = Mock(return_value=SimpleNamespace(blocking=blocking))
+                updates = SimpleNamespace(
+                    emit_update_check=emitter,
+                    UPDATE_REQUIRED_EXIT_CODE=3,
+                )
+                with (
+                    patch.object(doctor, "load_updates", return_value=updates),
+                    patch.object(doctor, "_configured_models", return_value=("model",)),
+                    patch.object(sys, "argv", ["doctor", "--check-update"]),
+                    contextlib.redirect_stdout(io.StringIO()),
+                ):
+                    result = doctor.main()
+                self.assertEqual(result, expected)
+                emitter.assert_called_once_with(force=True, models=("model",))
+
     def test_unrelated_skill_can_coexist_with_required_skills(self) -> None:
         doctor = load_doctor_module()
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -521,6 +686,7 @@ class DoctorTests(unittest.TestCase):
                 skill_dir = skills_root / name
                 skill_dir.mkdir(parents=True)
                 (skill_dir / "SKILL.md").write_text("# test\n", encoding="utf-8")
+                (skill_dir / "VERSION").write_text("1.1.0\n", encoding="utf-8")
             base = skills_root / "sn-image-base"
             (base / "requirements.txt").write_text("", encoding="utf-8")
             (base / "scripts/sn_image_base/generation").mkdir(parents=True)
@@ -535,7 +701,24 @@ class DoctorTests(unittest.TestCase):
                 contextlib.redirect_stdout(io.StringIO()),
             ):
                 result = doctor.check_installation(verbose=False)
-        self.assertTrue(result)
+                self.assertTrue(result)
+                (skills_root / "sn-image-doctor" / "VERSION").write_text(
+                    "0.9.0\n", encoding="utf-8"
+                )
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    mixed_result = doctor.check_installation(verbose=False)
+                for name in EXPECTED_SKILLS:
+                    (skills_root / name / "VERSION").write_text(
+                        "bad-version\n", encoding="utf-8"
+                    )
+                invalid_output = io.StringIO()
+                with contextlib.redirect_stdout(invalid_output):
+                    invalid_result = doctor.check_installation(verbose=False)
+        self.assertFalse(mixed_result)
+        self.assertIn("mixed VERSION files", output.getvalue())
+        self.assertFalse(invalid_result)
+        self.assertIn("canonical X.Y.Z", invalid_output.getvalue())
 
 
 if __name__ == "__main__":

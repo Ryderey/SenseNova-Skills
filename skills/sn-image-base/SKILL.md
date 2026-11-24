@@ -3,6 +3,7 @@ name: sn-image-base
 description: Shared SenseNova U1.6 runtime for generation and native image editing. Use directly for “SenseNova 技能” requests to combine, merge, or collage multiple supplied images, including 图片合成、多图合成、图片融合、多图融合、融图或拼图; also use it as the backend for other SenseNova image skills.
 metadata:
   project: SenseNova-Skills
+  version: 1.1.0
   tier: 0
   category: image-runtime
   user_visible: false
@@ -19,13 +20,20 @@ Resolve `BASE_SKILL_DIR` as the absolute directory containing this `SKILL.md`. R
 ## Runtime policy
 
 - Default image model: `sensenova-u1.6-lite`.
-- Generation-only fallback: off by default (`SN_IMAGE_GEN_FALLBACK_MODEL` is empty). Set it or `--fallback-model` explicitly to enable it; `sensenova-u1.5-fast` / `sensenova-u1-fast` are retired and kept only for legacy compatibility.
+- Generation-only fallback: off by default (`SN_IMAGE_GEN_FALLBACK_MODEL` is empty). Set it or `--fallback-model` explicitly to enable it; `sensenova-u1.5-fast` / `sensenova-u1-fast` are retired and unsupported, so migrate to `sensenova-u1.6-lite`.
 - Default output location: when `--save-path` is omitted, generated and edited images are saved to `SN_IMAGE_OUTPUT_DIR`, or `~/Pictures/SenseNova` by default; an explicit `--save-path` keeps its exact meaning.
 - Default output: no watermark, prompt extension enabled, text self-correction enabled (`self_correction=true` sent explicitly), `b64_json` saved immediately. SenseNova documents `watermark=false` as free during public beta and a premium paid feature afterward; disclose that cost boundary when it is relevant to production use.
 - Never select a chat/text/vision model implicitly. The host Agent should plan prompts, inspect images, and judge quality with its own capabilities.
 - Use `sn-text-optimize` or `sn-image-recognize` only when the caller explicitly passes `--model`, or configures `SN_TEXT_MODEL` / `SN_VISION_MODEL` (or shared `SN_CHAT_MODEL`). Missing models are errors with configuration guidance.
 - Keep `nano-banana` and `openai-image` backends available only through explicit `SN_IMAGE_GEN_MODEL_TYPE` and model configuration.
 - Keep task intermediates — assembled prompt files, analysis or blueprint JSON, and non-final candidates — in a task directory created by the manager (`MANAGER begin`, under `tempfile.gettempdir()/sensenova-tasks/<task-id>`; the root is per-user and owner-only on POSIX); never write them into the user's project or the skill directories. Deliver with `MANAGER publish`, which copies the selected image to its formal location and then removes the whole task directory; run `MANAGER abort` when the task fails or the user cancels. Never delete files a user supplied or the target of an explicit `--save-path`.
+
+## Repository updates
+
+- The five image/visualization skills share the version in each skill's `VERSION` file. The runner checks the repository's latest published GitHub Release at most once every 24 hours and caches the result per installation.
+- The check never contacts SenseNova model endpoints and never sends API keys, prompts, images, or machine identifiers. A network failure does not introduce a new block, but a previously cached required update still blocks affected work.
+- Run `RUNNER sn-check-update` to force a check. Set `SN_SKILLS_NO_UPDATE_CHECK=1` to disable automatic checks; an explicit `sn-check-update` still works.
+- Release notices use `UPDATE INFO`, `UPDATE RECOMMENDED`, or `UPDATE REQUIRED`. A required release, a version below `min_supported_version`, or any configured model (including fallback, text, and vision) listed as retired blocks the affected command with exit code 3 and always prints the reason. Update the installed bundle and reload the host; never switch models silently.
 
 Install dependencies once:
 
@@ -95,7 +103,7 @@ Use native U1.6 editing for local files, public URLs, Data URLs, multiple refere
   --output-format json
 ```
 
-Local files, public HTTP(S) URLs, and existing Data URLs are read through the same bounded image validator, normalized to PNG/JPEG where needed, and sent as Data URLs. Inputs are limited to 64 MiB and 40 million decoded pixels. Editing accepts at most 5 reference images, and the first one is the primary image being edited. The retired `sensenova-u1.5-fast` can still be selected explicitly for legacy compatibility. Editing never falls back automatically.
+Local files, public HTTP(S) URLs, and existing Data URLs are read through the same bounded image validator, normalized to PNG/JPEG where needed, and sent as Data URLs. Inputs are limited to 64 MiB and 40 million decoded pixels. Editing accepts at most 5 reference images, and the first one is the primary image being edited. Retired U1.5 IDs are unsupported; use `sensenova-u1.6-lite`. Editing never falls back automatically.
 
 Both image commands accept `--prompt-path <UTF-8 file>` instead of `--prompt`; the options are mutually exclusive. Prefer the file form for assembled infographic, resume, and correction prompts so shell quoting cannot alter Chinese text or line breaks.
 

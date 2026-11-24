@@ -7,7 +7,7 @@ This repository contains only `sn-image-base`, `sn-image-doctor`, `sn-infographi
 ## Defaults
 
 - `sensenova-u1.6-lite`: primary generation and editing model.
-- Automatic fallback is off by default; set `SN_IMAGE_GEN_FALLBACK_MODEL` or `--fallback-model` explicitly. `sensenova-u1.5-fast` / `sensenova-u1-fast` are retired and kept only for legacy compatibility (explicit selection still allows editing with up to 5 references).
+- Automatic fallback is off by default; set `SN_IMAGE_GEN_FALLBACK_MODEL` or `--fallback-model` explicitly. `sensenova-u1.5-fast` / `sensenova-u1-fast` are retired and unsupported; migrate to `sensenova-u1.6-lite`.
 - `watermark=false`, `prompt_extend=true`, `self_correction=true`, `response_format=b64_json`; save immediately.
 - No default `SN_CHAT_MODEL`; the host Agent plans and reviews first.
 
@@ -21,7 +21,7 @@ Open the official [SenseNova API documentation](https://platform.sensenova.cn/do
 SENSENOVA_API_KEY=your-key
 SN_IMAGE_GEN_BASE_URL=https://token.sensenova.cn/v1
 SN_IMAGE_GEN_MODEL=sensenova-u1.6-lite
-# Optional fallback; empty by default means automatic fallback is off. u1.5-fast / u1-fast are retired (legacy only).
+# Optional fallback; empty by default means automatic fallback is off. u1.5-fast / u1-fast are retired and unsupported.
 SN_IMAGE_GEN_FALLBACK_MODEL=
 ```
 
@@ -44,7 +44,7 @@ python -m pip install -r skills/sn-image-base/requirements.txt
 python skills/sn-image-doctor/scripts/check_environment.py --verbose
 ```
 
-The host must use the same Python interpreter that passes this check. Doctor validates offline configuration; add `--require-edit` for native editing workflows.
+The host must use the same Python interpreter that passes this check. Doctor validates local configuration offline and can also check the repository Release; add `--require-edit` for native editing workflows.
 
 ## Generate
 
@@ -76,7 +76,7 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-edit \
   --output-format json
 ```
 
-Local images, public URLs, and Data URLs are validated, bounded to 64 MiB / 40 million decoded pixels, normalized to PNG/JPEG when needed, and sent as Data URLs. Multiple references and continued editing are supported. Editing defaults to U1.6 Lite with at most 5 references, the first being the primary image edited. The retired `sensenova-u1.5-fast` is only available when explicitly selected for legacy compatibility. Editing never falls back automatically.
+Local images, public URLs, and Data URLs are validated, bounded to 64 MiB / 40 million decoded pixels, normalized to PNG/JPEG when needed, and sent as Data URLs. Multiple references and continued editing are supported. Editing defaults to U1.6 Lite with at most 5 references, the first being the primary image edited. Retired U1.5 IDs are unsupported; use `sensenova-u1.6-lite`. Editing never falls back automatically.
 
 ## JSON fields
 
@@ -84,11 +84,10 @@ Success preserves `status`, `output`, and `message`, adding `model`, `operation`
 
 ## Model migration (U1.5 to U1.6)
 
-SenseNova has announced the retirement of `sensenova-u1.5-lite` and `sensenova-u1.5-fast`. During the transition the platform routes those two IDs to `sensenova-u1.6-lite`. This repository now defaults to `sensenova-u1.6-lite`, and automatic fallback is off by default.
+SenseNova has announced the retirement of `sensenova-u1.5-lite`, `sensenova-u1.5-fast`, and `sensenova-u1-fast`. They are unsupported by this repository. Any transitional platform routing is not a compatibility guarantee; the release manifest marks these IDs retired and the update checker blocks them. This repository defaults to `sensenova-u1.6-lite`, and automatic fallback is off by default.
 
-- The compatibility routing guarantees only `sensenova-u1.5-lite` and `sensenova-u1.5-fast`; no other legacy model name is covered.
-- If you configured your own environment, change `SN_IMAGE_GEN_MODEL` to `sensenova-u1.6-lite` yourself and review any explicit `SN_IMAGE_GEN_FALLBACK_MODEL`, `--model`, or `--fallback-model` value. `sensenova-u1-fast` is outside the routing guarantee and fails when used as a fallback.
-- Once retirement completes, the compatibility routing stops working and legacy IDs return errors; `sensenova-u1.6-lite` is the only image model in the overview.
+- Change `SN_IMAGE_GEN_MODEL` to `sensenova-u1.6-lite` yourself and review any explicit `SN_IMAGE_GEN_FALLBACK_MODEL`, `--model`, or `--fallback-model` value.
+- Do not configure retired U1.5/U1 IDs as primary, fallback, text, or vision models; the update check stops affected commands with exit code 3.
 - After migrating, re-check the effective model names and endpoints with Doctor: `python skills/sn-image-doctor/scripts/check_environment.py --verbose`.
 
 ## Troubleshooting

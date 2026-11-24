@@ -3,6 +3,7 @@ name: sn-image-imitate
 description: Recreate a supplied reference image's style and layout with new user content using SenseNova. Use for “SenseNova 技能” requests involving 仿图、参考图重做、照图改版、风格模仿、保留版式换内容或以图改图. Apply when a reference image defines the target layout or visual direction.
 metadata:
   project: SenseNova-Skills
+  version: 1.1.0
   tier: 1
   category: image-visualization
   priority: 8
@@ -35,7 +36,7 @@ Use the current Agent's visual understanding and writing ability for analysis, r
 
 ## Workflow
 
-0. Before reference analysis, run `"<absolute PYTHON path>" -B "<absolute DOCTOR path>" --require-edit`. This check is offline. If the image API key is missing from the process, immediately follow `sn-image-base` Credential discovery, inject a persistent value into the same shell without printing it, and rerun the Doctor. Stop before analysis when the Doctor still fails.
+0. Before reference analysis, run `"<absolute PYTHON path>" -B "<absolute DOCTOR path>" --require-edit`. The local diagnostics are offline; Doctor may also check the repository Release. If the image API key is missing from the process, immediately follow `sn-image-base` Credential discovery, inject a persistent value into the same shell without printing it, and rerun the Doctor. Stop before analysis when the Doctor still fails.
 1. Validate the reference and target content, create the task directory with `"<absolute PYTHON path>" -B "<absolute MANAGER path>" begin -o json` and use the printed path (a unique guarded directory under `tempfile.gettempdir()/sensenova-tasks/`) as `$TEMP_DIR`, then save the user's target request verbatim to `$TEMP_DIR/target_content.txt`. Never fabricate labels, values, logos, or facts.
 2. Analyze the reference with `prompts/image_annotate.md`. Save its `LAYOUT_BLUEPRINT_JSON` object to `$TEMP_DIR/reference_blueprint.json`, including a stable-ID `source_topic_elements` inventory. Produce and retain a detailed blueprint covering:
    - canvas and region geometry;
@@ -65,7 +66,7 @@ Use the current Agent's visual understanding and writing ability for analysis, r
      --output-format json
    ```
 
-   Do not automatically switch models for editing. Editing accepts at most 5 reference images, the first being the primary image; the retired `sensenova-u1.5-fast` is available only when explicitly selected for legacy compatibility.
+   Do not automatically switch models for editing. Editing accepts at most 5 reference images, the first being the primary image; retired U1.5 IDs are unsupported, so use `sensenova-u1.6-lite`.
 5. Review each candidate with `prompts/layout_review.md`, supplying the original reference, candidate, target content, `target_language`, `allowed_foreign_terms`, `rewritten_caption`, and the complete `semantic_replacement_ledger`. Record all fields in its schema. A candidate passes only when layout score reaches `layout_threshold`, target content is accurate, all required text is legible, every ledger entry is valid, and both `semantic_residue` and `language_contamination` are empty.
 6. For attempts 2-8, save the exact correction prompt as UTF-8 text in `$TEMP_DIR/correction_${ATTEMPT}.txt`, then edit the current best candidate with the original reference as a second input when useful:
 

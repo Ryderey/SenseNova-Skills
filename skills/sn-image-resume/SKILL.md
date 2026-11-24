@@ -3,6 +3,7 @@ name: sn-image-resume
 description: Render supplied career facts as a fact-preserving resume image with SenseNova. Use for “SenseNova 技能” requests whose final deliverable is 简历图、简历海报、求职海报、视觉简历、作品集简历, resume poster, visual resume, or portfolio resume. Text-only resume writing and conventional document formatting use a document workflow.
 metadata:
   project: SenseNova-Skills
+  version: 1.1.0
   tier: 1
   category: image-visualization
   priority: 8

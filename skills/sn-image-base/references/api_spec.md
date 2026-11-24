@@ -41,7 +41,7 @@ This runtime keeps `2k` as the generation default for determinism; `--image-size
 
 ### Fallback
 
-`SN_IMAGE_GEN_FALLBACK_MODEL` is empty by default, so automatic fallback is off. Configure it (or pass `--fallback-model`) explicitly to enable generation-only fallback on 404, 429, or retry-exhausted 5xx; `--no-fallback` disables it for a single call. `sensenova-u1.5-fast` and `sensenova-u1-fast` are retired legacy IDs: the platform's transitional routing covers `sensenova-u1.5-*` only, and it stops working once those IDs are removed.
+`SN_IMAGE_GEN_FALLBACK_MODEL` is empty by default, so automatic fallback is off. Configure it (or pass `--fallback-model`) explicitly to enable generation-only fallback on 404, 429, or retry-exhausted 5xx; `--no-fallback` disables it for a single call. `sensenova-u1.5-fast` and `sensenova-u1-fast` are retired and unsupported by this bundle. Any transitional platform routing is not a compatibility guarantee; release metadata blocks these IDs and users must migrate to `sensenova-u1.6-lite`.
 
 ## `sn-image-edit`
 
@@ -49,9 +49,15 @@ Required: exactly one of inline `--prompt` or UTF-8 `--prompt-path`, plus `--ima
 
 Optional: `--image-size` (`auto` default), `--aspect-ratio`, `--model`, `--api-key`, `--base-url`, `--timeout`, `--insecure`, watermark/self-correction/prompt-extension booleans, `--response-format`, `--save-path`, `--output-format`.
 
-Calls `POST /v1/images/edits`. At most 5 reference images are accepted and the first one is the primary image being edited; the rest are references. Each local file, public HTTP(S) URL, or Data URL is read through a 64 MiB / 40-million-pixel validation boundary, normalized to PNG/JPEG when needed, and emitted as `{ "image_url": "data:..." }`. Editing never falls back automatically; a legacy `sensenova-u1.5-fast` edit requires explicit model selection.
+Calls `POST /v1/images/edits`. At most 5 reference images are accepted and the first one is the primary image being edited; the rest are references. Each local file, public HTTP(S) URL, or Data URL is read through a 64 MiB / 40-million-pixel validation boundary, normalized to PNG/JPEG when needed, and emitted as `{ "image_url": "data:..." }`. Editing never falls back automatically. Retired U1.5 IDs are unsupported; use `sensenova-u1.6-lite`.
 
 For `response_format=url`, the runtime downloads immediately. U1.6 Lite generation and edit URLs expire after 24 hours.
+
+## `sn-check-update`
+
+Forces a repository Release check and prints the installed/latest versions, release notes, and update path for Git, symlink, or copied installs. It does not call SenseNova model endpoints and does not require an image API key.
+
+Exit code `0` means no required update blocks work (including current, unpublished, or unavailable checks). Exit code `3` means a required release, unsupported local version, or retired configured model blocks work; the reason is printed every time. Other runner commands perform the same cached check automatically before execution and also return `3` when blocked.
 
 ## Optional compatibility commands
 

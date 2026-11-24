@@ -64,7 +64,7 @@ SN_IMAGE_GEN_MODEL=sensenova-u1.6-lite
 SN_IMAGE_GEN_FALLBACK_MODEL=
 ```
 
-自动回退默认关闭。需要时显式设置 `SN_IMAGE_GEN_FALLBACK_MODEL`（或 `--fallback-model`）开启；`sensenova-u1.5-fast` 与 `sensenova-u1-fast` 已退役，仅保留遗留兼容。
+自动回退默认关闭。需要时显式设置 `SN_IMAGE_GEN_FALLBACK_MODEL`（或 `--fallback-model`）开启；`sensenova-u1.5-fast` 与 `sensenova-u1-fast` 已退役且不再受支持，请迁移到 `sensenova-u1.6-lite`。
 
 除非明确需要外部文本/视觉适配器，否则不要设置 `SN_CHAT_MODEL`。通常应由当前 Agent 直接完成提示词规划与图片评审。
 
@@ -74,7 +74,7 @@ SN_IMAGE_GEN_FALLBACK_MODEL=
 python skills/sn-image-doctor/scripts/check_environment.py --verbose
 ```
 
-输出中的 Python 路径应与宿主实际执行图片任务的解释器一致。该检查只验证本地配置；需要原生图片编辑时加 `--require-edit`。
+输出中的 Python 路径应与宿主实际执行图片任务的解释器一致。本地配置检查离线执行，Doctor 默认还会检查仓库 Release，可用 `--no-update-check` 关闭；需要原生图片编辑时加 `--require-edit`。
 
 随后可运行一次文生图命令，或直接让宿主 Agent 创建信息图。
 
@@ -92,6 +92,33 @@ python skills/sn-image-doctor/scripts/check_environment.py --verbose
 
 如果宿主只能使用自己的 Python，请使用该解释器重新执行依赖安装命令，再用同一个解释器运行 Doctor。
 
+## 更新已安装技能
+
+五个图像/可视化技能共享同一版本。Runner 和 Doctor 会缓存检查仓库的最新正式 GitHub Release，每 24 小时最多检查一次；检查不访问 SenseNova 模型端点，不发送 Key、提示词、图片或机器标识。断网不会新增阻断，但此前已缓存的必需更新仍会阻断受影响操作。
+
+强制检查：
+
+```bash
+python skills/sn-image-doctor/scripts/check_environment.py --check-update
+```
+
+也可以运行：
+
+```bash
+python skills/sn-image-base/scripts/sn_agent_runner.py sn-check-update
+```
+
+设置 `SN_SKILLS_NO_UPDATE_CHECK=1` 可关闭自动检查；显式的 `--check-update` 或 `sn-check-update` 仍会执行。
+
+根据安装方式更新：
+
+- **Git 克隆（默认分支）**：在克隆目录执行 `git pull --ff-only`。
+- **Git 克隆（固定 tag）**：执行 `git fetch --tags`，再 `git checkout v<新版本>`。
+- **软链接安装**：更新软链接指向的源仓库，然后刷新宿主。
+- **复制安装**：下载新 Release，备份并替换 `sn-image-base`、`sn-image-doctor`、`sn-infographic`、`sn-image-imitate`、`sn-image-resume` 五个目录；保留 `.env` 和自定义配置，然后刷新宿主。
+
+普通更新显示 `UPDATE INFO`，建议更新显示 `UPDATE RECOMMENDED`。如果更新被标记为必需、本地版本低于最低支持版本，或任一当前配置模型（包括回退、文本和视觉模型）已在发布清单中标记为下线，相关命令会以退出码 3 停止，并每次都显示原因。完成更新并刷新宿主后再继续。
+
 ## 可选外部适配器
 
 如需兼容显式选择的文本/视觉服务，请配置 Key、Base URL、模型和协议；模型名没有代码默认值：
@@ -102,12 +129,16 @@ SN_VISION_MODEL=your-vision-model
 SN_CHAT_TYPE=openai-completions
 ```
 
+## 维护者发布约束
+
+默认模型、模型下线状态或接口兼容性发生变化时，必须同步更新五个技能目录中的 `VERSION`、各 `SKILL.md` 的 `metadata.version` 和根目录 `release.json`，再运行测试。`release.json` 的 `version` 必须为无 `v` 前缀的 `X.Y.Z`，`severity` 可选 `info`、`recommended`、`required`。发布时创建对应 `vX.Y.Z` tag，并发布为非草稿、非预发行的 GitHub Release；先运行 `python skills/sn-image-doctor/scripts/prepare_release_manifest.py --output sensenova-release.json` 校验并生成资产，再上传该文件。已安装技能只把最新的正式 Release 识别为可更新版本。
+
 ## 排障
 
 - 401/403：检查 Key 和账号权限；不会通过回退掩盖。
 - 400 或安全错误：修正提示词/参数；不会回退。
 - 文生图遇到 404、429 或重试后仍失败的 5xx：自动回退默认关闭；显式配置回退模型后才会切换，并记录原因。
-- 图片编辑失败：编辑不自动切换模型；参考图最多 5 张，第 1 张为主编辑图。已退役的 `sensenova-u1.5-fast` 仍可显式选择用于遗留兼容。
+- 图片编辑失败：编辑不自动切换模型；参考图最多 5 张，第 1 张为主编辑图。已退役的 `sensenova-u1.5-fast` 不再受支持，请改用 `sensenova-u1.6-lite`。
 - 尺寸非法：宽高须为 32 的倍数、各在 512–4096 之间，比例不超过 3:1。
 
 命令和输出字段见[图像指南](docs/sn-image-generate.md)。

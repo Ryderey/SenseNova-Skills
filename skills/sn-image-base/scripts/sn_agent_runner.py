@@ -42,6 +42,11 @@ from sn_image_base.generation import (
     SensenovaText2ImageClient,
 )
 from sn_image_base.llm import AnthropicMessagesAdapter, OpenAIChatAdapter
+from sn_image_base.updates import (
+    UPDATE_REQUIRED_EXIT_CODE,
+    emit_update_check,
+    normalize_models,
+)
 
 ALLOWED_IMAGE_SIZES = frozenset({"1k", "2k", "4k"})
 
@@ -83,6 +88,10 @@ def build_parser() -> argparse.ArgumentParser:
         description="sn-image-base unified runner - async tool execution."
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers.add_parser(
+        "sn-check-update",
+        help="Check the repository for a newer published skill release",
+    )
 
     # sn-image-generate
     gen_parser = subparsers.add_parser("sn-image-generate", help="Generate image from text prompt")
@@ -856,6 +865,43 @@ async def main_async(args: argparse.Namespace) -> int:
         return 1
 
 
+def _selected_update_models(args: argparse.Namespace) -> tuple[str, ...]:
+    if args.command == "sn-image-generate":
+        candidates = (
+            args.model or global_configs.SN_IMAGE_GEN_MODEL,
+            args.fallback_model or global_configs.SN_IMAGE_GEN_FALLBACK_MODEL,
+        )
+    elif args.command == "sn-image-edit":
+        candidates = (args.model or global_configs.SN_IMAGE_GEN_MODEL,)
+    elif args.command == "sn-image-recognize":
+        candidates = (
+            args.model
+            or global_configs.SN_VISION_MODEL
+            or global_configs.SN_CHAT_MODEL,
+        )
+    elif args.command == "sn-text-optimize":
+        candidates = (
+            args.model
+            or global_configs.SN_TEXT_MODEL
+            or global_configs.SN_CHAT_MODEL,
+        )
+    else:
+        candidates = ()
+    return normalize_models(candidates)
+
+
+def _all_configured_models() -> tuple[str, ...]:
+    return normalize_models(
+        (
+            global_configs.SN_IMAGE_GEN_MODEL,
+            global_configs.SN_IMAGE_GEN_FALLBACK_MODEL,
+            global_configs.SN_TEXT_MODEL,
+            global_configs.SN_VISION_MODEL,
+            global_configs.SN_CHAT_MODEL,
+        )
+    )
+
+
 def main() -> int:
     """Entry point for the sn_agent_runner CLI.
 
@@ -864,6 +910,12 @@ def main() -> int:
     """
     parser = build_parser()
     args = parser.parse_args()
+    if args.command == "sn-check-update":
+        result = emit_update_check(force=True, models=_all_configured_models())
+        return UPDATE_REQUIRED_EXIT_CODE if result.blocking else 0
+    update_check = emit_update_check(models=_selected_update_models(args))
+    if update_check.blocking:
+        return UPDATE_REQUIRED_EXIT_CODE
     return asyncio.run(main_async(args))
 
 

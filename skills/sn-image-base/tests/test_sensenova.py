@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -39,6 +40,7 @@ from sn_image_base.llm.anthropic_adapter import (
     ANTHROPIC_VERSION,
     AnthropicMessagesAdapter,
 )
+from sn_image_base.updates import UPDATE_REQUIRED_EXIT_CODE
 
 
 def png_bytes() -> bytes:
@@ -699,6 +701,82 @@ class FallbackMatrixTests(unittest.TestCase):
         )
         self.assertEqual(client._timeout, 12.5)
         self.assertFalse(client._ssl_verify)
+
+
+class UpdateCommandTests(unittest.TestCase):
+    def test_manual_update_command_forces_repository_check(self) -> None:
+        with (
+            patch.object(sys, "argv", ["runner", "sn-check-update"]),
+            patch.object(
+                sn_agent_runner,
+                "_all_configured_models",
+                return_value=("primary", "fallback"),
+            ),
+            patch.object(
+                sn_agent_runner,
+                "emit_update_check",
+                return_value=SimpleNamespace(blocking=False),
+            ) as emit,
+        ):
+            result = sn_agent_runner.main()
+
+        self.assertEqual(result, 0)
+        emit.assert_called_once_with(force=True, models=("primary", "fallback"))
+
+    def test_manual_update_check_includes_every_configured_model(self) -> None:
+        with (
+            patch.object(sn_agent_runner.global_configs, "SN_IMAGE_GEN_MODEL", "primary"),
+            patch.object(
+                sn_agent_runner.global_configs,
+                "SN_IMAGE_GEN_FALLBACK_MODEL",
+                "fallback",
+            ),
+            patch.object(sn_agent_runner.global_configs, "SN_TEXT_MODEL", "text"),
+            patch.object(sn_agent_runner.global_configs, "SN_VISION_MODEL", "vision"),
+            patch.object(sn_agent_runner.global_configs, "SN_CHAT_MODEL", "chat"),
+        ):
+            models = sn_agent_runner._all_configured_models()
+
+        self.assertEqual(models, ("primary", "fallback", "text", "vision", "chat"))
+
+    def test_generation_update_check_includes_fallback_model(self) -> None:
+        args = sn_agent_runner.build_parser().parse_args(
+            [
+                "sn-image-generate",
+                "--prompt",
+                "draw",
+                "--fallback-model",
+                FAST_MODEL,
+            ]
+        )
+        with patch.object(
+            sn_agent_runner.global_configs,
+            "SN_IMAGE_GEN_MODEL",
+            DEFAULT_MODEL,
+        ):
+            models = sn_agent_runner._selected_update_models(args)
+
+        self.assertEqual(models, (DEFAULT_MODEL, FAST_MODEL))
+
+    def test_required_update_blocks_before_running_image_command(self) -> None:
+        with (
+            patch.object(
+                sys,
+                "argv",
+                ["runner", "sn-image-generate", "--prompt", "draw"],
+            ),
+            patch.object(
+                sn_agent_runner,
+                "emit_update_check",
+                return_value=SimpleNamespace(blocking=True),
+            ) as emit,
+            patch.object(sn_agent_runner.asyncio, "run") as run,
+        ):
+            result = sn_agent_runner.main()
+
+        self.assertEqual(result, UPDATE_REQUIRED_EXIT_CODE)
+        self.assertEqual(emit.call_args.kwargs["models"], (DEFAULT_MODEL,))
+        run.assert_not_called()
 
 
 class RunnerGuardTests(unittest.IsolatedAsyncioTestCase):

@@ -7,7 +7,7 @@
 ## 默认行为
 
 - `sensenova-u1.6-lite`：首选文生图和图片编辑模型。
-- 自动回退默认关闭；可显式指定 `SN_IMAGE_GEN_FALLBACK_MODEL` 或 `--fallback-model`。`sensenova-u1.5-fast` / `sensenova-u1-fast` 已退役，仅保留遗留兼容（显式选择时可用于编辑，最多 5 张参考图）。
+- 自动回退默认关闭；可显式指定 `SN_IMAGE_GEN_FALLBACK_MODEL` 或 `--fallback-model`。`sensenova-u1.5-fast` / `sensenova-u1-fast` 已退役且不再受支持，请迁移到 `sensenova-u1.6-lite`。
 - `watermark=false`、`prompt_extend=true`、`self_correction=true`、`response_format=b64_json`，结果立即落盘。
 - 没有默认 `SN_CHAT_MODEL`；优先由当前 Agent 规划、看图和评审。
 
@@ -21,7 +21,7 @@
 SENSENOVA_API_KEY=your-key
 SN_IMAGE_GEN_BASE_URL=https://token.sensenova.cn/v1
 SN_IMAGE_GEN_MODEL=sensenova-u1.6-lite
-# 可选回退，默认留空即关闭自动回退；u1.5-fast / u1-fast 已退役，仅遗留兼容
+# 可选回退，默认留空即关闭自动回退；u1.5-fast / u1-fast 已退役且不再受支持
 SN_IMAGE_GEN_FALLBACK_MODEL=
 ```
 
@@ -44,7 +44,7 @@ python -m pip install -r skills/sn-image-base/requirements.txt
 python skills/sn-image-doctor/scripts/check_environment.py --verbose
 ```
 
-宿主必须使用这里通过检查的同一个 Python。Doctor 是离线配置检查；原生编辑任务可加 `--require-edit`。
+宿主必须使用这里通过检查的同一个 Python。Doctor 的本地配置检查离线执行，默认还会检查仓库 Release；可用 `--no-update-check` 关闭。原生编辑任务可加 `--require-edit`。
 
 ## 文生图
 
@@ -76,12 +76,12 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-edit \
   --output-format json
 ```
 
-本地图片、公开 URL 与 Data URL 都会经过统一校验，限制为 64 MiB / 4000 万解码像素，必要时规范化为 PNG/JPEG 后再以 Data URL 发送。支持多参考图和把上一轮输出继续编辑；编辑默认使用 U1.6 Lite，最多 5 张参考图且第 1 张为主编辑图。已退役的 `sensenova-u1.5-fast` 仅可显式选择用于遗留兼容；编辑不自动回退。
+本地图片、公开 URL 与 Data URL 都会经过统一校验，限制为 64 MiB / 4000 万解码像素，必要时规范化为 PNG/JPEG 后再以 Data URL 发送。支持多参考图和把上一轮输出继续编辑；编辑默认使用 U1.6 Lite，最多 5 张参考图且第 1 张为主编辑图。已退役的 U1.5 ID 不再受支持，请使用 `sensenova-u1.6-lite`；编辑不自动回退。
 
 ## 五个技能
 
 - `sn-image-base`：生成、编辑，以及显式配置的文本/视觉兼容适配器。
-- `sn-image-doctor`：离线诊断模型、端点、依赖、尺寸、水印和 Key。
+- `sn-image-doctor`：离线诊断模型、端点、依赖、尺寸、水印和 Key，并可检查仓库 Release 更新。
 - `sn-infographic`：87 布局、66 风格、用户限定的 1–15 轮、视觉评审和排序；后续按错误范围选择编辑或重新生成。
 - `sn-image-imitate`：参考图解析、内容改写、原生编辑仿制、多轮一致性评审。
 - `sn-image-resume`：正文优先或作品集两种视觉模式、事实防虚构，以及生成后文字/层级/布局纠错。
@@ -92,11 +92,10 @@ python skills/sn-image-base/scripts/sn_agent_runner.py sn-image-edit \
 
 ## 模型迁移（U1.5 → U1.6）
 
-官方已宣布下线 `sensenova-u1.5-lite` 与 `sensenova-u1.5-fast`，过渡期平台把这两个 ID 自动路由到 `sensenova-u1.6-lite`。本仓库默认模型已改为 `sensenova-u1.6-lite`，自动回退默认关闭。
+官方已宣布下线 `sensenova-u1.5-lite`、`sensenova-u1.5-fast` 与 `sensenova-u1-fast`，本仓库不再支持这些 ID。过渡期平台路由不构成兼容保障；发布清单会将它们标记为 retired，更新检查会阻断相关配置。本仓库默认模型为 `sensenova-u1.6-lite`，自动回退默认关闭。
 
-- 兼容路由只保障 `sensenova-u1.5-lite` 与 `sensenova-u1.5-fast`，不覆盖其他旧模型名。
-- 自行配置过 env 的用户须自行把 `SN_IMAGE_GEN_MODEL` 改为 `sensenova-u1.6-lite`，并同步检查显式设置的 `SN_IMAGE_GEN_FALLBACK_MODEL` 与 `--model` / `--fallback-model`。`sensenova-u1-fast` 不在路由保障范围内，用作回退会直接失败。
-- 下线完成后兼容路由失效，旧 ID 直接报错；模型总览中的图像模型只有 `sensenova-u1.6-lite`。
+- 自行配置过 env 的用户须把 `SN_IMAGE_GEN_MODEL` 改为 `sensenova-u1.6-lite`，并检查显式设置的 `SN_IMAGE_GEN_FALLBACK_MODEL` 与 `--model` / `--fallback-model`。
+- 不要把这些退役 ID 配置为主模型、回退、文本或视觉模型；更新检查会以退出码 3 停止受影响命令。
 - 迁移后用 Doctor 复核实际生效的模型名与端点：`python skills/sn-image-doctor/scripts/check_environment.py --verbose`。
 
 ## 常见问题

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "version": "1.1.0",
+  "min_supported_version": "1.0.0",
+  "update_required": false,
+  "severity": "recommended",
+  "summary": "Add repository release checks and migrate the image runtime to SenseNova U1.6 Lite.",
+  "release_notes": "https://github.com/Ryderey/SenseNova-Skills/releases",
+  "retired_models": [
+    {
+      "name": "sensenova-u1.5-*",
+      "status": "retired",
+      "replacement": "sensenova-u1.6-lite"
+    },
+    {
+      "name": "sensenova-u1-fast",
+      "status": "retired",
+      "replacement": "sensenova-u1.6-lite"
+    }
+  ]
+}
